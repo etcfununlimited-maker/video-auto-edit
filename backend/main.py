@@ -734,6 +734,46 @@ async def generate_drone_footage_endpoint():
         "url": f"/media_final/{filename}"
     }
 
+@app.post("/api/project/generate-vertical-reel")
+async def generate_vertical_reel_endpoint():
+    """Renders 9:16 Vertical Reel with Smart Reframing & Cinematic Color Grade"""
+    exts = {".mov", ".mp4", ".m4v"}
+    available = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
+    if not available:
+        raise HTTPException(status_code=400, detail="No video clips found in raw_input/")
+    
+    active_path = current_project.get("active_video_path")
+    if not active_path or not Path(active_path).exists():
+        active_path = str(available[0])
+
+    clip_p = Path(active_path)
+    out_name = f"MASTER_VERTICAL_9_16_CINEMATIC_{clip_p.stem}.mp4"
+    cg = current_project.get("settings", {}).get("color_grade", "teal_orange")
+
+    loop = asyncio.get_event_loop()
+    from backend.pipeline.renderer import render_final_master
+    out_path = await loop.run_in_executor(
+        None,
+        render_final_master,
+        active_path,
+        [],
+        current_project.get("metadata", {}).get("duration", 8.0),
+        cg,
+        "9:16",
+        None,
+        None,
+        True,
+        out_name
+    )
+    filename = Path(out_path).name
+    return {
+        "status": "success",
+        "filename": filename,
+        "url": f"/media_final/{filename}",
+        "aspect_ratio": "9:16",
+        "color_grade": cg
+    }
+
 @app.post("/api/project/render-full-movie")
 async def render_full_movie_endpoint():
     """Assembles all clips into the full master feature movie"""

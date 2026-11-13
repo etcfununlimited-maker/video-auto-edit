@@ -617,6 +617,31 @@ async function generateDroneFootage() {
     }
 }
 
+async function generateVertical916Reel() {
+    showToast("Reframing to 9:16 Vertical Reel with Cinematic Grade... 📱✨", "info");
+    try {
+        const res = await fetch("/api/project/generate-vertical-reel", { method: "POST" });
+        const data = await res.json();
+        if (data.status === "success") {
+            setPlayerAspect("9:16");
+            showToast("9:16 Vertical Reel Ready! Playing in viewport...", "success");
+            loadVideoIntoPlayer(data.url, true, data.filename);
+            await fetchExportFiles();
+            showCompletionModal({
+                duration: "9:16 Vertical",
+                size: data.filename,
+                filename: data.filename,
+                url: data.url
+            });
+        } else {
+            showToast("Failed to render 9:16 vertical reel: " + (data.detail || data.message || "Unknown error"), "error");
+        }
+    } catch (e) {
+        console.error("Vertical reel error:", e);
+        showToast("Error generating 9:16 reel", "error");
+    }
+}
+
 function seekToWord(startTime) {
     videoPlayer.currentTime = startTime;
     if (videoPlayer.paused) {

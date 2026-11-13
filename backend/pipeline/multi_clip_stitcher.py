@@ -34,6 +34,7 @@ from backend.pipeline.media_ingest import probe_media
 from backend.pipeline.transcriber import transcribe_video
 from backend.pipeline.silence_remover import detect_spoken_retakes_pass1
 from backend.pipeline.smart_orientation import analyze_clip_orientation
+from backend.pipeline.color_grading import get_color_grade_filter
 
 def deduplicate_and_sort_clips(clip_paths: list[str]) -> list[str]:
     """
@@ -498,12 +499,24 @@ def build_multi_clip_movie_pipeline(
         progress_callback(90, "Concatenating all segments into master movie (CFR 30 Lock & FastStart)...")
 
     print(f"Assembling {len(concat_lines)} segments into final Master Movie at {final_path}...")
+    vf_filters = []
+    cg_filter = get_color_grade_filter(color_grade)
+    if cg_filter:
+        vf_filters.append(cg_filter)
+    if aspect_ratio == "9:16":
+        vf_filters.append("crop=ih*9/16:ih:(iw-ow)/2:0,scale=1080:1920")
+
     cmd_concat = [
         FFMPEG_PATH,
         "-y",
         "-f", "concat",
         "-safe", "0",
         "-i", str(concat_txt_path),
+    ]
+    if vf_filters:
+        cmd_concat.extend(["-vf", ",".join(vf_filters)])
+
+    cmd_concat.extend([
         "-r", "30",
         "-fps_mode", "cfr",
         "-c:v", "libx264",
@@ -522,7 +535,7 @@ def build_multi_clip_movie_pipeline(
         "-b:a", "192k",
         "-movflags", "+faststart",
         str(final_path)
-    ]
+    ])
     subprocess.run(cmd_concat, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     if progress_callback:
