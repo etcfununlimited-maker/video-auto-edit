@@ -1,0 +1,65 @@
+# ==========================================
+# ANIRBAN AUTOMATIONS - AUTO VIDEO EDITOR
+# Git Ignore Configuration
+# ==========================================
+
+# Raw & Exported Media (Kept local, exceeds GitHub 100MB limits)
+raw_input/
+uploads/
+final_export/
+exports/
+temp/
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.m4v
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.aac
+*.jpg
+*.jpeg
+*.png
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE & OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store

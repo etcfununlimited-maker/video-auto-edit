@@ -1,0 +1,241 @@
+[Script Info]
+Title: Auto Video Editor Hyperframe Dynamic Captions
+ScriptType: v4.00+
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.709
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Impact,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H00000000,-1,0,0,0,100,100,1,0,1,5,3,2,20,20,85,1
+Style: HyperActive,Impact,53,&H0000FFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,110,110,1,0,1,6,4,2,20,20,85,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.72,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AKKIWAKKI,{\rDefault} {\c&H00FFFFFF}E {\c&H00FFFFFF}-PHELA
+Dialogue: 0,0:00:00.72,0:00:00.80,Default,,0,0,0,,{\c&H00FFFFFF}AKKIWAKKI, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}E{\rDefault} {\c&H00FFFFFF}-PHELA
+Dialogue: 0,0:00:00.80,0:00:01.06,Default,,0,0,0,,{\c&H00FFFFFF}AKKIWAKKI, {\c&H00FFFFFF}E {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}-PHELA{\rDefault}
+Dialogue: 0,0:00:01.06,0:00:01.46,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SAFA,{\rDefault} {\c&H00FFFFFF}RAM {\c&H00FFFFFF}DALAL,
+Dialogue: 0,0:00:01.58,0:00:01.86,Default,,0,0,0,,{\c&H00FFFFFF}SAFA, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RAM{\rDefault} {\c&H00FFFFFF}DALAL,
+Dialogue: 0,0:00:01.86,0:00:02.24,Default,,0,0,0,,{\c&H00FFFFFF}SAFA, {\c&H00FFFFFF}RAM {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DALAL,{\rDefault}
+Dialogue: 0,0:00:02.36,0:00:02.94,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BASME,{\rDefault} {\c&H00FFFFFF}AAPKO {\c&H00FFFFFF}BHAS
+Dialogue: 0,0:00:03.36,0:00:03.78,Default,,0,0,0,,{\c&H00FFFFFF}BASME, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AAPKO{\rDefault} {\c&H00FFFFFF}BHAS
+Dialogue: 0,0:00:03.78,0:00:04.00,Default,,0,0,0,,{\c&H00FFFFFF}BASME, {\c&H00FFFFFF}AAPKO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BHAS{\rDefault}
+Dialogue: 0,0:00:04.00,0:00:04.16,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DI{\rDefault} {\c&H00FFFFFF}DHAATHLI, {\c&H00FFFFFF}AAYI.
+Dialogue: 0,0:00:04.16,0:00:04.46,Default,,0,0,0,,{\c&H00FFFFFF}DI {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DHAATHLI,{\rDefault} {\c&H00FFFFFF}AAYI.
+Dialogue: 0,0:00:04.50,0:00:05.10,Default,,0,0,0,,{\c&H00FFFFFF}DI {\c&H00FFFFFF}DHAATHLI, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AAYI.{\rDefault}
+Dialogue: 0,0:00:05.31,0:00:05.69,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ARE{\rDefault} {\c&H00FFFFFF}YOU {\c&H00FFFFFF}GOING?
+Dialogue: 0,0:00:05.69,0:00:05.83,Default,,0,0,0,,{\c&H00FFFFFF}ARE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOU{\rDefault} {\c&H00FFFFFF}GOING?
+Dialogue: 0,0:00:05.83,0:00:05.88,Default,,0,0,0,,{\c&H00FFFFFF}ARE {\c&H00FFFFFF}YOU {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}GOING?{\rDefault}
+Dialogue: 0,0:00:06.25,0:00:06.75,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MANALI.{\rDefault}
+Dialogue: 0,0:00:06.91,0:00:07.29,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WOW!{\rDefault}
+Dialogue: 0,0:00:07.33,0:00:07.59,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}ARE {\c&H00FFFFFF}HERE,
+Dialogue: 0,0:00:07.48,0:00:08.00,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ARE{\rDefault} {\c&H00FFFFFF}HERE,
+Dialogue: 0,0:00:08.00,0:00:08.05,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H00FFFFFF}ARE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HERE,{\rDefault}
+Dialogue: 0,0:00:08.06,0:00:08.16,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}COME!
+Dialogue: 0,0:00:08.16,0:00:08.42,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}COME!{\rDefault}
+Dialogue: 0,0:00:08.86,0:00:09.06,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YES!{\rDefault}
+Dialogue: 0,0:00:09.74,0:00:09.96,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YES!{\rDefault}
+Dialogue: 0,0:00:10.12,0:00:10.17,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YES!{\rDefault}
+Dialogue: 0,0:00:10.28,0:00:10.44,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}VERY{\rDefault} {\c&H00FFFFFF}COMFORTABLE {\c&H00FFFFFF}BUS!
+Dialogue: 0,0:00:10.44,0:00:10.78,Default,,0,0,0,,{\c&H00FFFFFF}VERY {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}COMFORTABLE{\rDefault} {\c&H00FFFFFF}BUS!
+Dialogue: 0,0:00:10.78,0:00:11.24,Default,,0,0,0,,{\c&H00FFFFFF}VERY {\c&H00FFFFFF}COMFORTABLE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BUS!{\rDefault}
+Dialogue: 0,0:00:11.34,0:00:11.60,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}HAVE {\c&H00FFFFFF}THIS
+Dialogue: 0,0:00:11.49,0:00:11.75,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HAVE{\rDefault} {\c&H00FFFFFF}THIS
+Dialogue: 0,0:00:11.75,0:00:11.99,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H00FFFFFF}HAVE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THIS{\rDefault}
+Dialogue: 0,0:00:13.26,0:00:13.39,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HAS{\rDefault} {\c&H00FFFFFF}CHARGING {\c&H00FFFFFF}STATION.
+Dialogue: 0,0:00:13.39,0:00:13.73,Default,,0,0,0,,{\c&H00FFFFFF}HAS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}CHARGING{\rDefault} {\c&H00FFFFFF}STATION.
+Dialogue: 0,0:00:13.73,0:00:14.31,Default,,0,0,0,,{\c&H00FFFFFF}HAS {\c&H00FFFFFF}CHARGING {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}STATION.{\rDefault}
+Dialogue: 0,0:00:14.94,0:00:15.28,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BUT{\rDefault} {\c&H00FFFFFF}WE {\c&H00FFFFFF}DON'T
+Dialogue: 0,0:00:15.28,0:00:15.47,Default,,0,0,0,,{\c&H00FFFFFF}BUT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}DON'T
+Dialogue: 0,0:00:15.47,0:00:15.53,Default,,0,0,0,,{\c&H00FFFFFF}BUT {\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DON'T{\rDefault}
+Dialogue: 0,0:00:15.49,0:00:15.60,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}ARE {\c&H00FFFFFF}IN
+Dialogue: 0,0:00:15.54,0:00:15.60,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ARE{\rDefault} {\c&H00FFFFFF}IN
+Dialogue: 0,0:00:15.54,0:00:15.60,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H00FFFFFF}ARE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IN{\rDefault}
+Dialogue: 0,0:00:15.56,0:00:15.69,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SEAT{\rDefault} {\c&H00FFFFFF}BELTS.
+Dialogue: 0,0:00:15.69,0:00:15.87,Default,,0,0,0,,{\c&H00FFFFFF}SEAT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BELTS.{\rDefault}
+Dialogue: 0,0:00:17.41,0:00:18.03,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SAKLE{\rDefault} {\c&H00FFFFFF}BLANKET {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:18.03,0:00:18.43,Default,,0,0,0,,{\c&H00FFFFFF}SAKLE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BLANKET{\rDefault} {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:18.43,0:00:18.63,Default,,0,0,0,,{\c&H00FFFFFF}SAKLE {\c&H00FFFFFF}BLANKET {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault}
+Dialogue: 0,0:00:18.63,0:00:18.79,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ALSO{\rDefault} {\c&H00FFFFFF}HERE.
+Dialogue: 0,0:00:18.79,0:00:18.95,Default,,0,0,0,,{\c&H00FFFFFF}ALSO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HERE.{\rDefault}
+Dialogue: 0,0:00:19.69,0:00:20.31,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}PIZZA{\rDefault} {\c&H00FFFFFF}TOO.
+Dialogue: 0,0:00:20.31,0:00:20.61,Default,,0,0,0,,{\c&H00FFFFFF}PIZZA {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TOO.{\rDefault}
+Dialogue: 0,0:00:21.45,0:00:22.07,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HUGE{\rDefault} {\c&H00FFFFFF}LENGTH {\c&H00FFFFFF}SPACE.
+Dialogue: 0,0:00:22.07,0:00:22.39,Default,,0,0,0,,{\c&H00FFFFFF}HUGE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}LENGTH{\rDefault} {\c&H00FFFFFF}SPACE.
+Dialogue: 0,0:00:22.39,0:00:23.27,Default,,0,0,0,,{\c&H00FFFFFF}HUGE {\c&H00FFFFFF}LENGTH {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SPACE.{\rDefault}
+Dialogue: 0,0:00:23.41,0:00:23.83,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HUGE!{\rDefault}
+Dialogue: 0,0:00:24.59,0:00:24.81,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOU{\rDefault} {\c&H00FFFFFF}RECLINE {\c&H00FFFFFF}AS
+Dialogue: 0,0:00:25.70,0:00:26.02,Default,,0,0,0,,{\c&H00FFFFFF}YOU {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RECLINE{\rDefault} {\c&H00FFFFFF}AS
+Dialogue: 0,0:00:26.02,0:00:26.32,Default,,0,0,0,,{\c&H00FFFFFF}YOU {\c&H00FFFFFF}RECLINE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AS{\rDefault}
+Dialogue: 0,0:00:26.32,0:00:26.75,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WELL,{\rDefault} {\c&H00FFFFFF}YES!
+Dialogue: 0,0:00:27.55,0:00:27.70,Default,,0,0,0,,{\c&H00FFFFFF}WELL, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YES!{\rDefault}
+Dialogue: 0,0:00:27.88,0:00:28.09,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AND{\rDefault} {\c&H00FFFFFF}OVER {\c&H00FFFFFF}THERE,
+Dialogue: 0,0:00:28.09,0:00:28.34,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OVER{\rDefault} {\c&H00FFFFFF}THERE,
+Dialogue: 0,0:00:28.34,0:00:28.64,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H00FFFFFF}OVER {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THERE,{\rDefault}
+Dialogue: 0,0:00:29.18,0:00:29.26,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ARE{\rDefault} {\c&H00FFFFFF}CAMERAS {\c&H00FFFFFF}TOO.
+Dialogue: 0,0:00:29.26,0:00:29.44,Default,,0,0,0,,{\c&H00FFFFFF}ARE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}CAMERAS{\rDefault} {\c&H00FFFFFF}TOO.
+Dialogue: 0,0:00:29.44,0:00:29.74,Default,,0,0,0,,{\c&H00FFFFFF}ARE {\c&H00FFFFFF}CAMERAS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TOO.{\rDefault}
+Dialogue: 0,0:00:30.18,0:00:30.34,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault} {\c&H00FFFFFF}IN {\c&H00FFFFFF}THE
+Dialogue: 0,0:00:30.41,0:00:30.57,Default,,0,0,0,,{\c&H00FFFFFF}IS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IN{\rDefault} {\c&H00FFFFFF}THE
+Dialogue: 0,0:00:30.57,0:00:30.61,Default,,0,0,0,,{\c&H00FFFFFF}IS {\c&H00FFFFFF}IN {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THE{\rDefault}
+Dialogue: 0,0:00:30.57,0:00:30.61,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BACK...{\rDefault}
+Dialogue: 0,0:00:30.57,0:00:32.06,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SO{\rDefault} {\c&H00FFFFFF}COMPLETE {\c&H00FFFFFF}PIECE
+Dialogue: 0,0:00:32.06,0:00:33.65,Default,,0,0,0,,{\c&H00FFFFFF}SO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}COMPLETE{\rDefault} {\c&H00FFFFFF}PIECE
+Dialogue: 0,0:00:33.65,0:00:34.02,Default,,0,0,0,,{\c&H00FFFFFF}SO {\c&H00FFFFFF}COMPLETE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}PIECE{\rDefault}
+Dialogue: 0,0:00:34.02,0:00:34.20,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OF{\rDefault} {\c&H00FFFFFF}MIND.
+Dialogue: 0,0:00:34.20,0:00:34.52,Default,,0,0,0,,{\c&H00FFFFFF}OF {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MIND.{\rDefault}
+Dialogue: 0,0:00:36.10,0:00:36.20,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ME{\rDefault} {\c&H00FFFFFF}TAKE {\c&H00FFFFFF}YOU
+Dialogue: 0,0:00:36.20,0:00:36.45,Default,,0,0,0,,{\c&H00FFFFFF}ME {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TAKE{\rDefault} {\c&H00FFFFFF}YOU
+Dialogue: 0,0:00:36.45,0:00:36.60,Default,,0,0,0,,{\c&H00FFFFFF}ME {\c&H00FFFFFF}TAKE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOU{\rDefault}
+Dialogue: 0,0:00:36.60,0:00:37.09,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BACK.{\rDefault}
+Dialogue: 0,0:00:37.47,0:00:37.52,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT{\rDefault} {\c&H00FFFFFF}IS {\c&H00FFFFFF}A
+Dialogue: 0,0:00:37.47,0:00:37.59,Default,,0,0,0,,{\c&H00FFFFFF}IT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault} {\c&H00FFFFFF}A
+Dialogue: 0,0:00:37.59,0:00:37.69,Default,,0,0,0,,{\c&H00FFFFFF}IT {\c&H00FFFFFF}IS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault}
+Dialogue: 0,0:00:37.69,0:00:37.73,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}LONG{\rDefault} {\c&H00FFFFFF}BUS.
+Dialogue: 0,0:00:37.73,0:00:38.06,Default,,0,0,0,,{\c&H00FFFFFF}LONG {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BUS.{\rDefault}
+Dialogue: 0,0:00:38.20,0:00:38.52,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SEE,{\rDefault} {\c&H00FFFFFF}IT {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:38.59,0:00:38.67,Default,,0,0,0,,{\c&H00FFFFFF}SEE, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT{\rDefault} {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:38.67,0:00:38.73,Default,,0,0,0,,{\c&H00FFFFFF}SEE, {\c&H00FFFFFF}IT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault}
+Dialogue: 0,0:00:38.67,0:00:38.95,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HUGE.{\rDefault}
+Dialogue: 0,0:00:39.49,0:00:40.08,Default,,0,0,0,,🔥 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AMAZING.{\rDefault}
+Dialogue: 0,0:00:40.23,0:00:40.42,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SO,{\rDefault} {\c&H00FFFFFF}IT {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:40.91,0:00:41.02,Default,,0,0,0,,{\c&H00FFFFFF}SO, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT{\rDefault} {\c&H00FFFFFF}IS
+Dialogue: 0,0:00:41.02,0:00:41.08,Default,,0,0,0,,{\c&H00FFFFFF}SO, {\c&H00FFFFFF}IT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault}
+Dialogue: 0,0:00:41.37,0:00:41.51,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THAT{\rDefault} {\c&H00FFFFFF}IS {\c&H00FFFFFF}ME,
+Dialogue: 0,0:00:41.51,0:00:41.69,Default,,0,0,0,,{\c&H00FFFFFF}THAT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault} {\c&H00FFFFFF}ME,
+Dialogue: 0,0:00:41.69,0:00:41.89,Default,,0,0,0,,{\c&H00FFFFFF}THAT {\c&H00FFFFFF}IS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ME,{\rDefault}
+Dialogue: 0,0:00:42.07,0:00:42.63,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ANARPAAN,{\rDefault} {\c&H00FFFFFF}YOUR {\c&H00FFFFFF}FAVORITE
+Dialogue: 0,0:00:42.60,0:00:42.68,Default,,0,0,0,,{\c&H00FFFFFF}ANARPAAN, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOUR{\rDefault} {\c&H00FFFFFF}FAVORITE
+Dialogue: 0,0:00:42.68,0:00:43.00,Default,,0,0,0,,{\c&H00FFFFFF}ANARPAAN, {\c&H00FFFFFF}YOUR {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FAVORITE{\rDefault}
+Dialogue: 0,0:00:43.00,0:00:43.46,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HOST.{\rDefault}
+Dialogue: 0,0:00:43.37,0:00:43.43,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}I{\rDefault} {\c&H00FFFFFF}WAS {\c&H00FFFFFF}WAITING
+Dialogue: 0,0:00:43.43,0:00:43.55,Default,,0,0,0,,{\c&H00FFFFFF}I {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WAS{\rDefault} {\c&H00FFFFFF}WAITING
+Dialogue: 0,0:00:43.55,0:00:43.79,Default,,0,0,0,,{\c&H00FFFFFF}I {\c&H00FFFFFF}WAS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WAITING{\rDefault}
+Dialogue: 0,0:00:43.79,0:00:43.99,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FOR{\rDefault} {\c&H00FFFFFF}THE {\c&H00FFFFFF}TIME
+Dialogue: 0,0:00:43.99,0:00:44.11,Default,,0,0,0,,{\c&H00FFFFFF}FOR {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THE{\rDefault} {\c&H00FFFFFF}TIME
+Dialogue: 0,0:00:44.11,0:00:44.37,Default,,0,0,0,,{\c&H00FFFFFF}FOR {\c&H00FFFFFF}THE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TIME{\rDefault}
+Dialogue: 0,0:00:44.37,0:00:45.03,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TO{\rDefault} {\c&H00FFFFFF}PASS {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:45.03,0:00:45.31,Default,,0,0,0,,{\c&H00FFFFFF}TO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}PASS{\rDefault} {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:45.31,0:00:45.67,Default,,0,0,0,,{\c&H00FFFFFF}TO {\c&H00FFFFFF}PASS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BY{\rDefault}
+Dialogue: 0,0:00:45.67,0:00:45.95,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOU.{\rDefault}
+Dialogue: 0,0:00:47.96,0:00:48.14,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TIME{\rDefault} {\c&H00FFFFFF}GOING {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:48.14,0:00:48.42,Default,,0,0,0,,{\c&H00FFFFFF}TIME {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}GOING{\rDefault} {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:48.42,0:00:48.82,Default,,0,0,0,,{\c&H00FFFFFF}TIME {\c&H00FFFFFF}GOING {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BY{\rDefault}
+Dialogue: 0,0:00:48.82,0:00:49.18,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BUS.{\rDefault}
+Dialogue: 0,0:00:49.76,0:00:50.44,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}INCIDENTALLY,{\rDefault} {\c&H00FFFFFF}OUR {\c&H00FFFFFF}TRIP
+Dialogue: 0,0:00:50.74,0:00:51.02,Default,,0,0,0,,{\c&H00FFFFFF}INCIDENTALLY, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OUR{\rDefault} {\c&H00FFFFFF}TRIP
+Dialogue: 0,0:00:51.02,0:00:51.88,Default,,0,0,0,,{\c&H00FFFFFF}INCIDENTALLY, {\c&H00FFFFFF}OUR {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TRIP{\rDefault}
+Dialogue: 0,0:00:51.88,0:00:52.20,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TO{\rDefault} {\c&H00FFFFFF}KANGERAV {\c&H00FFFFFF}WENT
+Dialogue: 0,0:00:52.20,0:00:52.56,Default,,0,0,0,,{\c&H00FFFFFF}TO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}KANGERAV{\rDefault} {\c&H00FFFFFF}WENT
+Dialogue: 0,0:00:52.56,0:00:52.74,Default,,0,0,0,,{\c&H00FFFFFF}TO {\c&H00FFFFFF}KANGERAV {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WENT{\rDefault}
+Dialogue: 0,0:00:52.74,0:00:53.02,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}VERY{\rDefault} {\c&H00FFFFFF}WELL {\c&H00FFFFFF}WITH
+Dialogue: 0,0:00:53.02,0:00:53.24,Default,,0,0,0,,{\c&H00FFFFFF}VERY {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WELL{\rDefault} {\c&H00FFFFFF}WITH
+Dialogue: 0,0:00:53.24,0:00:53.54,Default,,0,0,0,,{\c&H00FFFFFF}VERY {\c&H00FFFFFF}WELL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WITH{\rDefault}
+Dialogue: 0,0:00:53.54,0:00:53.82,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RAM{\rDefault} {\c&H00FFFFFF}DALAL {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:53.82,0:00:53.98,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DALAL{\rDefault} {\c&H00FFFFFF}BY
+Dialogue: 0,0:00:54.33,0:00:54.97,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H00FFFFFF}DALAL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BY{\rDefault}
+Dialogue: 0,0:00:54.97,0:00:55.51,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}USING{\rDefault} {\c&H00FFFFFF}THIS {\c&H00FFFFFF}OF
+Dialogue: 0,0:00:55.51,0:00:55.98,Default,,0,0,0,,{\c&H00FFFFFF}USING {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THIS{\rDefault} {\c&H00FFFFFF}OF
+Dialogue: 0,0:00:55.98,0:00:56.12,Default,,0,0,0,,{\c&H00FFFFFF}USING {\c&H00FFFFFF}THIS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OF{\rDefault}
+Dialogue: 0,0:00:56.12,0:00:56.22,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault} {\c&H00FFFFFF}SO, {\c&H00FFFFFF}AFTER
+Dialogue: 0,0:00:56.40,0:00:56.49,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SO,{\rDefault} {\c&H00FFFFFF}AFTER
+Dialogue: 0,0:00:56.70,0:00:56.94,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H00FFFFFF}SO, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AFTER{\rDefault}
+Dialogue: 0,0:00:56.94,0:00:57.27,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THAT,{\rDefault} {\c&H00FFFFFF}DECIDED {\c&H00FFFFFF}THAT
+Dialogue: 0,0:00:57.23,0:00:57.55,Default,,0,0,0,,{\c&H00FFFFFF}THAT, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DECIDED{\rDefault} {\c&H00FFFFFF}THAT
+Dialogue: 0,0:00:57.55,0:00:57.91,Default,,0,0,0,,{\c&H00FFFFFF}THAT, {\c&H00FFFFFF}DECIDED {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THAT{\rDefault}
+Dialogue: 0,0:00:57.91,0:00:58.48,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RAM{\rDefault} {\c&H00FFFFFF}DALAL {\c&H00FFFFFF}MIGHT
+Dialogue: 0,0:00:58.48,0:00:58.62,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DALAL{\rDefault} {\c&H00FFFFFF}MIGHT
+Dialogue: 0,0:00:58.95,0:00:59.26,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H00FFFFFF}DALAL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MIGHT{\rDefault}
+Dialogue: 0,0:00:59.26,0:00:59.48,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BE{\rDefault} {\c&H00FFFFFF}A {\c&H00FFFFFF}GOOD
+Dialogue: 0,0:00:59.48,0:00:59.62,Default,,0,0,0,,{\c&H00FFFFFF}BE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault} {\c&H00FFFFFF}GOOD
+Dialogue: 0,0:00:59.62,0:00:59.80,Default,,0,0,0,,{\c&H00FFFFFF}BE {\c&H00FFFFFF}A {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}GOOD{\rDefault}
+Dialogue: 0,0:00:59.80,0:01:00.48,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TRAVEL{\rDefault} {\c&H00FFFFFF}COMPANION.
+Dialogue: 0,0:01:00.48,0:01:00.81,Default,,0,0,0,,{\c&H00FFFFFF}TRAVEL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}COMPANION.{\rDefault}
+Dialogue: 0,0:01:02.65,0:01:02.77,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YEAH.{\rDefault}
+Dialogue: 0,0:01:02.77,0:01:02.81,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THIS{\rDefault} {\c&H00FFFFFF}MEANS {\c&H00FFFFFF}THAT
+Dialogue: 0,0:01:02.77,0:01:02.92,Default,,0,0,0,,{\c&H00FFFFFF}THIS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MEANS{\rDefault} {\c&H00FFFFFF}THAT
+Dialogue: 0,0:01:02.92,0:01:03.10,Default,,0,0,0,,{\c&H00FFFFFF}THIS {\c&H00FFFFFF}MEANS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THAT{\rDefault}
+Dialogue: 0,0:01:03.10,0:01:03.33,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}ARE {\c&H00FFFFFF}IN
+Dialogue: 0,0:01:03.33,0:01:03.38,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ARE{\rDefault} {\c&H00FFFFFF}IN
+Dialogue: 0,0:01:03.34,0:01:03.42,Default,,0,0,0,,{\c&H00FFFFFF}WE {\c&H00FFFFFF}ARE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IN{\rDefault}
+Dialogue: 0,0:01:03.42,0:01:03.48,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault} {\c&H00FFFFFF}LOT {\c&H00FFFFFF}OF
+Dialogue: 0,0:01:03.42,0:01:03.48,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}LOT{\rDefault} {\c&H00FFFFFF}OF
+Dialogue: 0,0:01:03.42,0:01:03.56,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H00FFFFFF}LOT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OF{\rDefault}
+Dialogue: 0,0:01:03.56,0:01:03.95,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TROUBLE.{\rDefault}
+Dialogue: 0,0:01:04.16,0:01:04.44,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HOURS,{\rDefault} {\c&H00FFFFFF}WE {\c&H00FFFFFF}HAVE
+Dialogue: 0,0:01:04.80,0:01:05.58,Default,,0,0,0,,{\c&H00FFFFFF}HOURS, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault} {\c&H00FFFFFF}HAVE
+Dialogue: 0,0:01:05.58,0:01:05.63,Default,,0,0,0,,{\c&H00FFFFFF}HOURS, {\c&H00FFFFFF}WE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HAVE{\rDefault}
+Dialogue: 0,0:01:05.58,0:01:05.63,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}REACHED{\rDefault} {\c&H00FFFFFF}DELHI {\c&H00FFFFFF}FROM
+Dialogue: 0,0:01:05.58,0:01:05.63,Default,,0,0,0,,{\c&H00FFFFFF}REACHED {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DELHI{\rDefault} {\c&H00FFFFFF}FROM
+Dialogue: 0,0:01:05.58,0:01:05.63,Default,,0,0,0,,{\c&H00FFFFFF}REACHED {\c&H00FFFFFF}DELHI {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FROM{\rDefault}
+Dialogue: 0,0:01:05.58,0:01:06.30,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}KASHMIR{\rDefault} {\c&H00FFFFFF}TO {\c&H00FFFFFF}WE
+Dialogue: 0,0:01:06.30,0:01:06.88,Default,,0,0,0,,{\c&H00FFFFFF}KASHMIR {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TO{\rDefault} {\c&H00FFFFFF}WE
+Dialogue: 0,0:01:06.95,0:01:07.43,Default,,0,0,0,,{\c&H00FFFFFF}KASHMIR {\c&H00FFFFFF}TO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}WE{\rDefault}
+Dialogue: 0,0:01:07.31,0:01:07.53,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HOURS,{\rDefault} {\c&H00FFFFFF}IT {\c&H00FFFFFF}IS
+Dialogue: 0,0:01:08.33,0:01:08.89,Default,,0,0,0,,{\c&H00FFFFFF}HOURS, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT{\rDefault} {\c&H00FFFFFF}IS
+Dialogue: 0,0:01:08.89,0:01:09.03,Default,,0,0,0,,{\c&H00FFFFFF}HOURS, {\c&H00FFFFFF}IT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault}
+Dialogue: 0,0:01:09.03,0:01:09.78,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}50{\rDefault} {\c&H00FFFFFF}-50 {\c&H00FFFFFF}KM
+Dialogue: 0,0:01:09.78,0:01:11.03,Default,,0,0,0,,{\c&H00FFFFFF}50 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}-50{\rDefault} {\c&H00FFFFFF}KM
+Dialogue: 0,0:01:11.03,0:01:11.11,Default,,0,0,0,,{\c&H00FFFFFF}50 {\c&H00FFFFFF}-50 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}KM{\rDefault}
+Dialogue: 0,0:01:11.11,0:01:11.67,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FROM{\rDefault} {\c&H00FFFFFF}HERE.
+Dialogue: 0,0:01:11.67,0:01:11.72,Default,,0,0,0,,{\c&H00FFFFFF}FROM {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HERE.{\rDefault}
+Dialogue: 0,0:01:12.19,0:01:12.25,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SOMEWHERE{\rDefault} {\c&H00FFFFFF}IN {\c&H00FFFFFF}BETWEEN
+Dialogue: 0,0:01:12.19,0:01:12.36,Default,,0,0,0,,{\c&H00FFFFFF}SOMEWHERE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IN{\rDefault} {\c&H00FFFFFF}BETWEEN
+Dialogue: 0,0:01:12.36,0:01:12.58,Default,,0,0,0,,{\c&H00FFFFFF}SOMEWHERE {\c&H00FFFFFF}IN {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BETWEEN{\rDefault}
+Dialogue: 0,0:01:12.58,0:01:13.52,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MANATH,{\rDefault} {\c&H00FFFFFF}I {\c&H00FFFFFF}SAW
+Dialogue: 0,0:01:13.67,0:01:13.80,Default,,0,0,0,,{\c&H00FFFFFF}MANATH, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}I{\rDefault} {\c&H00FFFFFF}SAW
+Dialogue: 0,0:01:13.80,0:01:13.84,Default,,0,0,0,,{\c&H00FFFFFF}MANATH, {\c&H00FFFFFF}I {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SAW{\rDefault}
+Dialogue: 0,0:01:13.83,0:01:14.14,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}THE{\rDefault} {\c&H00FFFFFF}LAST {\c&H00FFFFFF}SO,
+Dialogue: 0,0:01:14.14,0:01:14.45,Default,,0,0,0,,{\c&H00FFFFFF}THE {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}LAST{\rDefault} {\c&H00FFFFFF}SO,
+Dialogue: 0,0:01:14.92,0:01:15.06,Default,,0,0,0,,{\c&H00FFFFFF}THE {\c&H00FFFFFF}LAST {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SO,{\rDefault}
+Dialogue: 0,0:01:15.33,0:01:15.66,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BUS{\rDefault} {\c&H00FFFFFF}IS {\c&H00FFFFFF}VERY
+Dialogue: 0,0:01:15.66,0:01:15.88,Default,,0,0,0,,{\c&H00FFFFFF}BUS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault} {\c&H00FFFFFF}VERY
+Dialogue: 0,0:01:15.88,0:01:16.16,Default,,0,0,0,,{\c&H00FFFFFF}BUS {\c&H00FFFFFF}IS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}VERY{\rDefault}
+Dialogue: 0,0:01:16.16,0:01:16.47,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}NICE,{\rDefault} {\c&H00FFFFFF}COMFORTABLE, {\c&H00FFFFFF}PUSHNI.
+Dialogue: 0,0:01:16.83,0:01:17.38,Default,,0,0,0,,{\c&H00FFFFFF}NICE, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}COMFORTABLE,{\rDefault} {\c&H00FFFFFF}PUSHNI.
+Dialogue: 0,0:01:17.89,0:01:18.38,Default,,0,0,0,,{\c&H00FFFFFF}NICE, {\c&H00FFFFFF}COMFORTABLE, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}PUSHNI.{\rDefault}
+Dialogue: 0,0:01:18.64,0:01:18.77,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT{\rDefault} {\c&H00FFFFFF}SHOULD {\c&H00FFFFFF}BE
+Dialogue: 0,0:01:18.77,0:01:18.89,Default,,0,0,0,,{\c&H00FFFFFF}IT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SHOULD{\rDefault} {\c&H00FFFFFF}BE
+Dialogue: 0,0:01:18.89,0:01:19.03,Default,,0,0,0,,{\c&H00FFFFFF}IT {\c&H00FFFFFF}SHOULD {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}BE{\rDefault}
+Dialogue: 0,0:01:19.03,0:01:19.11,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault} {\c&H00FFFFFF}DUMB {\c&H00FFFFFF}MUST.
+Dialogue: 0,0:01:19.11,0:01:19.34,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DUMB{\rDefault} {\c&H00FFFFFF}MUST.
+Dialogue: 0,0:01:19.34,0:01:19.83,Default,,0,0,0,,{\c&H00FFFFFF}A {\c&H00FFFFFF}DUMB {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}MUST.{\rDefault}
+Dialogue: 0,0:01:20.42,0:01:20.56,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}I{\rDefault} {\c&H00FFFFFF}DO {\c&H00FFFFFF}RECOMMEND
+Dialogue: 0,0:01:20.56,0:01:20.75,Default,,0,0,0,,{\c&H00FFFFFF}I {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DO{\rDefault} {\c&H00FFFFFF}RECOMMEND
+Dialogue: 0,0:01:20.75,0:01:21.12,Default,,0,0,0,,{\c&H00FFFFFF}I {\c&H00FFFFFF}DO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RECOMMEND{\rDefault}
+Dialogue: 0,0:01:21.12,0:01:21.58,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RAM{\rDefault} {\c&H00FFFFFF}DALAL {\c&H00FFFFFF}US,
+Dialogue: 0,0:01:21.58,0:01:21.75,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DALAL{\rDefault} {\c&H00FFFFFF}US,
+Dialogue: 0,0:01:21.97,0:01:22.44,Default,,0,0,0,,{\c&H00FFFFFF}RAM {\c&H00FFFFFF}DALAL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}US,{\rDefault}
+Dialogue: 0,0:01:22.75,0:01:22.88,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IN{\rDefault} {\c&H00FFFFFF}FACT, {\c&H00FFFFFF}YOUR
+Dialogue: 0,0:01:22.88,0:01:23.09,Default,,0,0,0,,{\c&H00FFFFFF}IN {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FACT,{\rDefault} {\c&H00FFFFFF}YOUR
+Dialogue: 0,0:01:23.31,0:01:23.39,Default,,0,0,0,,{\c&H00FFFFFF}IN {\c&H00FFFFFF}FACT, {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}YOUR{\rDefault}
+Dialogue: 0,0:01:23.39,0:01:23.81,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}FRIEND'S{\rDefault} {\c&H00FFFFFF}SEAT {\c&H00FFFFFF}IS
+Dialogue: 0,0:01:23.81,0:01:23.89,Default,,0,0,0,,{\c&H00FFFFFF}FRIEND'S {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}SEAT{\rDefault} {\c&H00FFFFFF}IS
+Dialogue: 0,0:01:23.89,0:01:24.30,Default,,0,0,0,,{\c&H00FFFFFF}FRIEND'S {\c&H00FFFFFF}SEAT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault}
+Dialogue: 0,0:01:24.30,0:01:24.78,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}700{\rDefault} {\c&H00FFFFFF}-50 {\c&H00FFFFFF}KM
+Dialogue: 0,0:01:24.78,0:01:25.61,Default,,0,0,0,,{\c&H00FFFFFF}700 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}-50{\rDefault} {\c&H00FFFFFF}KM
+Dialogue: 0,0:01:25.61,0:01:26.02,Default,,0,0,0,,{\c&H00FFFFFF}700 {\c&H00FFFFFF}-50 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}KM{\rDefault}
+Dialogue: 0,0:01:26.19,0:01:26.25,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}HERE.{\rDefault}
+Dialogue: 0,0:01:26.19,0:01:26.39,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AND{\rDefault} {\c&H00FFFFFF}500 {\c&H00FFFFFF}-50
+Dialogue: 0,0:01:26.39,0:01:27.14,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}500{\rDefault} {\c&H00FFFFFF}-50
+Dialogue: 0,0:01:27.14,0:01:27.72,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H00FFFFFF}500 {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}-50{\rDefault}
+Dialogue: 0,0:01:27.72,0:01:28.06,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IS{\rDefault} {\c&H00FFFFFF}ALSO {\c&H00FFFFFF}A
+Dialogue: 0,0:01:28.06,0:01:28.11,Default,,0,0,0,,{\c&H00FFFFFF}IS {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}ALSO{\rDefault} {\c&H00FFFFFF}A
+Dialogue: 0,0:01:28.06,0:01:28.42,Default,,0,0,0,,{\c&H00FFFFFF}IS {\c&H00FFFFFF}ALSO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}A{\rDefault}
+Dialogue: 0,0:01:28.42,0:01:28.81,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}KAFI{\rDefault} {\c&H00FFFFFF}VERY {\c&H00FFFFFF}GOOD
+Dialogue: 0,0:01:30.13,0:01:30.21,Default,,0,0,0,,{\c&H00FFFFFF}KAFI {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}VERY{\rDefault} {\c&H00FFFFFF}GOOD
+Dialogue: 0,0:01:30.21,0:01:30.35,Default,,0,0,0,,{\c&H00FFFFFF}KAFI {\c&H00FFFFFF}VERY {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}GOOD{\rDefault}
+Dialogue: 0,0:01:30.35,0:01:30.71,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OPTION.{\rDefault}
+Dialogue: 0,0:01:31.00,0:01:31.72,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DO{\rDefault} {\c&H00FFFFFF}TRY {\c&H00FFFFFF}RAM
+Dialogue: 0,0:01:31.72,0:01:32.23,Default,,0,0,0,,{\c&H00FFFFFF}DO {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TRY{\rDefault} {\c&H00FFFFFF}RAM
+Dialogue: 0,0:01:32.23,0:01:32.44,Default,,0,0,0,,{\c&H00FFFFFF}DO {\c&H00FFFFFF}TRY {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}RAM{\rDefault}
+Dialogue: 0,0:01:32.44,0:01:32.59,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}DALAL{\rDefault} {\c&H00FFFFFF}NEXT {\c&H00FFFFFF}TIME
+Dialogue: 0,0:01:32.83,0:01:33.08,Default,,0,0,0,,{\c&H00FFFFFF}DALAL {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}NEXT{\rDefault} {\c&H00FFFFFF}TIME
+Dialogue: 0,0:01:33.08,0:01:33.47,Default,,0,0,0,,{\c&H00FFFFFF}DALAL {\c&H00FFFFFF}NEXT {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}TIME{\rDefault}
+Dialogue: 0,0:01:34.36,0:01:34.61,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}AND{\rDefault} {\c&H00FFFFFF}OPEN {\c&H00FFFFFF}IT.
+Dialogue: 0,0:01:34.61,0:01:34.86,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}OPEN{\rDefault} {\c&H00FFFFFF}IT.
+Dialogue: 0,0:01:34.86,0:01:35.02,Default,,0,0,0,,{\c&H00FFFFFF}AND {\c&H00FFFFFF}OPEN {\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}IT.{\rDefault}
+Dialogue: 0,0:01:35.34,0:01:35.48,Default,,0,0,0,,{\c&H0000FFFF\t(0,80,\fscx122\fscy122)\t(80,180,\fscx100\fscy100)}-BYE.{\rDefault}
