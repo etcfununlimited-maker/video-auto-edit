@@ -161,6 +161,7 @@ function autoPopulateInitialTimeline() {
             out_point: dur,
             duration: dur,
             speed: 1.0,
+            rotation: 0,
             url: c.url
         });
         startSec += dur;
@@ -196,6 +197,7 @@ function addClipToTimeline(clipPath, track = "V1") {
         out_point: dur,
         duration: dur,
         speed: 1.0,
+        rotation: 0,
         url: match.url
     });
 
@@ -290,6 +292,8 @@ function syncProgramMonitorToPlayhead() {
             programVideo.load();
         }
         programVideo.currentTime = targetVideoTime;
+        programVideo.style.transition = "transform 0.2s ease";
+        programVideo.style.transform = (activeClip.rotation) ? `rotate(${activeClip.rotation}deg)` : "none";
     }
 }
 
@@ -359,6 +363,94 @@ function selectTimelineClip(clipId) {
         document.getElementById("fx-clip-name").innerText = clip.name;
         document.getElementById("fx-speed-slider").value = clip.speed || 1.0;
         document.getElementById("fx-speed-val").innerText = `${(clip.speed || 1.0).toFixed(1)}x`;
+        const rot = clip.rotation || 0;
+        const rotSlider = document.getElementById("fx-rot-slider");
+        const rotVal = document.getElementById("fx-rot-val");
+        if (rotSlider) rotSlider.value = rot;
+        if (rotVal) rotVal.innerText = `${rot}°`;
+        const programVideo = document.getElementById("p-program-video");
+        if (programVideo) {
+            programVideo.style.transition = "transform 0.2s ease";
+            programVideo.style.transform = rot ? `rotate(${rot}deg)` : "none";
+        }
+    }
+}
+
+function updateSelectedClipRotation(val) {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) {
+        showToast("Select a clip on the timeline first to rotate!", "warning");
+        return;
+    }
+    clip.rotation = parseInt(val) % 360;
+    const rotVal = document.getElementById("fx-rot-val");
+    if (rotVal) rotVal.innerText = `${clip.rotation}°`;
+    const programVideo = document.getElementById("p-program-video");
+    if (programVideo) {
+        programVideo.style.transition = "transform 0.15s ease";
+        programVideo.style.transform = `rotate(${clip.rotation}deg)`;
+    }
+}
+
+function setClipRotationPreset(deg) {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) {
+        showToast("Select a clip on the timeline first to rotate!", "warning");
+        return;
+    }
+    clip.rotation = parseInt(deg) % 360;
+    const rotSlider = document.getElementById("fx-rot-slider");
+    const rotVal = document.getElementById("fx-rot-val");
+    if (rotSlider) rotSlider.value = clip.rotation;
+    if (rotVal) rotVal.innerText = `${clip.rotation}°`;
+    const programVideo = document.getElementById("p-program-video");
+    if (programVideo) {
+        programVideo.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
+        programVideo.style.transform = `rotate(${clip.rotation}deg)`;
+    }
+    showToast(`Orientation spun to ${clip.rotation}° ↷`, "info");
+}
+
+async function bakeSelectedTimelineClipMaster() {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) {
+        showToast("Select a timeline clip first to bake rotated master!", "warning");
+        return;
+    }
+    const rot = clip.rotation || 0;
+    showToast(`Baking rotated master (${rot}°) for ${clip.name}...`, "info");
+    try {
+        const res = await fetch("/api/project/rotate-clip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: clip.name, degrees: rot })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+            showToast(`✅ Created upright master: ${data.filename}!`, "success");
+            clip.rotation = 0;
+            clip.name = data.filename;
+            clip.url = data.url;
+            const rotSlider = document.getElementById("fx-rot-slider");
+            const rotVal = document.getElementById("fx-rot-val");
+            if (rotSlider) rotSlider.value = 0;
+            if (rotVal) rotVal.innerText = "0°";
+            const programVideo = document.getElementById("p-program-video");
+            if (programVideo) {
+                programVideo.style.transform = "none";
+                programVideo.src = data.url;
+                programVideo.load();
+                programVideo.play();
+            }
+            await fetchEditorMediaPool();
+            renderMediaBin("exported");
+            renderTimelineTracks();
+        } else {
+            showToast("Rotation export failed: " + (data.detail || "Error"), "error");
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Failed to bake rotated master: " + e.message, "error");
     }
 }
 
@@ -410,6 +502,7 @@ async function exportTimelineSequence() {
             in_point: c.in_point,
             out_point: c.out_point,
             speed: c.speed,
+            rotation: c.rotation || 0,
             track: c.track
         })),
         aspect_ratio: activeEditorAspectRatio,

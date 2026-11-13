@@ -237,6 +237,19 @@ def export_timeline_sequence(
         v_filters = []
         if speed != 1.0:
             v_filters.append(f"setpts={1.0/speed}*PTS")
+
+        # Clip orientation rotation (90°, 180°, 270°, 360° or arbitrary angle)
+        rot = int(c.get("rotation", 0)) % 360
+        if rot == 90:
+            v_filters.append("transpose=1")
+        elif rot == 180:
+            v_filters.append("hflip,vflip")
+        elif rot == 270:
+            v_filters.append("transpose=2")
+        elif rot != 0:
+            rad = rot * (3.141592653589793 / 180.0)
+            v_filters.append(f"rotate={rad:.4f}:ow='rotw({rad:.4f})':oh='roth({rad:.4f})'")
+
         v_filters.append(vf_scale)
         if eq_filter:
             v_filters.append(eq_filter)

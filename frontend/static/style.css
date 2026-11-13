@@ -621,6 +621,18 @@ video {
     background: rgba(255, 255, 255, 0.15);
     color: #fff;
 }
+.rot-pill:hover {
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+}
+.orientation-spin-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    padding-left: 8px;
+}
 
 .volume-container {
     display: flex;

@@ -193,6 +193,15 @@
                         <button class="speed-pill" onclick="setSpeed(2.0)">2x</button>
                     </div>
 
+                    <div class="orientation-spin-selector" style="display:inline-flex; align-items:center; gap:4px; margin-left:8px; border-left:1px solid rgba(255,255,255,0.15); padding-left:8px;">
+                        <span style="font-size:10px; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Spin:</span>
+                        <button class="speed-pill rot-pill" onclick="spinMainPlayer(90)" title="Spin 90° Clockwise">90° ↷</button>
+                        <button class="speed-pill rot-pill" onclick="spinMainPlayer(180)" title="Spin 180° Inverted">180° 🔃</button>
+                        <button class="speed-pill rot-pill" onclick="spinMainPlayer(270)" title="Spin 270° Counter-Clockwise">270° ↶</button>
+                        <button class="speed-pill rot-pill active" onclick="spinMainPlayer(0)" title="Reset to 0°/360°">0°/360°</button>
+                        <button class="btn btn-secondary" style="padding:2px 8px; font-size:10px; border-radius:4px; margin-left:4px; height:24px; line-height:20px;" onclick="bakeRotatedMasterClip()" title="Losslessly Burn Rotated Upright Master to Disk">💾 Bake</button>
+                    </div>
+
                     <div class="volume-container">
                         <i data-feather="volume-2" class="vol-icon" onclick="toggleMute()"></i>
                         <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)">
@@ -454,7 +463,7 @@
                     <!-- Sub-view 2: Effect Controls Viewport -->
                     <div id="p-subview-effects" class="effect-controls-body" style="display:none;">
                         <div class="fx-group">
-                            <div class="fx-group-title"><i data-feather="move"></i> Motion (Transform)</div>
+                            <div class="fx-group-title"><i data-feather="move"></i> Motion (Transform & Orientation)</div>
                             <div class="fx-row">
                                 <span>Selected Clip:</span>
                                 <span id="fx-clip-name" style="font-weight:700; color:#38bdf8;">None</span>
@@ -468,6 +477,21 @@
                                 <span>Position Y (Pan):</span>
                                 <input type="range" class="fx-input-range" min="-100" max="100" value="0" oninput="document.getElementById('fx-pos-val').innerText=this.value">
                                 <span class="fx-val-badge" id="fx-pos-val">0</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:6px;">
+                                <span>Rotation (0°-360°):</span>
+                                <input type="range" class="fx-input-range" id="fx-rot-slider" min="0" max="360" step="1" value="0" oninput="updateSelectedClipRotation(this.value)">
+                                <span class="fx-val-badge" id="fx-rot-val">0°</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:6px;">
+                                <span>Spin Presets:</span>
+                                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                                    <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="setClipRotationPreset(90)" title="90° Clockwise">90° ↷</button>
+                                    <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="setClipRotationPreset(180)" title="180° Invert">180° 🔃</button>
+                                    <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="setClipRotationPreset(270)" title="270° Counter-Clockwise">270° ↶</button>
+                                    <button class="btn btn-secondary" style="font-size:11px; padding:3px 8px;" onclick="setClipRotationPreset(0)" title="Reset to 0°/360°">Reset (0°/360°)</button>
+                                    <button class="btn btn-purge-secondary" style="font-size:11px; padding:3px 8px;" onclick="bakeSelectedTimelineClipMaster()" title="Losslessly Burn Rotated Upright Clip to Disk">💾 Bake</button>
+                                </div>
                             </div>
                         </div>
 

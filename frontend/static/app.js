@@ -499,6 +499,52 @@ function setPlayerAspect(aspect) {
     reframingGuide.classList.toggle("active", aspect === "9:16");
 }
 
+// ---------------- VIDEO ORIENTATION & SPINNING CONTROLS ----------------
+let currentMainPlayerRotation = 0;
+function spinMainPlayer(deg) {
+    currentMainPlayerRotation = parseInt(deg) % 360;
+    const video = document.getElementById("main-video-player");
+    if (video) {
+        video.style.transition = "transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)";
+        video.style.transform = currentMainPlayerRotation ? `rotate(${currentMainPlayerRotation}deg)` : "none";
+    }
+    document.querySelectorAll(".rot-pill").forEach(p => p.classList.remove("active"));
+    if (window.event && window.event.target && window.event.target.classList) {
+        window.event.target.classList.add("active");
+    }
+    showToast(`Video orientation spun to ${currentMainPlayerRotation}°! Click '💾 Bake' to save upright file.`, "info");
+}
+
+async function bakeRotatedMasterClip() {
+    showToast(`Baking rotated master at ${currentMainPlayerRotation}°...`, "info");
+    try {
+        const res = await fetch("/api/project/rotate-clip", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ degrees: currentMainPlayerRotation })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+            showToast(`✅ Created upright master: ${data.filename}!`, "success");
+            const video = document.getElementById("main-video-player");
+            if (video) {
+                video.style.transform = "none";
+                const source = document.getElementById("video-source");
+                if (source) source.src = data.url;
+                video.load();
+                video.play();
+            }
+            currentMainPlayerRotation = 0;
+            document.querySelectorAll(".rot-pill").forEach(p => p.classList.remove("active"));
+        } else {
+            showToast("Rotation export failed: " + (data.detail || "Error"), "error");
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Failed to bake rotated master: " + e.message, "error");
+    }
+}
+
 // ---------------- TEXT-BASED EDITING ----------------
 async function loadTranscript() {
     try {

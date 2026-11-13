@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from backend.config import (
     BASE_DIR, UPLOADS_DIR, EXPORTS_DIR, SAMPLE_MEDIA_DIR,
     RAW_INPUT_DIR, FINAL_EXPORT_DIR, COLOR_PRESETS, WORKFLOW_GRIDS,
-    SUPPORTED_VIDEO_EXTS, SUPPORTED_IMAGE_EXTS
+    SUPPORTED_VIDEO_EXTS, SUPPORTED_IMAGE_EXTS, FFMPEG_PATH
 )
 from backend.pipeline.media_ingest import probe_media, create_web_preview
 from backend.pipeline.scene_detector import detect_scenes
@@ -794,7 +794,71 @@ class TimelineClipItem(BaseModel):
     in_point: Optional[float] = 0.0
     out_point: Optional[float] = 0.0
     speed: Optional[float] = 1.0
+    rotation: Optional[float] = 0.0
     track: Optional[str] = "V1"
+
+class RotateClipPayload(BaseModel):
+    filename: Optional[str] = ""
+    degrees: Optional[int] = 90
+
+@app.post("/api/project/rotate-clip")
+async def rotate_clip_endpoint(payload: RotateClipPayload):
+    """
+    Spins/rotates a video clip by 90°, 180°, 270°, or 360° and saves a new upright master.
+    """
+    deg = int(payload.degrees % 360)
+    target_filename = payload.filename
+    exts = {".mov", ".mp4", ".m4v"}
+    available = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
+    
+    in_path = None
+    if target_filename:
+        p1 = RAW_INPUT_DIR / target_filename
+        p2 = FINAL_EXPORT_DIR / target_filename
+        if p1.exists(): in_path = p1
+        elif p2.exists(): in_path = p2
+    
+    if not in_path and available:
+        in_path = available[0]
+    
+    if not in_path:
+        raise HTTPException(status_code=400, detail="No video clip found to rotate.")
+    
+    out_filename = f"ROTATED_{deg}DEG_{in_path.stem}.mp4"
+    out_path = FINAL_EXPORT_DIR / out_filename
+
+    # FFmpeg rotation filter
+    if deg == 90:
+        vf = "transpose=1"
+    elif deg == 180:
+        vf = "hflip,vflip"
+    elif deg == 270:
+        vf = "transpose=2"
+    elif deg != 0:
+        rad = deg * (3.141592653589793 / 180.0)
+        vf = f"rotate={rad:.4f}:ow='rotw({rad:.4f})':oh='roth({rad:.4f})'"
+    else:
+        vf = "null"
+
+    cmd = [
+        FFMPEG_PATH, "-y",
+        "-i", str(in_path),
+        "-vf", f"{vf},format=yuv420p",
+        "-r", "30", "-fps_mode", "cfr",
+        "-c:v", "libx264", "-preset", "faster", "-crf", "18",
+        "-c:a", "copy",
+        "-movflags", "+faststart",
+        str(out_path)
+    ]
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, subprocess.run, cmd)
+    return {
+        "status": "success",
+        "filename": out_filename,
+        "url": f"/media_final/{out_filename}",
+        "degrees": deg
+    }
 
 class TimelineExportPayload(BaseModel):
     clips: List[TimelineClipItem]
