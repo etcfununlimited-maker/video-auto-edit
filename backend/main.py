@@ -787,6 +787,56 @@ async def render_full_movie_endpoint():
         "url": f"/media_final/{filename}"
     }
 
+# ----------------- PREMIERE PRO & INSTAGRAM STUDIO NLE -----------------
+
+class TimelineClipItem(BaseModel):
+    path: str
+    in_point: Optional[float] = 0.0
+    out_point: Optional[float] = 0.0
+    speed: Optional[float] = 1.0
+    track: Optional[str] = "V1"
+
+class TimelineExportPayload(BaseModel):
+    clips: List[TimelineClipItem]
+    aspect_ratio: Optional[str] = "9:16"
+    instagram_filter: Optional[str] = "clarendon"
+    title_text: Optional[str] = ""
+    output_filename: Optional[str] = None
+
+@app.get("/api/editor/media-pool")
+def get_editor_media_pool_endpoint():
+    """Returns media clips from final_export/ and raw_input/ plus Instagram filters"""
+    from backend.pipeline.premiere_engine import get_editor_media_pool
+    return get_editor_media_pool()
+
+@app.post("/api/editor/export-sequence")
+async def export_editor_sequence_endpoint(payload: TimelineExportPayload):
+    """Renders the Premiere Pro / Instagram timeline sequence to final_export/"""
+    from backend.pipeline.premiere_engine import export_timeline_sequence
+    clips_data = [c.dict() for c in payload.clips]
+    loop = asyncio.get_event_loop()
+    try:
+        out_path = await loop.run_in_executor(
+            None,
+            export_timeline_sequence,
+            clips_data,
+            payload.aspect_ratio,
+            payload.instagram_filter,
+            payload.title_text,
+            payload.output_filename
+        )
+        fname = Path(out_path).name
+        return {
+            "status": "success",
+            "filename": fname,
+            "url": f"/media_final/{fname}",
+            "aspect_ratio": payload.aspect_ratio,
+            "instagram_filter": payload.instagram_filter
+        }
+    except Exception as e:
+        print(f"Editor export error: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ----------------- AI DIRECTOR AGENT -----------------
 
 class AgentPromptPayload(BaseModel):

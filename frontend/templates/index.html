@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/premiere.css">
 </head>
 <body>
     <!-- Top Navigation Bar -->
@@ -65,8 +66,24 @@
         </div>
     </header>
 
-    <!-- Main Workspace Layout -->
-    <main class="main-layout">
+    <!-- Studio Workspace Mode Switcher -->
+    <nav class="studio-tabs-bar">
+        <button class="studio-tab-btn active" id="tab-btn-ai" onclick="switchStudioTab('ai')">
+            <i data-feather="cpu"></i>
+            <span>AI Auto Video Editor</span>
+            <span class="tab-badge">Autonomous 12-Grid</span>
+        </button>
+        <button class="studio-tab-btn" id="tab-btn-premiere" onclick="switchStudioTab('premiere')">
+            <i data-feather="film"></i>
+            <span>Premiere Pro & Instagram Studio</span>
+            <span class="tab-badge badge-pro">NLE • Timeline Editor</span>
+        </button>
+    </nav>
+
+    <!-- TAB 1: AI Auto Video Editor (Autonomous 12-Grid Pipeline) -->
+    <div id="workspace-ai" class="workspace-tab active">
+        <!-- Main Workspace Layout -->
+        <main class="main-layout">
         <!-- Left Sidebar: Raw Input Folder Browser & File Selector -->
         <aside class="sidebar-left">
             <div class="panel-header">
@@ -368,6 +385,313 @@
             <!-- Populated via JavaScript -->
         </div>
     </footer>
+    </div> <!-- Close workspace-ai -->
+
+    <!-- TAB 2: Premiere Pro & Instagram Studio (Full-Featured NLE Movie Editor) -->
+    <div id="workspace-premiere" class="workspace-tab">
+        <div class="premiere-workspace">
+            <!-- Premiere Top Control Bar -->
+            <div class="premiere-control-bar">
+                <div class="premiere-workspaces-nav">
+                    <button class="p-nav-btn active" onclick="switchEditorSubTab('editing')"><i data-feather="layout"></i> Editing</button>
+                    <button class="p-nav-btn" onclick="switchEditorSubTab('color')"><i data-feather="aperture"></i> Color & Instagram Filters</button>
+                    <button class="p-nav-btn" onclick="switchEditorSubTab('effects')"><i data-feather="zap"></i> Effect Controls</button>
+                    <button class="p-nav-btn" onclick="switchEditorSubTab('audio')"><i data-feather="volume-2"></i> Audio & Music</button>
+                </div>
+
+                <!-- Aspect Ratio Selector (9:16 Instagram Reels, 1:1, 4:5, 16:9) -->
+                <div class="premiere-aspect-group">
+                    <button class="p-aspect-btn active" data-aspect="9:16" onclick="setEditorAspect('9:16')">
+                        <i data-feather="smartphone"></i> 9:16 Reels / TikTok
+                    </button>
+                    <button class="p-aspect-btn" data-aspect="1:1" onclick="setEditorAspect('1:1')">
+                        <i data-feather="square"></i> 1:1 Square
+                    </button>
+                    <button class="p-aspect-btn" data-aspect="4:5" onclick="setEditorAspect('4:5')">
+                        <i data-feather="instagram"></i> 4:5 Portrait
+                    </button>
+                    <button class="p-aspect-btn" data-aspect="16:9" onclick="setEditorAspect('16:9')">
+                        <i data-feather="tv"></i> 16:9 Widescreen
+                    </button>
+                </div>
+
+                <div class="premiere-master-timecode" id="p-master-timecode">00:00:00:00</div>
+
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-secondary" style="border-color:#38bdf8; color:#38bdf8;" onclick="autoPopulateInitialTimeline()">
+                        <i data-feather="refresh-cw"></i> Reset Sequence
+                    </button>
+                    <button class="btn btn-primary" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); border:none;" onclick="exportTimelineSequence()">
+                        <i data-feather="send"></i> Export Instagram Reel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upper Quadrants Split (Source Monitor / Effect Controls + Program Monitor) -->
+            <div class="premiere-upper-split">
+                <!-- Top-Left: Source Monitor & Effect Controls -->
+                <div class="premiere-panel">
+                    <div class="panel-tab-header">
+                        <div class="panel-tab-group">
+                            <button class="panel-tab active" id="tab-source-monitor" onclick="setLeftUpperTab('source')">
+                                <i data-feather="monitor"></i> Source Monitor
+                            </button>
+                            <button class="panel-tab" id="tab-effect-controls" onclick="setLeftUpperTab('effects')">
+                                <i data-feather="sliders"></i> Effect Controls
+                            </button>
+                            <button class="panel-tab" id="tab-ig-stickers" onclick="setLeftUpperTab('stickers')">
+                                <i data-feather="smile"></i> Instagram Stickers & Text
+                            </button>
+                        </div>
+                        <span id="p-source-title" style="font-size:11px; color:#64748b; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">No Clip Selected</span>
+                    </div>
+
+                    <!-- Sub-view 1: Source Monitor Viewport -->
+                    <div id="p-subview-source" class="monitor-viewport-wrapper" style="display:flex;">
+                        <video id="p-source-video" class="monitor-video" controls></video>
+                    </div>
+
+                    <!-- Sub-view 2: Effect Controls Viewport -->
+                    <div id="p-subview-effects" class="effect-controls-body" style="display:none;">
+                        <div class="fx-group">
+                            <div class="fx-group-title"><i data-feather="move"></i> Motion (Transform)</div>
+                            <div class="fx-row">
+                                <span>Selected Clip:</span>
+                                <span id="fx-clip-name" style="font-weight:700; color:#38bdf8;">None</span>
+                            </div>
+                            <div class="fx-row">
+                                <span>Scale (Zoom):</span>
+                                <input type="range" class="fx-input-range" min="50" max="250" value="100" oninput="document.getElementById('fx-scale-val').innerText=this.value+'%'">
+                                <span class="fx-val-badge" id="fx-scale-val">100%</span>
+                            </div>
+                            <div class="fx-row">
+                                <span>Position Y (Pan):</span>
+                                <input type="range" class="fx-input-range" min="-100" max="100" value="0" oninput="document.getElementById('fx-pos-val').innerText=this.value">
+                                <span class="fx-val-badge" id="fx-pos-val">0</span>
+                            </div>
+                        </div>
+
+                        <div class="fx-group">
+                            <div class="fx-group-title"><i data-feather="zap"></i> Velocity Ramp (Clip Speed)</div>
+                            <div class="fx-row">
+                                <span>Clip Speed:</span>
+                                <input type="range" class="fx-input-range" id="fx-speed-slider" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateSelectedClipSpeed(this.value)">
+                                <span class="fx-val-badge" id="fx-speed-val">1.0x</span>
+                            </div>
+                        </div>
+
+                        <div class="fx-group">
+                            <div class="fx-group-title"><i data-feather="eye"></i> Opacity & Blending</div>
+                            <div class="fx-row">
+                                <span>Opacity:</span>
+                                <input type="range" class="fx-input-range" min="0" max="100" value="100" oninput="document.getElementById('fx-op-val').innerText=this.value+'%'">
+                                <span class="fx-val-badge" id="fx-op-val">100%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-view 3: Instagram Stickers & Typography Viewport -->
+                    <div id="p-subview-stickers" class="effect-controls-body" style="display:none;">
+                        <div class="fx-group">
+                            <div class="fx-group-title"><i data-feather="type"></i> Instagram Text Overlay</div>
+                            <input type="text" id="p-instagram-title-input" placeholder="e.g. Jaipur Vlog ✨ Drop A Like!" style="width:100%; padding:8px 12px; border-radius:6px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:12.5px; margin-bottom:8px;">
+                            <div style="font-size:11px; color:#94a3b8;">Will be burned as an Instagram sticker banner in the exported sequence.</div>
+                        </div>
+                        <div class="fx-group">
+                            <div class="fx-group-title"><i data-feather="smile"></i> Quick Stickers</div>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' 📍 Pushkar, RJ'">📍 Location Tag</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' @fullonthrottle'">@ Mention</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' #RoadTrip2026'"># Hashtag</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' ❤️ Like & Share'">❤️ Heartbeat</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="monitor-transport-bar">
+                        <div class="transport-buttons">
+                            <button class="t-btn" onclick="stepTimeline(-1.0)" title="Step Back 1s"><i data-feather="skip-back"></i></button>
+                            <button class="t-btn" onclick="document.getElementById('p-source-video').paused ? document.getElementById('p-source-video').play() : document.getElementById('p-source-video').pause()" title="Play/Pause Source"><i data-feather="play"></i></button>
+                            <button class="t-btn" onclick="stepTimeline(1.0)" title="Step Forward 1s"><i data-feather="skip-forward"></i></button>
+                        </div>
+                        <span id="p-source-timecode" style="font-size:11px; font-family:monospace; color:#38bdf8;">00:00:00:00</span>
+                    </div>
+                </div>
+
+                <!-- Top-Right: Program Monitor (Master Sequence Playback) -->
+                <div class="premiere-panel">
+                    <div class="panel-tab-header">
+                        <div class="panel-tab-group">
+                            <button class="panel-tab active"><i data-feather="tv"></i> Program Monitor: Master Sequence</button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-size:11px; color:#94a3b8;">Fit / 100%</span>
+                            <span style="font-size:11px; color:#38bdf8; font-weight:700;">Full Res (1080p)</span>
+                        </div>
+                    </div>
+
+                    <div class="monitor-viewport-wrapper">
+                        <video id="p-program-video" class="monitor-video"></video>
+                        <!-- Instagram 9:16 Phone Overlay -->
+                        <div class="instagram-phone-frame active" id="p-instagram-phone-frame">
+                            <div class="ig-frame-header">
+                                <span>Reels</span>
+                                <i data-feather="camera"></i>
+                            </div>
+                            <div class="ig-frame-footer">
+                                <div class="ig-creator-pill">
+                                    <div class="ig-creator-av"></div>
+                                    <span>fullonthrottle • Follow</span>
+                                </div>
+                                <div class="ig-sound-pill">
+                                    <i data-feather="music"></i>
+                                    <span>Original Audio - Pushkar & Jaipur Vlog</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="monitor-transport-bar">
+                        <div class="transport-buttons">
+                            <button class="t-btn" onclick="seekTimelinePlayhead(0)" title="Go to Start"><i data-feather="chevrons-left"></i></button>
+                            <button class="t-btn" onclick="stepTimeline(-0.5)" title="Previous Cut / -0.5s"><i data-feather="skip-back"></i></button>
+                            <button class="t-btn play-btn" id="p-btn-play-pause" onclick="toggleTimelinePlayback()" title="Play/Pause Sequence (Space)"><i data-feather="play"></i></button>
+                            <button class="t-btn" onclick="stepTimeline(0.5)" title="Next Cut / +0.5s"><i data-feather="skip-forward"></i></button>
+                            <button class="t-btn" onclick="executeRazorCutAtPlayhead()" title="Split at Playhead (C)"><i data-feather="scissors"></i></button>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:11px; color:#64748b;">Snap: ON</span>
+                            <span style="font-size:11px; color:#10b981; font-weight:700;">Audio: 48kHz Stereo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lower Quadrants Split (Media Bin + Multi-Track NLE Timeline) -->
+            <div class="premiere-lower-split">
+                <!-- Bottom-Left: Project Media Bin & Instagram Filters -->
+                <div class="premiere-panel">
+                    <div class="panel-tab-header">
+                        <div class="panel-tab-group">
+                            <button class="panel-tab active" id="tab-bin-exports" onclick="setBinTab('exported')">
+                                <i data-feather="film"></i> Output Clips
+                            </button>
+                            <button class="panel-tab" id="tab-bin-raws" onclick="setBinTab('raw')">
+                                <i data-feather="hard-drive"></i> Raw Clips
+                            </button>
+                            <button class="panel-tab" id="tab-bin-filters" onclick="setBinTab('filters')">
+                                <i data-feather="aperture"></i> IG Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bin Sub-view 1: Media List -->
+                    <div id="p-bin-media-view" class="media-bin-body" style="display:flex;">
+                        <div id="p-media-bin-list" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                            <!-- Populated dynamically via premiere.js -->
+                        </div>
+                    </div>
+
+                    <!-- Bin Sub-view 2: Instagram Filters Grid -->
+                    <div id="p-bin-filters-view" class="ig-filters-grid" style="display:none;">
+                        <div id="p-instagram-filters-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
+                            <!-- Populated dynamically via premiere.js -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom-Right: Multi-Track Timeline Sequence -->
+                <div class="premiere-timeline-panel">
+                    <!-- Timeline Tools Bar -->
+                    <div class="timeline-tools-bar">
+                        <div class="tools-group">
+                            <button class="tool-btn active" data-tool="select" onclick="setEditorTool('select')" title="Selection Tool (V)"><i data-feather="mouse-pointer"></i></button>
+                            <button class="tool-btn" data-tool="razor" onclick="setEditorTool('razor')" title="Razor Cut Tool (C)"><i data-feather="scissors"></i></button>
+                            <button class="tool-btn" data-tool="ripple" onclick="setEditorTool('ripple')" title="Ripple Edit (B)"><i data-feather="align-left"></i></button>
+                            <button class="tool-btn" data-tool="text" onclick="setEditorTool('text')" title="Text Tool (T)"><i data-feather="type"></i></button>
+                            <button class="tool-btn" onclick="deleteSelectedTimelineClip()" title="Delete Selected Clip (Del)"><i data-feather="trash-2"></i></button>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:11px; color:#94a3b8;">Zoom:</span>
+                            <button class="t-btn" onclick="timelineZoomPxPerSec=Math.max(10, timelineZoomPxPerSec-5); renderTimelineRuler(); renderTimelineTracks();">-</button>
+                            <button class="t-btn" onclick="timelineZoomPxPerSec=Math.min(60, timelineZoomPxPerSec+5); renderTimelineRuler(); renderTimelineTracks();">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Time Ruler -->
+                    <div class="timeline-ruler" id="p-timeline-ruler">
+                        <!-- Ruler ticks rendered by JS -->
+                    </div>
+
+                    <!-- Multi-Track Canvas -->
+                    <div class="timeline-tracks-scroll">
+                        <!-- Draggable Red Playhead Line -->
+                        <div class="timeline-playhead-line" id="p-timeline-playhead">
+                            <div class="timeline-playhead-head"></div>
+                        </div>
+
+                        <!-- Video Track V3 (Titles & Stickers) -->
+                        <div class="track-lane">
+                            <div class="track-header">
+                                <span>V3 • Titles</span>
+                                <div class="track-controls">
+                                    <button class="trk-btn" title="Toggle Lock"><i data-feather="lock"></i></button>
+                                </div>
+                            </div>
+                            <div class="track-content" id="track-content-V3"></div>
+                        </div>
+
+                        <!-- Video Track V2 (B-Roll & Overlays) -->
+                        <div class="track-lane">
+                            <div class="track-header">
+                                <span>V2 • Overlay</span>
+                                <div class="track-controls">
+                                    <button class="trk-btn" title="Mute Track">M</button>
+                                </div>
+                            </div>
+                            <div class="track-content" id="track-content-V2"></div>
+                        </div>
+
+                        <!-- Video Track V1 (Main Footage) -->
+                        <div class="track-lane">
+                            <div class="track-header">
+                                <span>V1 • Master</span>
+                                <div class="track-controls">
+                                    <button class="trk-btn" title="Mute Track">M</button>
+                                </div>
+                            </div>
+                            <div class="track-content" id="track-content-V1"></div>
+                        </div>
+
+                        <!-- Audio Track A1 (Dialogue / Voice) -->
+                        <div class="track-lane">
+                            <div class="track-header">
+                                <span>A1 • Voice</span>
+                                <div class="track-controls">
+                                    <button class="trk-btn" title="Mute Audio">M</button>
+                                    <button class="trk-btn" title="Solo Audio">S</button>
+                                </div>
+                            </div>
+                            <div class="track-content" id="track-content-A1"></div>
+                        </div>
+
+                        <!-- Audio Track A2 (Music & Soundtrack) -->
+                        <div class="track-lane">
+                            <div class="track-header">
+                                <span>A2 • Music</span>
+                                <div class="track-controls">
+                                    <button class="trk-btn" title="Mute Audio">M</button>
+                                    <button class="trk-btn" title="Solo Audio">S</button>
+                                </div>
+                            </div>
+                            <div class="track-content" id="track-content-A2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container"></div>
@@ -499,6 +823,7 @@
     </div>
 
     <script src="/static/app.js"></script>
+    <script src="/static/premiere.js"></script>
     <script>
         feather.replace();
     </script>
