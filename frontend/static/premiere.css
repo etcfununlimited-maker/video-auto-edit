@@ -713,6 +713,18 @@
     border-color: #ef4444;
 }
 
+.trk-btn[id*="solo"].active {
+    background: #f59e0b;
+    color: #000;
+    border-color: #f59e0b;
+}
+
+.trk-btn[id*="lock"].active {
+    background: #eab308;
+    color: #000;
+    border-color: #eab308;
+}
+
 .track-content {
     flex: 1;
     position: relative;

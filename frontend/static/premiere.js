@@ -139,9 +139,27 @@ function setEditorAspect(aspect) {
     const phoneFrame = document.getElementById("p-instagram-phone-frame");
     if (phoneFrame) {
         phoneFrame.classList.toggle("active", aspect === "9:16");
+        if (aspect === "9:16") {
+            phoneFrame.style.display = "block";
+            phoneFrame.style.aspectRatio = "9 / 16";
+            phoneFrame.style.maxWidth = "270px";
+        } else if (aspect === "1:1") {
+            phoneFrame.style.display = "block";
+            phoneFrame.style.aspectRatio = "1 / 1";
+            phoneFrame.style.maxWidth = "360px";
+        } else if (aspect === "4:5") {
+            phoneFrame.style.display = "block";
+            phoneFrame.style.aspectRatio = "4 / 5";
+            phoneFrame.style.maxWidth = "300px";
+        } else { // 16:9 widescreen
+            phoneFrame.style.display = "none";
+        }
     }
 
-    showToast(`Sequence Aspect Ratio: ${aspect} (${aspect === '9:16' ? 'Instagram Reels / TikTok' : 'Widescreen'})`, "info");
+    const aspectName = aspect === '9:16' ? 'Instagram Reels / TikTok (9:16)' :
+                       aspect === '1:1' ? 'Square Feed (1:1)' :
+                       aspect === '4:5' ? 'Instagram Portrait (4:5)' : '16:9 Widescreen';
+    showToast(`Sequence Aspect Ratio: ${aspectName}`, "info");
 }
 
 // ----------------- MULTI-TRACK TIMELINE CONTROLLER -----------------
@@ -292,8 +310,7 @@ function syncProgramMonitorToPlayhead() {
             programVideo.load();
         }
         programVideo.currentTime = targetVideoTime;
-        programVideo.style.transition = "transform 0.2s ease";
-        programVideo.style.transform = (activeClip.rotation) ? `rotate(${activeClip.rotation}deg)` : "none";
+        applyClipVisualTransforms(activeClip);
     }
 }
 
@@ -303,7 +320,12 @@ function setEditorTool(tool) {
     document.querySelectorAll(".tool-btn").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.tool === tool);
     });
-    showToast(`Active Tool: ${tool.toUpperCase()} (${tool === 'razor' ? 'Split clip at playhead' : 'Select & move'})`, "info");
+    if (tool === "text") {
+        setLeftUpperTab("stickers");
+        const titleInput = document.getElementById("p-instagram-title-input");
+        if (titleInput) titleInput.focus();
+    }
+    showToast(`Active Tool: ${tool.toUpperCase()} (${tool === 'razor' ? 'Split clip at playhead (C)' : tool === 'ripple' ? 'Ripple Edit (B)' : tool === 'text' ? 'Instagram Typography (T)' : 'Select & Move (V)'})`, "info");
 }
 
 function executeRazorCutAtPlayhead() {
@@ -349,6 +371,19 @@ function deleteSelectedTimelineClip() {
     showToast("Clip removed from timeline", "info");
 }
 
+function applyClipVisualTransforms(clip) {
+    const programVideo = document.getElementById("p-program-video");
+    if (!programVideo || !clip) return;
+    const rot = clip.rotation || 0;
+    const scale = (clip.scale || 100) / 100;
+    const posY = clip.posY || 0;
+    const op = ((clip.opacity !== undefined) ? clip.opacity : 100) / 100;
+
+    programVideo.style.transition = "transform 0.15s ease, opacity 0.15s ease";
+    programVideo.style.transform = `translateY(${posY}px) rotate(${rot}deg) scale(${scale})`;
+    programVideo.style.opacity = op;
+}
+
 function selectTimelineClip(clipId) {
     if (activeEditorTool === "razor") {
         executeRazorCutAtPlayhead();
@@ -359,21 +394,67 @@ function selectTimelineClip(clipId) {
     renderTimelineTracks();
     const clip = activeTimelineClips.find(c => c.id === clipId);
     if (clip) {
+        // Defaults
+        clip.scale = clip.scale || 100;
+        clip.posY = clip.posY || 0;
+        clip.opacity = (clip.opacity !== undefined) ? clip.opacity : 100;
+        clip.speed = clip.speed || 1.0;
+        clip.rotation = clip.rotation || 0;
+
         // Load into Effect Controls
         document.getElementById("fx-clip-name").innerText = clip.name;
-        document.getElementById("fx-speed-slider").value = clip.speed || 1.0;
-        document.getElementById("fx-speed-val").innerText = `${(clip.speed || 1.0).toFixed(1)}x`;
-        const rot = clip.rotation || 0;
+        document.getElementById("fx-speed-slider").value = clip.speed;
+        document.getElementById("fx-speed-val").innerText = `${clip.speed.toFixed(1)}x`;
+
         const rotSlider = document.getElementById("fx-rot-slider");
         const rotVal = document.getElementById("fx-rot-val");
-        if (rotSlider) rotSlider.value = rot;
-        if (rotVal) rotVal.innerText = `${rot}°`;
-        const programVideo = document.getElementById("p-program-video");
-        if (programVideo) {
-            programVideo.style.transition = "transform 0.2s ease";
-            programVideo.style.transform = rot ? `rotate(${rot}deg)` : "none";
-        }
+        if (rotSlider) rotSlider.value = clip.rotation;
+        if (rotVal) rotVal.innerText = `${clip.rotation}°`;
+
+        const scaleSlider = document.getElementById("fx-scale-slider");
+        const scaleVal = document.getElementById("fx-scale-val");
+        if (scaleSlider) scaleSlider.value = clip.scale;
+        if (scaleVal) scaleVal.innerText = `${clip.scale}%`;
+
+        const posSlider = document.getElementById("fx-pos-slider");
+        const posVal = document.getElementById("fx-pos-val");
+        if (posSlider) posSlider.value = clip.posY;
+        if (posVal) posVal.innerText = `${clip.posY}`;
+
+        const opSlider = document.getElementById("fx-op-slider");
+        const opVal = document.getElementById("fx-op-val");
+        if (opSlider) opSlider.value = clip.opacity;
+        if (opVal) opVal.innerText = `${clip.opacity}%`;
+
+        applyClipVisualTransforms(clip);
     }
+}
+
+function updateSelectedClipScale(val) {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) return;
+    clip.scale = parseInt(val);
+    const badge = document.getElementById("fx-scale-val");
+    if (badge) badge.innerText = `${clip.scale}%`;
+    applyClipVisualTransforms(clip);
+}
+
+function updateSelectedClipPosY(val) {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) return;
+    clip.posY = parseInt(val);
+    const badge = document.getElementById("fx-pos-val");
+    if (badge) badge.innerText = `${clip.posY}`;
+    applyClipVisualTransforms(clip);
+}
+
+function updateSelectedClipOpacity(val) {
+    const clip = activeTimelineClips.find(c => c.id === selectedTimelineClipIndex);
+    if (!clip) return;
+    clip.opacity = parseInt(val);
+    const badge = document.getElementById("fx-op-val");
+    if (badge) badge.innerText = `${clip.opacity}%`;
+    applyClipVisualTransforms(clip);
 }
 
 function updateSelectedClipRotation(val) {
@@ -385,11 +466,7 @@ function updateSelectedClipRotation(val) {
     clip.rotation = parseInt(val) % 360;
     const rotVal = document.getElementById("fx-rot-val");
     if (rotVal) rotVal.innerText = `${clip.rotation}°`;
-    const programVideo = document.getElementById("p-program-video");
-    if (programVideo) {
-        programVideo.style.transition = "transform 0.15s ease";
-        programVideo.style.transform = `rotate(${clip.rotation}deg)`;
-    }
+    applyClipVisualTransforms(clip);
 }
 
 function setClipRotationPreset(deg) {
@@ -403,11 +480,7 @@ function setClipRotationPreset(deg) {
     const rotVal = document.getElementById("fx-rot-val");
     if (rotSlider) rotSlider.value = clip.rotation;
     if (rotVal) rotVal.innerText = `${clip.rotation}°`;
-    const programVideo = document.getElementById("p-program-video");
-    if (programVideo) {
-        programVideo.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
-        programVideo.style.transform = `rotate(${clip.rotation}deg)`;
-    }
+    applyClipVisualTransforms(clip);
     showToast(`Orientation spun to ${clip.rotation}° ↷`, "info");
 }
 
@@ -616,17 +689,147 @@ function setBinTab(tab) {
 function switchEditorSubTab(subTab) {
     activeEditorWorkspace = subTab;
     document.querySelectorAll(".p-nav-btn").forEach(btn => btn.classList.remove("active"));
-    event.currentTarget.classList.add("active");
+    if (window.event && window.event.currentTarget) {
+        window.event.currentTarget.classList.add("active");
+    }
 
     if (subTab === "color") {
         setBinTab("filters");
+        setLeftUpperTab("stickers");
+        showToast("🎨 Workspace: Color & Instagram Filters", "info");
     } else if (subTab === "effects") {
         setLeftUpperTab("effects");
+        showToast("⚡ Workspace: Effect Controls & Motion", "info");
     } else if (subTab === "editing") {
         setLeftUpperTab("source");
         setBinTab("exported");
+        showToast("🎬 Workspace: Main NLE Editing", "info");
+    } else if (subTab === "audio") {
+        setLeftUpperTab("source");
+        showToast("🔊 Workspace: Multi-Track Audio Mixing", "info");
     }
 }
+
+// ----------------- INSTAGRAM LIVE STICKERS & TEXT -----------------
+function updateLiveInstagramTitle(text) {
+    const banner = document.getElementById("p-ig-live-text-banner");
+    if (!banner) return;
+    if (text && text.trim().length > 0) {
+        banner.innerText = text;
+        banner.style.display = "block";
+    } else {
+        banner.style.display = "none";
+    }
+}
+
+function addInstagramStickerText(sticker) {
+    const input = document.getElementById("p-instagram-title-input");
+    if (!input) return;
+    input.value += sticker;
+    updateLiveInstagramTitle(input.value);
+    showToast(`Sticker added: ${sticker.trim()}`, "info");
+}
+
+// ----------------- TRACK LOCK / MUTE / SOLO CONTROLLER -----------------
+let trackStates = {
+    V3: { lock: false, mute: false },
+    V2: { lock: false, mute: false },
+    V1: { lock: false, mute: false },
+    A1: { mute: false, solo: false },
+    A2: { mute: false, solo: false }
+};
+
+function toggleTrackLock(trk) {
+    if (!trackStates[trk]) trackStates[trk] = {};
+    trackStates[trk].lock = !trackStates[trk].lock;
+    const btn = document.getElementById(`trk-btn-lock-${trk}`);
+    if (btn) btn.classList.toggle("active", trackStates[trk].lock);
+    showToast(`Track ${trk} ${trackStates[trk].lock ? "Locked 🔒" : "Unlocked 🔓"}`, "info");
+}
+
+function toggleTrackMute(trk) {
+    if (!trackStates[trk]) trackStates[trk] = {};
+    trackStates[trk].mute = !trackStates[trk].mute;
+    const btn = document.getElementById(`trk-btn-mute-${trk}`);
+    if (btn) btn.classList.toggle("active", trackStates[trk].mute);
+    showToast(`Track ${trk} ${trackStates[trk].mute ? "Muted 🔇" : "Unmuted 🔊"}`, "info");
+}
+
+function toggleTrackSolo(trk) {
+    if (!trackStates[trk]) trackStates[trk] = {};
+    trackStates[trk].solo = !trackStates[trk].solo;
+    const btn = document.getElementById(`trk-btn-solo-${trk}`);
+    if (btn) btn.classList.toggle("active", trackStates[trk].solo);
+    showToast(`Track ${trk} ${trackStates[trk].solo ? "Solo Active 🎧" : "Solo Off"}`, "info");
+}
+
+// ----------------- INTERACTIVE TIMELINE TRIMMING -----------------
+let isTrimming = false;
+let trimClipId = null;
+let trimEdge = null;
+let trimStartX = 0;
+let trimOrigIn = 0;
+let trimOrigOut = 0;
+let trimOrigStart = 0;
+
+function startClipTrim(e, clipId, edge) {
+    e.stopPropagation();
+    e.preventDefault();
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    isTrimming = true;
+    trimClipId = clipId;
+    trimEdge = edge;
+    trimStartX = e.clientX;
+    trimOrigIn = clip.in_point || 0;
+    trimOrigOut = clip.out_point || clip.duration;
+    trimOrigStart = clip.timeline_start || 0;
+
+    document.addEventListener("mousemove", onClipTrimMove);
+    document.addEventListener("mouseup", onClipTrimEnd);
+}
+
+function onClipTrimMove(e) {
+    if (!isTrimming) return;
+    const clip = activeTimelineClips.find(c => c.id === trimClipId);
+    if (!clip) return;
+
+    const deltaPx = e.clientX - trimStartX;
+    const deltaSec = deltaPx / timelineZoomPxPerSec;
+
+    if (trimEdge === "left") {
+        const newIn = Math.max(0, trimOrigIn + deltaSec);
+        const shiftSec = newIn - trimOrigIn;
+        if (trimOrigOut - newIn >= 0.5) {
+            clip.in_point = newIn;
+            clip.timeline_start = trimOrigStart + shiftSec;
+            clip.duration = clip.out_point - clip.in_point;
+        }
+    } else if (trimEdge === "right") {
+        const newOut = Math.max((clip.in_point || 0) + 0.5, trimOrigOut + deltaSec);
+        clip.out_point = newOut;
+        clip.duration = clip.out_point - (clip.in_point || 0);
+    }
+
+    renderTimelineTracks();
+}
+
+function onClipTrimEnd(e) {
+    if (!isTrimming) return;
+    isTrimming = false;
+    document.removeEventListener("mousemove", onClipTrimMove);
+    document.removeEventListener("mouseup", onClipTrimEnd);
+    const clip = activeTimelineClips.find(c => c.id === trimClipId);
+    if (clip) {
+        showToast(`Clip '${clip.name}' trimmed to ${clip.duration.toFixed(1)}s`, "info");
+    }
+}
+
+function pad(num) {
+    return String(Math.floor(num)).padStart(2, '0');
+}
+
 function formatEditorTimecode(sec) {
     if (isNaN(sec) || sec < 0) sec = 0;
     const h = Math.floor(sec / 3600);

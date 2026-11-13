@@ -470,12 +470,12 @@
                             </div>
                             <div class="fx-row">
                                 <span>Scale (Zoom):</span>
-                                <input type="range" class="fx-input-range" min="50" max="250" value="100" oninput="document.getElementById('fx-scale-val').innerText=this.value+'%'">
+                                <input type="range" class="fx-input-range" id="fx-scale-slider" min="50" max="250" value="100" oninput="updateSelectedClipScale(this.value)">
                                 <span class="fx-val-badge" id="fx-scale-val">100%</span>
                             </div>
                             <div class="fx-row">
                                 <span>Position Y (Pan):</span>
-                                <input type="range" class="fx-input-range" min="-100" max="100" value="0" oninput="document.getElementById('fx-pos-val').innerText=this.value">
+                                <input type="range" class="fx-input-range" id="fx-pos-slider" min="-100" max="100" value="0" oninput="updateSelectedClipPosY(this.value)">
                                 <span class="fx-val-badge" id="fx-pos-val">0</span>
                             </div>
                             <div class="fx-row" style="margin-top:6px;">
@@ -508,7 +508,7 @@
                             <div class="fx-group-title"><i data-feather="eye"></i> Opacity & Blending</div>
                             <div class="fx-row">
                                 <span>Opacity:</span>
-                                <input type="range" class="fx-input-range" min="0" max="100" value="100" oninput="document.getElementById('fx-op-val').innerText=this.value+'%'">
+                                <input type="range" class="fx-input-range" id="fx-op-slider" min="0" max="100" value="100" oninput="updateSelectedClipOpacity(this.value)">
                                 <span class="fx-val-badge" id="fx-op-val">100%</span>
                             </div>
                         </div>
@@ -518,16 +518,16 @@
                     <div id="p-subview-stickers" class="effect-controls-body" style="display:none;">
                         <div class="fx-group">
                             <div class="fx-group-title"><i data-feather="type"></i> Instagram Text Overlay</div>
-                            <input type="text" id="p-instagram-title-input" placeholder="e.g. Jaipur Vlog ✨ Drop A Like!" style="width:100%; padding:8px 12px; border-radius:6px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:12.5px; margin-bottom:8px;">
+                            <input type="text" id="p-instagram-title-input" oninput="updateLiveInstagramTitle(this.value)" placeholder="e.g. Jaipur Vlog ✨ Drop A Like!" style="width:100%; padding:8px 12px; border-radius:6px; background:#0f172a; border:1px solid #334155; color:#fff; font-size:12.5px; margin-bottom:8px;">
                             <div style="font-size:11px; color:#94a3b8;">Will be burned as an Instagram sticker banner in the exported sequence.</div>
                         </div>
                         <div class="fx-group">
                             <div class="fx-group-title"><i data-feather="smile"></i> Quick Stickers</div>
                             <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' 📍 Pushkar, RJ'">📍 Location Tag</button>
-                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' @fullonthrottle'">@ Mention</button>
-                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' #RoadTrip2026'"># Hashtag</button>
-                                <button class="btn btn-secondary" style="font-size:11px;" onclick="document.getElementById('p-instagram-title-input').value+=' ❤️ Like & Share'">❤️ Heartbeat</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="addInstagramStickerText(' 📍 Pushkar, RJ')">📍 Location Tag</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="addInstagramStickerText(' @fullonthrottle')">@ Mention</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="addInstagramStickerText(' #RoadTrip2026')"># Hashtag</button>
+                                <button class="btn btn-secondary" style="font-size:11px;" onclick="addInstagramStickerText(' ❤️ Like & Share')">❤️ Heartbeat</button>
                             </div>
                         </div>
                     </div>
@@ -562,6 +562,8 @@
                                 <span>Reels</span>
                                 <i data-feather="camera"></i>
                             </div>
+                            <!-- Live Instagram Sticker & Typography Banner -->
+                            <div id="p-ig-live-text-banner" style="position:absolute; bottom:110px; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.88); border:2px solid #38bdf8; border-radius:20px; padding:6px 16px; color:#fff; font-size:13px; font-weight:700; white-space:nowrap; z-index:10; pointer-events:none; display:none; box-shadow:0 8px 24px rgba(0,0,0,0.5);"></div>
                             <div class="ig-frame-footer">
                                 <div class="ig-creator-pill">
                                     <div class="ig-creator-av"></div>
@@ -660,7 +662,7 @@
                             <div class="track-header">
                                 <span>V3 • Titles</span>
                                 <div class="track-controls">
-                                    <button class="trk-btn" title="Toggle Lock"><i data-feather="lock"></i></button>
+                                    <button class="trk-btn" id="trk-btn-lock-V3" onclick="toggleTrackLock('V3')" title="Toggle Lock"><i data-feather="lock"></i></button>
                                 </div>
                             </div>
                             <div class="track-content" id="track-content-V3"></div>
@@ -671,7 +673,7 @@
                             <div class="track-header">
                                 <span>V2 • Overlay</span>
                                 <div class="track-controls">
-                                    <button class="trk-btn" title="Mute Track">M</button>
+                                    <button class="trk-btn" id="trk-btn-mute-V2" onclick="toggleTrackMute('V2')" title="Mute Track">M</button>
                                 </div>
                             </div>
                             <div class="track-content" id="track-content-V2"></div>
@@ -682,7 +684,7 @@
                             <div class="track-header">
                                 <span>V1 • Master</span>
                                 <div class="track-controls">
-                                    <button class="trk-btn" title="Mute Track">M</button>
+                                    <button class="trk-btn" id="trk-btn-mute-V1" onclick="toggleTrackMute('V1')" title="Mute Track">M</button>
                                 </div>
                             </div>
                             <div class="track-content" id="track-content-V1"></div>
@@ -693,8 +695,8 @@
                             <div class="track-header">
                                 <span>A1 • Voice</span>
                                 <div class="track-controls">
-                                    <button class="trk-btn" title="Mute Audio">M</button>
-                                    <button class="trk-btn" title="Solo Audio">S</button>
+                                    <button class="trk-btn" id="trk-btn-mute-A1" onclick="toggleTrackMute('A1')" title="Mute Audio">M</button>
+                                    <button class="trk-btn" id="trk-btn-solo-A1" onclick="toggleTrackSolo('A1')" title="Solo Audio">S</button>
                                 </div>
                             </div>
                             <div class="track-content" id="track-content-A1"></div>
@@ -705,8 +707,8 @@
                             <div class="track-header">
                                 <span>A2 • Music</span>
                                 <div class="track-controls">
-                                    <button class="trk-btn" title="Mute Audio">M</button>
-                                    <button class="trk-btn" title="Solo Audio">S</button>
+                                    <button class="trk-btn" id="trk-btn-mute-A2" onclick="toggleTrackMute('A2')" title="Mute Audio">M</button>
+                                    <button class="trk-btn" id="trk-btn-solo-A2" onclick="toggleTrackSolo('A2')" title="Solo Audio">S</button>
                                 </div>
                             </div>
                             <div class="track-content" id="track-content-A2"></div>
