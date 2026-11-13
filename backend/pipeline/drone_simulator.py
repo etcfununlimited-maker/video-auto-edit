@@ -110,14 +110,29 @@ def build_cinematic_drone_master(
             "IMG_0471.MOV"
         ]
 
+    valid_clips = []
+    if scenic_clip_names:
+        for fname in scenic_clip_names:
+            cp = RAW_INPUT_DIR / fname
+            if cp.exists():
+                valid_clips.append(cp)
+
+    # Dynamic fallback: if specified clips do not exist, auto-select scenic / landscape clips from raw_input!
+    if not valid_clips:
+        exts = {".mov", ".mp4", ".m4v"}
+        all_raw = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
+        all_raw = [f for f in all_raw if not any(w in f.name.lower() for w in ["test", "sample"])]
+        if len(all_raw) > 8:
+            step = max(1, len(all_raw) // 8)
+            valid_clips = all_raw[::step][:8]
+        else:
+            valid_clips = all_raw
+
     drone_segments = []
     concat_lines = []
 
-    for idx, fname in enumerate(scenic_clip_names):
-        clip_p = RAW_INPUT_DIR / fname
-        if not clip_p.exists():
-            continue
-
+    for idx, clip_p in enumerate(valid_clips):
+        fname = clip_p.name
         meta = probe_media(str(clip_p))
         clip_dur = min(meta.get("duration", 2.8), 3.0)
 

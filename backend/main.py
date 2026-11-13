@@ -19,7 +19,7 @@ import time
 import asyncio
 import subprocess
 from typing import List, Optional
-from fastapi import FastAPI, UploadFile, File, Form, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, Body, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -638,6 +638,76 @@ from backend.pipeline.hyperframes_engine import list_hyperframe_presets
 def get_hyperframes_presets_endpoint():
     """Returns all HTML/CSS/JS HyperFrame motion graphic presets (HeyGen style)"""
     return {"presets": list_hyperframe_presets()}
+
+class HyperframeBurnRequest(BaseModel):
+    html: Optional[str] = ""
+    filename: Optional[str] = ""
+    title: Optional[str] = "Full On Throttle"
+    subtitle: Optional[str] = "Pushkar and Jaipur Road Trip Vlog"
+    action_text: Optional[str] = "Subscribe"
+    start_time: Optional[float] = 1.5
+    duration: Optional[float] = 6.0
+
+@app.post("/api/hyperframes/burn-to-video")
+async def burn_hyperframe_endpoint(req: HyperframeBurnRequest = None):
+    """
+    Permanently burns the active HyperFrame lower-third overlay into the video clip or vlog.
+    """
+    from backend.pipeline.hyperframe_burner import burn_hyperframe_to_video, extract_info_from_html
+
+    req = req or HyperframeBurnRequest()
+    html_content = req.html or ""
+    target_filename = req.filename or ""
+    start_time = float(req.start_time if req.start_time is not None else 1.5)
+    duration = float(req.duration if req.duration is not None else 6.0)
+
+    info = extract_info_from_html(html_content)
+    if req.title:
+        info["title"] = req.title
+    if req.subtitle:
+        info["subtitle"] = req.subtitle
+    if req.action_text:
+        info["action_text"] = req.action_text
+
+    input_path = None
+    if target_filename:
+        p1 = RAW_INPUT_DIR / target_filename
+        p2 = FINAL_EXPORT_DIR / target_filename
+        if p1.exists():
+            input_path = str(p1)
+        elif p2.exists():
+            input_path = str(p2)
+
+    if not input_path:
+        exts = {".mov", ".mp4", ".m4v"}
+        available = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
+        if available:
+            input_path = str(available[0])
+
+    try:
+        loop = asyncio.get_event_loop()
+        out_path = await loop.run_in_executor(
+            None,
+            burn_hyperframe_to_video,
+            input_path,
+            None,
+            info["title"],
+            info["subtitle"],
+            info["action_text"],
+            start_time,
+            duration
+        )
+        out_name = Path(out_path).name
+        return {
+            "status": "success",
+            "filename": out_name,
+            "url": f"/media_final/{out_name}",
+            "title": info["title"],
+            "subtitle": info["subtitle"]
+        }
+    except Exception as e:
+        print(f"Error burning hyperframe: {e}", flush=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/project/generate-gopro-teaser")
 async def generate_gopro_teaser_endpoint():

@@ -53,6 +53,9 @@
             <button class="btn btn-secondary" style="border-color: #a855f7; color: #c084fc;" onclick="openHyperframesStudio()">
                 <i data-feather="layers"></i> HyperFrames (HTML/CSS/JS)
             </button>
+            <button class="btn btn-secondary" style="border-color: #818cf8; color: #a5b4fc;" onclick="burnHyperframeToVideo()">
+                <i data-feather="film"></i> Burn Lower-Third into Vlog
+            </button>
             <button class="btn btn-primary" id="btn-start-pipeline" onclick="startPipelineProcess()">
                 <i data-feather="zap"></i> Auto-Edit Master
             </button>
@@ -379,7 +382,8 @@
                 </div>
                 <div class="hf-header-actions">
                     <button class="btn btn-secondary" onclick="copyHyperframeCode()"><i data-feather="copy"></i> Copy Code</button>
-                    <button class="btn btn-primary" onclick="applyHyperframeToPlayer()"><i data-feather="check"></i> Apply to Active Video</button>
+                    <button class="btn btn-secondary" onclick="applyHyperframeToPlayer()"><i data-feather="eye"></i> Preview on Player</button>
+                    <button class="btn btn-primary" style="background: linear-gradient(135deg, #a855f7, #6366f1); border: none;" onclick="burnHyperframeToVideo()"><i data-feather="film"></i> Burn into Vlog Video</button>
                     <button class="icon-btn close-modal-btn" onclick="closeHyperframesStudio()"><i data-feather="x"></i></button>
                 </div>
             </div>

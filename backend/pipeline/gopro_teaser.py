@@ -148,13 +148,50 @@ def build_gopro_30s_summary(
     if progress_callback:
         progress_callback(10, "Designing GoPro 30s Kinetic Timeline...")
 
-    total_shots = len(GOPRO_BLUEPRINT)
-
-    for idx, (fname, start_s, dur, motion, title, emoji) in enumerate(GOPRO_BLUEPRINT):
+    # Discover shots: check blueprint first, or dynamically adapt to ANY raw_input clips
+    active_shots = []
+    for fname, start_s, dur, motion, title, emoji in GOPRO_BLUEPRINT:
         clip_p = RAW_INPUT_DIR / fname
-        if not clip_p.exists():
-            continue
+        if clip_p.exists():
+            active_shots.append((clip_p, start_s, dur, motion, title, emoji))
 
+    # If fewer than 5 blueprint clips exist, dynamically build a 30s montage from active raw clips!
+    if len(active_shots) < 5:
+        exts = {".mov", ".mp4", ".m4v"}
+        all_raw = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
+        all_raw = [f for f in all_raw if not any(w in f.name.lower() for w in ["test", "sample"])]
+
+        dynamic_motifs = [
+            ("whip_zoom_in", "FULL ON THROTTLE", "⚡🚗"),
+            ("orbital_sweep", "HIGHWAY EXPEDITION", "🛣️✨"),
+            ("speed_ramp", "ROAD TRIP VIBES", "🚀💨"),
+            ("drone_fly_through", "INTO THE HORIZON", "🌄🔥"),
+            ("punch_zoom", "PURE ENERGY", "🎉💪"),
+            ("tilt_up", "NEXT DESTINATION", "📍✨"),
+            ("whip_pan_right", "SPEEDING AHEAD", "💨⚡"),
+            ("drone_ascend", "PANORAMIC CRUISE", "🏞️🌟"),
+            ("zoom_out_reveal", "UNSTOPPABLE", "🌟💪"),
+            ("slow_cinematic", "MEMORIES MADE", "🎬❤️")
+        ]
+
+        if all_raw:
+            num_clips = min(len(all_raw), 14)
+            slice_dur = round(30.0 / num_clips, 2)
+            active_shots = []
+            for i in range(num_clips):
+                cp = all_raw[i]
+                meta = probe_media(str(cp))
+                file_dur = meta.get("duration", 5.0)
+                st = 0.5 if file_dur > (slice_dur + 1.0) else 0.0
+                m_type, title, emoji = dynamic_motifs[i % len(dynamic_motifs)]
+                active_shots.append((cp, st, slice_dur, m_type, title, emoji))
+
+    total_shots = len(active_shots)
+    if total_shots == 0:
+        raise RuntimeError("No raw video clips found in raw_input/ to generate GoPro teaser.")
+
+    for idx, (clip_p, start_s, dur, motion, title, emoji) in enumerate(active_shots):
+        fname = clip_p.name
         pct = int(15 + (idx / total_shots) * 65)
         if progress_callback:
             progress_callback(pct, f"[{idx+1}/{total_shots}] Animating {fname} ({motion})")

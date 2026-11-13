@@ -1128,4 +1128,47 @@ async function openExportFolderFromPopup() {
     }
 }
 
+// ---------------- BURN HYPERFRAME INTO VIDEO / VLOG ----------------
+async function burnHyperframeToVideo() {
+    const htmlEl = document.getElementById("hf-code-html");
+    const html = htmlEl ? htmlEl.value : "";
+    const activeFilename = activeFile ? activeFile.filename : (rawFiles.length > 0 ? rawFiles[0].filename : "");
+
+    showToast("Rendering broadcast HyperFrame lower-third into your vlog... 🎬", "info");
+
+    try {
+        const res = await fetch("/api/hyperframes/burn-to-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                html: html,
+                filename: activeFilename,
+                start_time: 1.5,
+                duration: 6.0
+            })
+        });
+
+        const data = await res.json();
+        if (data.status === "success") {
+            closeHyperframesStudio();
+            showToast(`Vlog with '${data.title}' Lower-Third rendered! 🚀`, "success");
+            loadVideoIntoPlayer(data.url, true, data.filename);
+            await fetchExportFiles();
+
+            showCompletionModal({
+                duration: "6.0s Overlay",
+                size: data.filename,
+                filename: data.filename,
+                url: data.url
+            });
+        } else {
+            showToast("Failed to burn HyperFrame: " + (data.message || "Unknown error"), "error");
+        }
+    } catch (e) {
+        console.error("Burn error:", e);
+        showToast("Error burning HyperFrame into video", "error");
+    }
+}
+
+
 
