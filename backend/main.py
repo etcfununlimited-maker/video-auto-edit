@@ -405,8 +405,10 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             loop = asyncio.get_event_loop()
             def on_progress(p_val, p_msg):
                 try:
+                    # Provide realistic remaining ETA seconds (p_val=90 gives ~20s, p_val=95 gives ~10s)
+                    rem_sec = max(5, int((100 - p_val) * 2.0)) if p_val < 100 else 0
                     asyncio.run_coroutine_threadsafe(
-                        update_grid("grid_render", "in_progress", p_val, 5, 8, p_msg, 0),
+                        update_grid("grid_render", "in_progress" if p_val < 100 else "completed", p_val, 5, rem_sec, p_msg, rem_sec),
                         loop
                     )
                 except Exception:

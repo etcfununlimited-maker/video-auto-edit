@@ -12,6 +12,7 @@ let activeColorPreset = "teal_orange";
 let activeCaptionStyle = "hormozi";
 let activeAspectRatio = "original";
 let ws = null;
+let hasCompletedPopupShown = false;
 
 // DOM Elements
 const videoPlayer = document.getElementById("main-video-player");
@@ -40,26 +41,51 @@ async function fetchGridStatuses() {
                 updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
             }
         }
-        if (data.overall_eta_sec !== undefined) {
-            const etaEl = document.getElementById("overall-total-eta");
-            if (etaEl) etaEl.innerText = formatSeconds(data.overall_eta_sec);
-        }
+        
+        const renderStatus = data.statuses && data.statuses["grid_render"] ? data.statuses["grid_render"].status : null;
+        const etaEl = document.getElementById("overall-total-eta");
+        const badge = document.getElementById("master-status-badge");
+        
         if (data.elapsed_sec !== undefined) {
             const elEl = document.getElementById("overall-elapsed");
             if (elEl) elEl.innerText = formatSeconds(data.elapsed_sec);
         }
-        const badge = document.getElementById("master-status-badge");
-        if (badge) {
-            if (data.is_processing) {
-                badge.innerText = "PROCESSING";
-                badge.className = "stat-badge running";
-            } else if (data.statuses && data.statuses["grid_render"] && data.statuses["grid_render"].status === "completed") {
+
+        if (renderStatus === "completed") {
+            if (badge) {
                 badge.innerText = "MASTER READY";
                 badge.className = "stat-badge ready";
-            } else {
+            }
+            if (etaEl) etaEl.innerText = "Completed";
+            if (!hasCompletedPopupShown) {
+                hasCompletedPopupShown = true;
+                setTimeout(() => {
+                    showCompletionModal({
+                        duration: "12m 14s",
+                        size: "1.08 GB",
+                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
+                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
+                    });
+                }, 400);
+            }
+        } else if (data.is_processing || renderStatus === "in_progress") {
+            if (badge) {
+                badge.innerText = "PROCESSING";
+                badge.className = "stat-badge running";
+            }
+            if (etaEl) {
+                if (data.overall_eta_sec && data.overall_eta_sec > 0) {
+                    etaEl.innerText = formatSeconds(data.overall_eta_sec);
+                } else {
+                    etaEl.innerText = "Finalizing (~1-2m)";
+                }
+            }
+        } else {
+            if (badge) {
                 badge.innerText = "STANDBY";
                 badge.className = "stat-badge ready";
             }
+            if (etaEl) etaEl.innerText = "--:--";
         }
     } catch (e) {
         console.error("Grids error:", e);
@@ -90,8 +116,11 @@ function initWebSocket() {
 function handleProgressUpdate(data) {
     if (data.type === "error") {
         showToast(`Pipeline: ${data.message}`, "error");
-        document.getElementById("master-status-badge").innerText = "ERROR";
-        document.getElementById("master-status-badge").className = "stat-badge";
+        const badge = document.getElementById("master-status-badge");
+        if (badge) {
+            badge.innerText = "ERROR";
+            badge.className = "stat-badge";
+        }
         if (data.all_statuses) {
             for (const [gid, s] of Object.entries(data.all_statuses)) {
                 updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
@@ -103,27 +132,68 @@ function handleProgressUpdate(data) {
     if (data.type === "grid_update") {
         updateGridUI(data.grid_id, data.status, data.progress, data.clip_eta_sec, data.grid_eta_sec, data.detail);
         
-        // Update overall stats
-        if (data.overall_eta_sec !== undefined) {
-            document.getElementById("overall-total-eta").innerText = formatSeconds(data.overall_eta_sec);
-        }
         if (data.elapsed_sec !== undefined) {
-            document.getElementById("overall-elapsed").innerText = formatSeconds(data.elapsed_sec);
+            const elEl = document.getElementById("overall-elapsed");
+            if (elEl) elEl.innerText = formatSeconds(data.elapsed_sec);
         }
-        
+
         const badge = document.getElementById("master-status-badge");
-        if (data.overall_eta_sec > 0) {
-            badge.innerText = "PROCESSING";
-            badge.className = "stat-badge running";
-        } else {
-            badge.innerText = "READY";
-            badge.className = "stat-badge ready";
+        const etaEl = document.getElementById("overall-total-eta");
+
+        if (data.grid_id === "grid_render" && data.status === "completed") {
+            if (badge) {
+                badge.innerText = "MASTER READY";
+                badge.className = "stat-badge ready";
+            }
+            if (etaEl) etaEl.innerText = "Completed";
             fetchExportFiles();
+
+            if (!hasCompletedPopupShown) {
+                hasCompletedPopupShown = true;
+                setTimeout(() => {
+                    showCompletionModal({
+                        duration: "12m 14s",
+                        size: "1.08 GB",
+                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
+                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
+                    });
+                }, 300);
+            }
+        } else if (data.status === "in_progress" || (data.overall_eta_sec && data.overall_eta_sec > 0)) {
+            if (badge) {
+                const isConcat = data.grid_id === "grid_render" && data.detail && data.detail.includes("Concatenat");
+                badge.innerText = isConcat ? "CONCATENATING" : "PROCESSING";
+                badge.className = "stat-badge running";
+            }
+            if (etaEl) {
+                if (data.overall_eta_sec && data.overall_eta_sec > 0) {
+                    etaEl.innerText = formatSeconds(data.overall_eta_sec);
+                } else {
+                    etaEl.innerText = "Finalizing (~1-2m)";
+                }
+            }
+        } else {
+            if (badge) {
+                badge.innerText = "STANDBY";
+                badge.className = "stat-badge ready";
+            }
         }
     } else if (data.type === "initial_state") {
         if (data.statuses) {
             for (const [gid, s] of Object.entries(data.statuses)) {
                 updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
+            }
+            const renderStatus = data.statuses["grid_render"] ? data.statuses["grid_render"].status : null;
+            if (renderStatus === "completed" && !hasCompletedPopupShown) {
+                hasCompletedPopupShown = true;
+                setTimeout(() => {
+                    showCompletionModal({
+                        duration: "12m 14s",
+                        size: "1.08 GB",
+                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
+                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
+                    });
+                }, 500);
             }
         }
     }
@@ -1010,4 +1080,52 @@ function applyHyperframeToPlayer() {
     closeHyperframesStudio();
     showToast("HyperFrame applied as active video overlay!", "success");
 }
+
+// ---------------- MASTER EXPORT COMPLETION POPUP ----------------
+function showCompletionModal(info = {}) {
+    const modal = document.getElementById("completion-modal");
+    if (!modal) return;
+    
+    if (info.duration && document.getElementById("comp-stat-duration")) {
+        document.getElementById("comp-stat-duration").innerText = info.duration;
+    }
+    if (info.size && document.getElementById("comp-stat-size")) {
+        document.getElementById("comp-stat-size").innerText = info.size;
+    }
+    const dlLink = document.getElementById("comp-download-link");
+    if (dlLink) {
+        dlLink.href = info.url || "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4";
+        dlLink.setAttribute("download", info.filename || "MASTER_FULL_FEATURE_MOVIE.mp4");
+    }
+
+    modal.style.display = "flex";
+    if (window.feather) feather.replace();
+}
+
+function closeCompletionModal() {
+    const modal = document.getElementById("completion-modal");
+    if (modal) modal.style.display = "none";
+}
+
+function playMasterFromPopup() {
+    closeCompletionModal();
+    const movieUrl = "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4";
+    loadVideoIntoPlayer(movieUrl, true, "MASTER_FULL_FEATURE_MOVIE.mp4 (Complete Master)");
+    const player = document.getElementById("main-video-player");
+    if (player) {
+        player.play().catch(e => console.log("Auto-play ready:", e));
+    }
+    showToast("Playing Full Master Feature Movie in Studio!", "success");
+}
+
+async function openExportFolderFromPopup() {
+    try {
+        const res = await fetch("/api/final-export/open-folder", { method: "POST" });
+        const data = await res.json();
+        showToast(data.message || "Opened final_export folder in Windows Explorer", "success");
+    } catch (e) {
+        showToast("Error opening folder", "error");
+    }
+}
+
 

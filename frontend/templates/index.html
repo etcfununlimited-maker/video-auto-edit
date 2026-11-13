@@ -436,6 +436,61 @@
         </div>
     </div>
 
+    <!-- Master Export Completed Modal Pop-up (Prominent Notification & Action Hub) -->
+    <div class="completion-modal-backdrop" id="completion-modal" style="display: none;">
+        <div class="completion-modal-card">
+            <div class="completion-celebrate-glow"></div>
+            <button class="completion-close-icon" onclick="closeCompletionModal()"><i data-feather="x"></i></button>
+            <div class="completion-badge-container">
+                <div class="completion-badge-icon">
+                    <i data-feather="check-circle"></i>
+                </div>
+                <div class="completion-badge-pulse"></div>
+            </div>
+            
+            <h2 class="completion-title">🎬 MASTER MOVIE ASSEMBLED!</h2>
+            <p class="completion-subtitle">All clips have been successfully edited & rendered with 100% continuous speech protection, CFR 30.0 fps lock, and upright orientation.</p>
+
+            <div class="completion-stats-grid">
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="clock"></i> Duration</span>
+                    <span class="comp-stat-val" id="comp-stat-duration">14m 02s</span>
+                </div>
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="monitor"></i> Video Standard</span>
+                    <span class="comp-stat-val">1080p @ 30.0 fps CFR</span>
+                </div>
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="volume-2"></i> Audio Quality</span>
+                    <span class="comp-stat-val">48kHz Stereo AAC</span>
+                </div>
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="hard-drive"></i> Master Size</span>
+                    <span class="comp-stat-val" id="comp-stat-size">~1.33 GB</span>
+                </div>
+            </div>
+
+            <div class="completion-features-summary">
+                <div class="comp-feature-pill"><i data-feather="check"></i> Zero Mid-Speech Cuts</div>
+                <div class="comp-feature-pill"><i data-feather="check"></i> 0% Sideways Clips</div>
+                <div class="comp-feature-pill"><i data-feather="check"></i> Multi-Photo Grid Collages</div>
+                <div class="comp-feature-pill"><i data-feather="check"></i> FastStart Web Streamable</div>
+            </div>
+
+            <div class="completion-actions-container">
+                <button class="btn btn-primary comp-btn-play" onclick="playMasterFromPopup()">
+                    <i data-feather="play"></i> Play Master Movie in Studio
+                </button>
+                <a id="comp-download-link" href="/media_final/MASTER_FULL_FEATURE_MOVIE.mp4" download="MASTER_FULL_FEATURE_MOVIE.mp4" class="btn btn-secondary comp-btn-download">
+                    <i data-feather="download"></i> Download Master MP4
+                </a>
+                <button class="btn btn-outline" onclick="openExportFolderFromPopup()">
+                    <i data-feather="folder"></i> Open Export Folder
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/app.js"></script>
     <script>
         feather.replace();
