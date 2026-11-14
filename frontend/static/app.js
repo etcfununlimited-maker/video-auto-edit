@@ -839,8 +839,14 @@ function highlightCurrentSpokenWord(currentTime) {
     });
 
     // Update kinetic caption bubble (Face-Safe lower third)
-    if (activeWordObj) {
-        captionBubble.innerHTML = `<span class="highlight-word">${activeWordObj.word.toUpperCase()}</span>`;
+    if (captionBubble) {
+        if (activeWordObj) {
+            captionBubble.style.display = "inline-block";
+            captionBubble.innerHTML = `<span class="highlight-word">${activeWordObj.word.toUpperCase()}</span>`;
+        } else {
+            captionBubble.style.display = "none";
+            captionBubble.innerHTML = "";
+        }
     }
 }
 
