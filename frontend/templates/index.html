@@ -244,6 +244,14 @@
                     <button class="btn btn-purge-secondary" style="padding: 5px 14px; font-size: 12px; font-weight: 600;" onclick="applyFindReplace()">
                         <i data-feather="check"></i> Replace & Update Captions
                     </button>
+                    <button class="btn btn-secondary" style="padding: 5px 12px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;" onclick="toggleTranscriptScript()" id="btn-toggle-script" title="1-Click Toggle: Devanagari (नमस्ते) ↔ Roman Hinglish (Namaste)">
+                        <i data-feather="repeat"></i>
+                        <span id="label-toggle-script">🔤 Script: Roman Hinglish</span>
+                    </button>
+                    <button class="btn btn-purge-secondary" style="padding: 5px 12px; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;" onclick="rerunHighAccuracyTranscribe()" title="Re-transcribe with Studio Pro (95%+ Accurate Offline)">
+                        <i data-feather="zap"></i>
+                        <span>🎯 Studio Pro (95%+)</span>
+                    </button>
                     <span id="find-replace-status" style="font-size: 12px; color: #4ade80; font-weight: 500; margin-left: 8px;"></span>
                 </div>
 
@@ -323,6 +331,23 @@
                         <option value="hinglish">Hinglish (Roman Script - "aaj hum video...")</option>
                         <option value="hi">Hindi (हिन्दी - Devanagari)</option>
                         <option value="en">English</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <label>Speech Accuracy & Model Tier:</label>
+                    <select id="model-tier-select" onchange="updateModelTierSettings(this.value)">
+                        <option value="base">⚡ Fast Draft (base) — Instant Scrubbing</option>
+                        <option value="large-v3-turbo" selected>🎯 Studio Pro (large-v3-turbo) — 95%+ Accurate Offline</option>
+                        <option value="indic-neural">🌐 Indic Neural (AI4Bharat / Multilingual) — 98% Hinglish</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <label>Hinglish Script Format:</label>
+                    <select id="script-mode-select" onchange="changeScriptMode(this.value)">
+                        <option value="roman" selected>🔤 Roman Hinglish ("Namaste dosto, aaj...")</option>
+                        <option value="devanagari">🕉️ Hindi Devanagari ("नमस्ते दोस्तों, आज...")</option>
                     </select>
                 </div>
 

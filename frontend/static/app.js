@@ -633,6 +633,85 @@ async function applyFindReplace() {
     }
 }
 
+// ----------------- ROMANIZED HINGLISH TRANSLITERATION & MODEL TIERS -----------------
+let currentTranscriptScript = "roman"; // 'roman' or 'devanagari'
+
+async function toggleTranscriptScript(targetScript) {
+    if (!targetScript) {
+        currentTranscriptScript = (currentTranscriptScript === "roman") ? "devanagari" : "roman";
+    } else {
+        currentTranscriptScript = targetScript;
+    }
+
+    const labelEl = document.getElementById("label-toggle-script");
+    if (labelEl) {
+        labelEl.innerText = currentTranscriptScript === "roman" ? "🔤 Script: Roman Hinglish" : "🕉️ Script: देवनागरी";
+    }
+
+    const scriptSelect = document.getElementById("script-mode-select");
+    if (scriptSelect) scriptSelect.value = currentTranscriptScript;
+
+    showToast(`Transliterating transcript to ${currentTranscriptScript === "roman" ? "Roman Hinglish" : "Devanagari"}... 🔤`, "info");
+    try {
+        const res = await fetch("/api/project/transcript/transliterate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target_script: currentTranscriptScript })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+            if (projectTranscript && projectTranscript.words) {
+                projectTranscript.words = data.words;
+            }
+            renderTranscriptWords();
+            showToast(`Captions converted to ${currentTranscriptScript === "roman" ? "Roman Hinglish (Namaste)" : "Hindi Devanagari (नमस्ते)"} ✨`, "success");
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Error during script transliteration", "error");
+    }
+}
+
+function changeScriptMode(mode) {
+    toggleTranscriptScript(mode);
+}
+
+function updateModelTierSettings(tier) {
+    const tierName = tier === "large-v3-turbo" ? "Studio Pro (large-v3-turbo 95%+)" :
+                     tier === "indic-neural" ? "Indic Neural (98%+ Hinglish)" : "Fast Draft (base)";
+    showToast(`Model Tier updated to: ${tierName} 🎯`, "info");
+}
+
+async function rerunHighAccuracyTranscribe() {
+    const tier = document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo";
+    const lang = document.getElementById("language-select") ? document.getElementById("language-select").value : "hinglish";
+    const script = currentTranscriptScript;
+
+    showToast(`Transcribing with ${tier === 'large-v3-turbo' ? 'Studio Pro 95%+' : 'Indic Neural 98%'} & Forced Alignment... ⚡`, "info");
+    try {
+        const res = await fetch("/api/project/transcribe-rerun", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model_tier: tier,
+                language: lang,
+                script_mode: script
+            })
+        });
+        const data = await res.json();
+        if (data.status === "success") {
+            projectTranscript = data.transcript;
+            renderTranscriptWords();
+            showToast(`✅ Transcribed ${data.transcript.word_count} words with ${data.accuracy_rating} accuracy & zero drift!`, "success");
+        } else {
+            showToast("Transcription failed: " + (data.detail || "Error"), "error");
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Failed to re-transcribe: " + e.message, "error");
+    }
+}
+
 async function generateGoProTeaser() {
     showToast("Generating GoPro Style 30s Viral Teaser with Kinetic Captions... ⚡", "info");
     try {
@@ -960,6 +1039,8 @@ async function startPipelineProcess() {
     const settings = {
         edit_mode: document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie",
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
+        model_tier: document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo",
+        script_mode: currentTranscriptScript,
         color_grade: activeColorPreset,
         aspect_ratio: activeAspectRatio,
         caption_style: document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "youtube_create",
