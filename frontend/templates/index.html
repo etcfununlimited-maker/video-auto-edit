@@ -661,6 +661,7 @@
                             <button class="tool-btn" data-tool="ripple" onclick="setEditorTool('ripple')" title="Ripple Edit (B)"><i data-feather="align-left"></i></button>
                             <button class="tool-btn" data-tool="text" onclick="setEditorTool('text')" title="Text Tool (T)"><i data-feather="type"></i></button>
                             <button class="tool-btn" onclick="deleteSelectedTimelineClip()" title="Delete Selected Clip (Del)"><i data-feather="trash-2"></i></button>
+                            <button class="tool-btn" onclick="rippleDeleteAllTimelineGaps()" title="Snap to 0:00 / Ripple Delete Gaps (Magnet)" style="color:#38bdf8;"><i data-feather="chevrons-left"></i></button>
                         </div>
 
                         <div style="display:flex; align-items:center; gap:10px;">
@@ -683,7 +684,7 @@
                         </div>
 
                         <!-- Multi-Track Canvas -->
-                        <div class="timeline-tracks-scroll">
+                        <div class="timeline-tracks-scroll" oncontextmenu="showTimelineTrackContextMenu(event)">
                             <!-- Video Track V3 (Titles & Stickers) -->
                             <div class="track-lane">
                                 <div class="track-header">

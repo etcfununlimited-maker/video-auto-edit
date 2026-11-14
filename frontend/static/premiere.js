@@ -244,11 +244,13 @@ function renderTimelineTracks() {
                 <div class="timeline-clip-block ${trackClass} ${isSelected ? 'selected' : ''}"
                      id="timeline-clip-${c.id}"
                      style="left: ${leftPx}px; width: ${widthPx}px;"
+                     onmousedown="startClipDrag(event, '${c.id}')"
                      onclick="selectTimelineClip('${c.id}')"
+                     oncontextmenu="showClipContextMenu(event, '${c.id}')"
                      title="${c.name} (${c.duration.toFixed(1)}s)">
                     <div class="clip-trim-handle-left" onmousedown="startClipTrim(event, '${c.id}', 'left')"></div>
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.name}</span>
-                    <span style="font-size:9.5px; opacity:0.8;">${c.duration.toFixed(1)}s</span>
+                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none;">${c.name}</span>
+                    <span style="font-size:9.5px; opacity:0.8; pointer-events:none;">${c.duration.toFixed(1)}s</span>
                     <div class="clip-trim-handle-right" onmousedown="startClipTrim(event, '${c.id}', 'right')"></div>
                 </div>
             `;
@@ -824,6 +826,300 @@ function onClipTrimEnd(e) {
     if (clip) {
         showToast(`Clip '${clip.name}' trimmed to ${clip.duration.toFixed(1)}s`, "info");
     }
+}
+
+// ----------------- INTERACTIVE TIMELINE CLIP DRAGGING & SNAPPING -----------------
+let isDraggingClip = false;
+let dragClipId = null;
+let dragStartX = 0;
+let dragOrigStart = 0;
+let hasDragged = false;
+
+function startClipDrag(e, clipId) {
+    if (e.button !== 0) return; // Only left-click drags
+    if (activeEditorTool === "razor") return; // Razor cut tool has its own click action
+
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    isDraggingClip = true;
+    hasDragged = false;
+    dragClipId = clipId;
+    dragStartX = e.clientX;
+    dragOrigStart = clip.timeline_start;
+
+    selectedTimelineClipIndex = clipId;
+    renderTimelineTracks();
+
+    document.addEventListener("mousemove", onClipDragMove);
+    document.addEventListener("mouseup", onClipDragEnd);
+}
+
+function onClipDragMove(e) {
+    if (!isDraggingClip) return;
+    const deltaX = e.clientX - dragStartX;
+    if (Math.abs(deltaX) > 3) {
+        hasDragged = true;
+    }
+
+    const clip = activeTimelineClips.find(c => c.id === dragClipId);
+    if (!clip) return;
+
+    const deltaSec = deltaX / timelineZoomPxPerSec;
+    let newStartSec = Math.max(0, dragOrigStart + deltaSec);
+
+    // Magnetic Snapping thresholds (~18px snap radius)
+    const snapThresholdSec = 18.0 / timelineZoomPxPerSec;
+    let isSnapped = false;
+
+    // 1. Snap to 0:00 (Beginning of Timeline)
+    if (newStartSec <= snapThresholdSec) {
+        newStartSec = 0.0;
+        isSnapped = true;
+    }
+
+    // 2. Snap to Playhead
+    if (Math.abs(newStartSec - timelinePlayheadSec) <= snapThresholdSec) {
+        newStartSec = timelinePlayheadSec;
+        isSnapped = true;
+    }
+
+    // 3. Snap to adjacent clips on the same track
+    const otherClips = activeTimelineClips.filter(c => c.id !== dragClipId && c.track === clip.track);
+    for (const oc of otherClips) {
+        const ocEnd = oc.timeline_start + oc.duration;
+        if (Math.abs(newStartSec - ocEnd) <= snapThresholdSec) {
+            newStartSec = ocEnd;
+            isSnapped = true;
+            break;
+        }
+        const clipEnd = newStartSec + clip.duration;
+        if (Math.abs(clipEnd - oc.timeline_start) <= snapThresholdSec) {
+            newStartSec = Math.max(0, oc.timeline_start - clip.duration);
+            isSnapped = true;
+            break;
+        }
+    }
+
+    clip.timeline_start = newStartSec;
+
+    // Live visual position & snapping border highlight
+    const clipEl = document.getElementById(`timeline-clip-${clip.id}`);
+    if (clipEl) {
+        clipEl.style.left = `${newStartSec * timelineZoomPxPerSec}px`;
+        clipEl.style.boxShadow = isSnapped ? "0 0 14px #38bdf8, 0 0 4px #fff" : "0 0 8px rgba(251, 191, 36, 0.6)";
+        clipEl.style.borderColor = isSnapped ? "#38bdf8" : "#fbbf24";
+    }
+}
+
+function onClipDragEnd(e) {
+    if (!isDraggingClip) return;
+    isDraggingClip = false;
+    document.removeEventListener("mousemove", onClipDragMove);
+    document.removeEventListener("mouseup", onClipDragEnd);
+
+    const clip = activeTimelineClips.find(c => c.id === dragClipId);
+    if (clip && hasDragged) {
+        renderTimelineTracks();
+        syncProgramMonitorToPlayhead();
+        showToast(`Clip positioned at ${formatEditorTimecode(clip.timeline_start)} 🧲`, "info");
+    }
+}
+
+// ----------------- PREMIERE PRO RIGHT-CLICK CONTEXT MENU -----------------
+function showClipContextMenu(e, clipId) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    selectedTimelineClipIndex = clipId;
+    renderTimelineTracks();
+
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    removeContextMenu();
+
+    const menu = document.createElement("div");
+    menu.id = "p-context-menu";
+    menu.className = "premiere-context-menu";
+    menu.style.left = `${Math.min(window.innerWidth - 230, e.clientX)}px`;
+    menu.style.top = `${Math.min(window.innerHeight - 280, e.clientY)}px`;
+
+    menu.innerHTML = `
+        <div class="premiere-menu-item" onclick="snapClipToBeginning('${clip.id}')">
+            <span>⚡ Snap to Beginning (0:00)</span>
+        </div>
+        <div class="premiere-menu-item" onclick="rippleDeleteLeadingGap('${clip.id}')">
+            <span>✂️ Ripple Delete Gap to 0:00</span>
+        </div>
+        <div class="premiere-menu-item" onclick="closeGapToPrevious('${clip.id}')">
+            <span>🧲 Close Gap to Previous Clip</span>
+        </div>
+        <div class="premiere-menu-divider"></div>
+        <div class="premiere-menu-item" onclick="executeRazorCutAtPlayhead()">
+            <span>✂️ Split at Playhead (C)</span>
+        </div>
+        <div class="premiere-menu-item" onclick="duplicateTimelineClip('${clip.id}')">
+            <span>📋 Duplicate Clip</span>
+        </div>
+        <div class="premiere-menu-divider"></div>
+        <div class="premiere-menu-item danger" onclick="deleteSelectedTimelineClip()">
+            <span>🗑️ Delete Clip (Del)</span>
+        </div>
+    `;
+
+    document.body.appendChild(menu);
+
+    setTimeout(() => {
+        document.addEventListener("click", removeContextMenu, { once: true });
+        document.addEventListener("contextmenu", removeContextMenu, { once: true });
+    }, 50);
+}
+
+function showTimelineTrackContextMenu(e) {
+    if (e.target.closest(".timeline-clip-block")) return;
+    e.preventDefault();
+
+    removeContextMenu();
+
+    const menu = document.createElement("div");
+    menu.id = "p-context-menu";
+    menu.className = "premiere-context-menu";
+    menu.style.left = `${Math.min(window.innerWidth - 240, e.clientX)}px`;
+    menu.style.top = `${Math.min(window.innerHeight - 200, e.clientY)}px`;
+
+    menu.innerHTML = `
+        <div class="premiere-menu-item" onclick="rippleDeleteAllTimelineGaps()">
+            <span>⚡ Snap to 0:00 / Close All Leading Gaps</span>
+        </div>
+        <div class="premiere-menu-item" onclick="autoPopulateInitialTimeline()">
+            <span>🔄 Reset Sequence to Beginning</span>
+        </div>
+        <div class="premiere-menu-divider"></div>
+        <div class="premiere-menu-item" onclick="seekTimelinePlayhead(0.0); removeContextMenu();">
+            <span>⏮️ Move Playhead to 0:00</span>
+        </div>
+    `;
+
+    document.body.appendChild(menu);
+
+    setTimeout(() => {
+        document.addEventListener("click", removeContextMenu, { once: true });
+        document.addEventListener("contextmenu", removeContextMenu, { once: true });
+    }, 50);
+}
+
+function removeContextMenu() {
+    const existing = document.getElementById("p-context-menu");
+    if (existing) existing.remove();
+}
+
+function snapClipToBeginning(clipId) {
+    removeContextMenu();
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    const oldStart = clip.timeline_start;
+    const shiftSec = oldStart - 0.0;
+    clip.timeline_start = 0.0;
+
+    // Shift all subsequent clips on the same track
+    activeTimelineClips.forEach(c => {
+        if (c.track === clip.track && c.id !== clip.id && c.timeline_start > oldStart) {
+            c.timeline_start = Math.max(0, c.timeline_start - shiftSec);
+        }
+    });
+
+    renderTimelineTracks();
+    seekTimelinePlayhead(0.0);
+    showToast(`⚡ Snapped '${clip.name}' to 00:00:00:00!`, "success");
+}
+
+function rippleDeleteLeadingGap(clipId) {
+    removeContextMenu();
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    const gapSec = clip.timeline_start;
+    if (gapSec <= 0.05) {
+        showToast("Clip is already at 0:00!", "info");
+        return;
+    }
+
+    // Shift all clips on this track left by gapSec
+    activeTimelineClips.forEach(c => {
+        if (c.track === clip.track) {
+            c.timeline_start = Math.max(0, c.timeline_start - gapSec);
+        }
+    });
+
+    renderTimelineTracks();
+    seekTimelinePlayhead(0.0);
+    showToast(`✂️ Ripple deleted ${gapSec.toFixed(1)}s gap! Snapped to 0:00 🧲`, "success");
+}
+
+function closeGapToPrevious(clipId) {
+    removeContextMenu();
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    const prevClips = activeTimelineClips.filter(c => c.track === clip.track && c.timeline_start < clip.timeline_start);
+    if (prevClips.length === 0) {
+        snapClipToBeginning(clipId);
+        return;
+    }
+
+    prevClips.sort((a, b) => (b.timeline_start + b.duration) - (a.timeline_start + a.duration));
+    const lastPrev = prevClips[0];
+    const targetStart = lastPrev.timeline_start + lastPrev.duration;
+
+    const oldStart = clip.timeline_start;
+    const shiftSec = oldStart - targetStart;
+    clip.timeline_start = targetStart;
+
+    activeTimelineClips.forEach(c => {
+        if (c.track === clip.track && c.id !== clip.id && c.timeline_start > oldStart) {
+            c.timeline_start = Math.max(0, c.timeline_start - shiftSec);
+        }
+    });
+
+    renderTimelineTracks();
+    seekTimelinePlayhead(targetStart);
+    showToast(`🧲 Closed gap! Snapped to ${formatEditorTimecode(targetStart)}`, "success");
+}
+
+function duplicateTimelineClip(clipId) {
+    removeContextMenu();
+    const clip = activeTimelineClips.find(c => c.id === clipId);
+    if (!clip) return;
+
+    const newClip = {
+        ...clip,
+        id: `clip_${Date.now()}`,
+        timeline_start: clip.timeline_start + clip.duration
+    };
+    activeTimelineClips.push(newClip);
+    renderTimelineTracks();
+    showToast(`📋 Duplicated '${clip.name}'`, "success");
+}
+
+function rippleDeleteAllTimelineGaps() {
+    removeContextMenu();
+    if (activeTimelineClips.length === 0) return;
+
+    const v1Clips = activeTimelineClips.filter(c => c.track === "V1").sort((a, b) => a.timeline_start - b.timeline_start);
+    if (v1Clips.length === 0) return;
+
+    const earliest = v1Clips[0].timeline_start;
+    if (earliest > 0) {
+        activeTimelineClips.forEach(c => {
+            c.timeline_start = Math.max(0, c.timeline_start - earliest);
+        });
+    }
+
+    renderTimelineTracks();
+    seekTimelinePlayhead(0.0);
+    showToast("⚡ Snapped to 0:00! All leading gaps closed 🧲", "success");
 }
 
 function pad(num) {
