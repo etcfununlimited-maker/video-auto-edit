@@ -677,6 +677,7 @@ class TranscribeRerunPayload(BaseModel):
     model_tier: Optional[str] = "large-v3-turbo"
     language: Optional[str] = "hinglish"
     script_mode: Optional[str] = "roman"
+    filename: Optional[str] = None
 
 @app.post("/api/project/transcribe-rerun")
 async def rerun_transcription_endpoint(payload: TranscribeRerunPayload):
@@ -688,7 +689,30 @@ async def rerun_transcription_endpoint(payload: TranscribeRerunPayload):
     available = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in exts])
     if not available:
         raise HTTPException(status_code=400, detail="No video media found to transcribe.")
-    active_clip = str(available[0])
+
+    active_clip = None
+    if payload.filename:
+        cand = RAW_INPUT_DIR / payload.filename
+        if cand.exists():
+            active_clip = str(cand)
+
+    if not active_clip:
+        active_clip = current_project.get("active_video_path")
+
+    if not active_clip or not Path(active_clip).exists():
+        # Prefer a clip with audio
+        for cand in available:
+            try:
+                meta = probe_media(str(cand))
+                if meta.get("has_audio"):
+                    active_clip = str(cand)
+                    break
+            except Exception:
+                pass
+        if not active_clip:
+            active_clip = str(available[0])
+
+    current_project["active_video_path"] = active_clip
 
     loop = asyncio.get_event_loop()
     transcript = await loop.run_in_executor(
