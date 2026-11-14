@@ -670,73 +670,76 @@
                         </div>
                     </div>
 
-                    <!-- Time Ruler -->
-                    <div class="timeline-ruler" id="p-timeline-ruler">
-                        <!-- Ruler ticks rendered by JS -->
-                    </div>
-
-                    <!-- Multi-Track Canvas -->
-                    <div class="timeline-tracks-scroll">
-                        <!-- Draggable Red Playhead Line -->
+                    <!-- Timeline Body with Contained Playhead -->
+                    <div class="timeline-body-container">
+                        <!-- Draggable Red Playhead Line (Contained within Timeline) -->
                         <div class="timeline-playhead-line" id="p-timeline-playhead">
                             <div class="timeline-playhead-head"></div>
                         </div>
 
-                        <!-- Video Track V3 (Titles & Stickers) -->
-                        <div class="track-lane">
-                            <div class="track-header">
-                                <span>V3 • Titles</span>
-                                <div class="track-controls">
-                                    <button class="trk-btn" id="trk-btn-lock-V3" onclick="toggleTrackLock('V3')" title="Toggle Lock"><i data-feather="lock"></i></button>
-                                </div>
-                            </div>
-                            <div class="track-content" id="track-content-V3"></div>
+                        <!-- Time Ruler -->
+                        <div class="timeline-ruler" id="p-timeline-ruler">
+                            <!-- Ruler ticks rendered by JS -->
                         </div>
 
-                        <!-- Video Track V2 (B-Roll & Overlays) -->
-                        <div class="track-lane">
-                            <div class="track-header">
-                                <span>V2 • Overlay</span>
-                                <div class="track-controls">
-                                    <button class="trk-btn" id="trk-btn-mute-V2" onclick="toggleTrackMute('V2')" title="Mute Track">M</button>
+                        <!-- Multi-Track Canvas -->
+                        <div class="timeline-tracks-scroll">
+                            <!-- Video Track V3 (Titles & Stickers) -->
+                            <div class="track-lane">
+                                <div class="track-header">
+                                    <span>V3 • Titles</span>
+                                    <div class="track-controls">
+                                        <button class="trk-btn" id="trk-btn-lock-V3" onclick="toggleTrackLock('V3')" title="Toggle Lock"><i data-feather="lock"></i></button>
+                                    </div>
                                 </div>
+                                <div class="track-content" id="track-content-V3"></div>
                             </div>
-                            <div class="track-content" id="track-content-V2"></div>
-                        </div>
 
-                        <!-- Video Track V1 (Main Footage) -->
-                        <div class="track-lane">
-                            <div class="track-header">
-                                <span>V1 • Master</span>
-                                <div class="track-controls">
-                                    <button class="trk-btn" id="trk-btn-mute-V1" onclick="toggleTrackMute('V1')" title="Mute Track">M</button>
+                            <!-- Video Track V2 (B-Roll & Overlays) -->
+                            <div class="track-lane">
+                                <div class="track-header">
+                                    <span>V2 • Overlay</span>
+                                    <div class="track-controls">
+                                        <button class="trk-btn" id="trk-btn-mute-V2" onclick="toggleTrackMute('V2')" title="Mute Track">M</button>
+                                    </div>
                                 </div>
+                                <div class="track-content" id="track-content-V2"></div>
                             </div>
-                            <div class="track-content" id="track-content-V1"></div>
-                        </div>
 
-                        <!-- Audio Track A1 (Dialogue / Voice) -->
-                        <div class="track-lane">
-                            <div class="track-header">
-                                <span>A1 • Voice</span>
-                                <div class="track-controls">
-                                    <button class="trk-btn" id="trk-btn-mute-A1" onclick="toggleTrackMute('A1')" title="Mute Audio">M</button>
-                                    <button class="trk-btn" id="trk-btn-solo-A1" onclick="toggleTrackSolo('A1')" title="Solo Audio">S</button>
+                            <!-- Video Track V1 (Main Footage) -->
+                            <div class="track-lane">
+                                <div class="track-header">
+                                    <span>V1 • Master</span>
+                                    <div class="track-controls">
+                                        <button class="trk-btn" id="trk-btn-mute-V1" onclick="toggleTrackMute('V1')" title="Mute Track">M</button>
+                                    </div>
                                 </div>
+                                <div class="track-content" id="track-content-V1"></div>
                             </div>
-                            <div class="track-content" id="track-content-A1"></div>
-                        </div>
 
-                        <!-- Audio Track A2 (Music & Soundtrack) -->
-                        <div class="track-lane">
-                            <div class="track-header">
-                                <span>A2 • Music</span>
-                                <div class="track-controls">
-                                    <button class="trk-btn" id="trk-btn-mute-A2" onclick="toggleTrackMute('A2')" title="Mute Audio">M</button>
-                                    <button class="trk-btn" id="trk-btn-solo-A2" onclick="toggleTrackSolo('A2')" title="Solo Audio">S</button>
+                            <!-- Audio Track A1 (Dialogue / Voice) -->
+                            <div class="track-lane">
+                                <div class="track-header">
+                                    <span>A1 • Voice</span>
+                                    <div class="track-controls">
+                                        <button class="trk-btn" id="trk-btn-mute-A1" onclick="toggleTrackMute('A1')" title="Mute Audio">M</button>
+                                        <button class="trk-btn" id="trk-btn-solo-A1" onclick="toggleTrackSolo('A1')" title="Solo Audio">S</button>
+                                    </div>
                                 </div>
+                                <div class="track-content" id="track-content-A1"></div>
                             </div>
-                            <div class="track-content" id="track-content-A2"></div>
+
+                            <!-- Audio Track A2 (Music & Soundtrack) -->
+                            <div class="track-lane">
+                                <div class="track-header">
+                                    <span>A2 • Music</span>
+                                    <div class="track-controls">
+                                        <button class="trk-btn" id="trk-btn-mute-A2" onclick="toggleTrackMute('A2')" title="Mute Audio">M</button>
+                                        <button class="trk-btn" id="trk-btn-solo-A2" onclick="toggleTrackSolo('A2')" title="Solo Audio">S</button>
+                                    </div>
+                                </div>
+                                <div class="track-content" id="track-content-A2"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
