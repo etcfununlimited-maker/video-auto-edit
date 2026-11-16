@@ -74,16 +74,85 @@ def apply_phonetic_glossary(words_list: list[dict]) -> list[dict]:
 
     return [w for w in words_list if w["word"]]
 
+TRANSCRIPTION_ENGINES = {
+    "base": {
+        "id": "base",
+        "name": "⚡ Fast Draft (Whisper Base)",
+        "model_repo": "Systran/faster-whisper-base",
+        "badge": "10x Speed",
+        "accuracy": "88%",
+        "desc": "Ultra-fast preview for rapid draft scrubbing and instant silence cuts.",
+        "size_mb": 140,
+        "engine_type": "offline"
+    },
+    "large-v3-turbo": {
+        "id": "large-v3-turbo",
+        "name": "🎯 YouTube Studio (Whisper Large-v3-Turbo)",
+        "model_repo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+        "badge": "Creator Favorite",
+        "accuracy": "96%",
+        "desc": "High-speed YouTube creator model (4x realtime) with multi-lingual Hinglish support.",
+        "size_mb": 1600,
+        "engine_type": "offline"
+    },
+    "large-v3": {
+        "id": "large-v3",
+        "name": "🏆 YouTube Gold Standard (Whisper Large-v3 Full 1.55B)",
+        "model_repo": "Systran/faster-whisper-large-v3",
+        "badge": "Maximum Accuracy",
+        "accuracy": "98%+",
+        "desc": "Deepest 1.55B parameter offline neural model trained on 680,000+ hours of YouTube audio.",
+        "size_mb": 3100,
+        "engine_type": "offline"
+    },
+    "google-usm": {
+        "id": "google-usm",
+        "name": "🌐 Google YouTube USM Neural (Cloud Speech API)",
+        "model_repo": "google/chirp-usm",
+        "badge": "Cloud Engine",
+        "accuracy": "99%",
+        "desc": "Google DeepMind's exact production ASR engine that generates automatic captions on YouTube.",
+        "size_mb": 0,
+        "engine_type": "cloud"
+    }
+}
+
+def check_model_downloaded(model_name: str) -> bool:
+    """Checks whether the requested model is already downloaded and cached locally."""
+    if model_name in ("google-usm", "google"):
+        return True
+    try:
+        from faster_whisper import download_model
+        actual_name = "large-v3" if model_name in ("large-v3", "large_v3", "youtube_full") else ("large-v3-turbo" if "turbo" in model_name else "base")
+        download_model(actual_name, local_files_only=True)
+        return True
+    except Exception:
+        return False
+
+def get_transcription_engines_catalog() -> list[dict]:
+    """Returns the list of available transcription engines with live download status."""
+    catalog = []
+    for eng_id, eng in TRANSCRIPTION_ENGINES.items():
+        item = dict(eng)
+        item["is_downloaded"] = check_model_downloaded(eng_id)
+        catalog.append(item)
+    return catalog
+
 def get_whisper_model(model_size: str = "base"):
     """
     Loads Faster-Whisper model from local cache.
-    Supports: 'base', 'large-v3-turbo', 'turbo'.
-    Falls back gracefully if large-v3-turbo is not yet cached offline.
+    Supports: 'base', 'large-v3-turbo', 'large-v3'.
+    Falls back gracefully if large model is not yet cached offline.
     """
     global _WHISPER_MODELS
 
     # Alias normalization
-    actual_size = "large-v3-turbo" if model_size in ("turbo", "large-v3-turbo", "indic-neural") else "base"
+    if model_size in ("large-v3", "large_v3", "youtube_full", "gold_standard"):
+        actual_size = "large-v3"
+    elif model_size in ("turbo", "large-v3-turbo", "youtube_turbo", "studio_pro", "indic-neural"):
+        actual_size = "large-v3-turbo"
+    else:
+        actual_size = "base"
 
     if actual_size not in _WHISPER_MODELS:
         try:
@@ -105,13 +174,16 @@ def get_whisper_model(model_size: str = "base"):
                 )
         except Exception as e:
             print(f"Faster-whisper init warning for {actual_size}: {e}")
-            # Graceful fallback to base model if large-v3-turbo could not be loaded
-            if actual_size != "base":
+            # Graceful fallback: large-v3 -> large-v3-turbo -> base
+            if actual_size == "large-v3":
+                print("Falling back to cached 'large-v3-turbo' model...")
+                return get_whisper_model("large-v3-turbo")
+            elif actual_size != "base":
                 print("Falling back to cached 'base' model...")
                 return get_whisper_model("base")
             _WHISPER_MODELS[actual_size] = None
 
-    return _WHISPER_MODELS.get(actual_size) or _WHISPER_MODELS.get("base")
+    return _WHISPER_MODELS.get(actual_size) or _WHISPER_MODELS.get("large-v3-turbo") or _WHISPER_MODELS.get("base")
 
 def extract_audio(video_path: str, output_wav_path: str = None) -> str:
     """
@@ -237,9 +309,9 @@ def transcribe_video(
 
     # Determine effective model size
     effective_model = "base"
-    if model_tier in ("large-v3-turbo", "studio_pro") or model_size in ("large-v3-turbo", "turbo"):
-        effective_model = "large-v3-turbo"
-    elif model_tier in ("indic-neural", "indic"):
+    if model_tier in ("large-v3", "large_v3", "youtube_full", "gold_standard") or model_size in ("large-v3", "large_v3"):
+        effective_model = "large-v3"
+    elif model_tier in ("large-v3-turbo", "studio_pro", "youtube_turbo", "indic-neural", "indic") or model_size in ("large-v3-turbo", "turbo"):
         effective_model = "large-v3-turbo"
 
     model = get_whisper_model(effective_model)

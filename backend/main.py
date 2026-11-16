@@ -931,6 +931,32 @@ class TranscribeRerunPayload(BaseModel):
     script_mode: Optional[str] = "roman"
     filename: Optional[str] = None
 
+class DownloadModelPayload(BaseModel):
+    model_id: str
+
+@app.get("/api/transcription/models")
+def get_transcription_models_endpoint():
+    """Returns available speech recognition models, YouTube ASR engines, and their download status."""
+    from backend.pipeline.transcriber import get_transcription_engines_catalog
+    return {
+        "status": "success",
+        "models": get_transcription_engines_catalog(),
+        "active_model": current_project.get("settings", {}).get("model_tier", "large-v3-turbo")
+    }
+
+@app.post("/api/transcription/download-model")
+async def download_transcription_model_endpoint(payload: DownloadModelPayload):
+    """Triggers downloading a speech recognition model weights file into local cache."""
+    from faster_whisper import download_model
+    model_id = payload.model_id
+    actual_name = "large-v3" if model_id in ("large-v3", "large_v3") else ("large-v3-turbo" if "turbo" in model_id else "base")
+    loop = asyncio.get_event_loop()
+    try:
+        path = await loop.run_in_executor(None, download_model, actual_name)
+        return {"status": "success", "model_id": model_id, "cached_path": str(path)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/project/transcribe-rerun")
 async def rerun_transcription_endpoint(payload: TranscribeRerunPayload):
     """

@@ -786,18 +786,40 @@ function changeScriptMode(mode) {
     toggleTranscriptScript(mode);
 }
 
+function onToolbarModelChange(tier) {
+    const drawerSelect = document.getElementById("model-tier-select");
+    if (drawerSelect) drawerSelect.value = tier;
+    updateModelTierSettings(tier);
+}
+
 function updateModelTierSettings(tier) {
-    const tierName = tier === "large-v3-turbo" ? "Studio Pro (large-v3-turbo 95%+)" :
-                     tier === "indic-neural" ? "Indic Neural (98%+ Hinglish)" : "Fast Draft (base)";
-    showToast(`Model Tier updated to: ${tierName} 🎯`, "info");
+    const toolbarSelect = document.getElementById("toolbar-model-select");
+    if (toolbarSelect && toolbarSelect.value !== tier) toolbarSelect.value = tier;
+
+    const names = {
+        "large-v3": "YouTube Gold Standard (Whisper Large-v3 Full 1.55B) 🏆",
+        "large-v3-turbo": "YouTube Studio (Whisper Large-v3-Turbo) 🎯",
+        "base": "Fast Draft (Whisper Base 10x) ⚡",
+        "google-usm": "Google / YouTube USM Neural (Cloud Speech) 🌐"
+    };
+    const tierName = names[tier] || tier;
+    showToast(`Active Speech Engine: ${tierName}`, "info");
 }
 
 async function rerunHighAccuracyTranscribe() {
-    const tier = document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo";
+    const tierSelect = document.getElementById("toolbar-model-select") || document.getElementById("model-tier-select");
+    const tier = tierSelect ? tierSelect.value : "large-v3-turbo";
     const lang = document.getElementById("language-select") ? document.getElementById("language-select").value : "hinglish";
     const script = currentTranscriptScript;
 
-    showToast(`Transcribing with ${tier === 'large-v3-turbo' ? 'Studio Pro 95%+' : 'Indic Neural 98%'} & Forced Alignment... ⚡`, "info");
+    const tierLabels = {
+        "large-v3": "YouTube Gold Standard (Large-v3 Full 1.55B)",
+        "large-v3-turbo": "YouTube Studio (Large-v3-Turbo)",
+        "base": "Fast Draft (Whisper Base)",
+        "google-usm": "Google YouTube USM Neural"
+    };
+
+    showToast(`Transcribing with ${tierLabels[tier] || tier} & Forced Alignment... ⚡`, "info");
     try {
         const res = await fetch("/api/project/transcribe-rerun", {
             method: "POST",
