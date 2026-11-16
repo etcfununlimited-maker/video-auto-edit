@@ -693,15 +693,25 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         await update_grid("grid_render", "completed", 100, 0, 0, f"Export complete: {master_filename} ({size_mb} MB) in final_export/", 0)
 
     except Exception as e:
-        print(f"Pipeline error: {e}")
+        import traceback
+        traceback.print_exc()
+        err_msg = str(e)
+        if isinstance(e, subprocess.CalledProcessError):
+            stderr_txt = e.stderr.decode("utf-8", errors="replace").strip() if e.stderr else ""
+            if stderr_txt:
+                err_lines = [l.strip() for l in stderr_txt.splitlines() if any(k in l.lower() for k in ["error", "invalid", "cannot", "failed"])]
+                err_msg = err_lines[-1] if err_lines else stderr_txt.splitlines()[-1]
+            else:
+                err_msg = f"Renderer failed with exit code {e.returncode}"
+        print(f"Pipeline error: {err_msg}")
         # Reset stuck grids to error status
         for gid, ginfo in current_project["grid_statuses"].items():
             if ginfo.get("status") == "in_progress":
                 ginfo["status"] = "error"
-                ginfo["detail"] = f"Failed: {str(e)[:50]}"
+                ginfo["detail"] = f"Failed: {err_msg[:60]}"
         await broadcast_progress({
             "type": "error",
-            "message": str(e),
+            "message": err_msg,
             "all_statuses": current_project["grid_statuses"]
         })
     finally:

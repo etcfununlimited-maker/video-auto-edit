@@ -36,10 +36,13 @@ from backend.pipeline.silence_remover import detect_spoken_retakes_pass1
 from backend.pipeline.smart_orientation import analyze_clip_orientation
 from backend.pipeline.color_grading import get_color_grade_filter
 
+MEDIA_EXTS = {".mov", ".mp4", ".m4v", ".avi", ".mkv", ".jpg", ".jpeg", ".png", ".heic", ".webp"}
+
 def deduplicate_and_sort_clips(clip_paths: list[str]) -> list[str]:
     """
     Deduplicates iPhone iOS pairs: when both IMG_XXXX.MOV and IMG_EXXXX.MOV exist,
     keeps the edited IMG_EXXXX version.
+    Strictly filters out non-media files (.AAE XML sidecars, system files, etc.).
     Strictly filters out test and sample clips (sample_vlog_iphone16.mp4, test_*, etc.).
     Sorts all authentic clips by numeric shot index into chronological storyline order.
     """
@@ -49,8 +52,18 @@ def deduplicate_and_sort_clips(clip_paths: list[str]) -> list[str]:
     for p in clip_paths:
         p_obj = Path(p)
         stem = p_obj.stem
+        ext = p_obj.suffix.lower()
+
+        # Reject non-media files (e.g. .AAE Apple XML sidecars)
+        if ext not in MEDIA_EXTS:
+            continue
+
         # Strict exclusion of test / sample clips
         if stem.lower().startswith("sample") or stem.lower().startswith("test") or "sample_vlog" in stem.lower():
+            continue
+
+        # Skip Apple 'IMG_O' originals if IMG_ or IMG_E exists
+        if stem.upper().startswith("IMG_O"):
             continue
 
         match = re.search(r'IMG_(?:E)?(\d+)', stem, re.IGNORECASE)
@@ -65,16 +78,17 @@ def deduplicate_and_sort_clips(clip_paths: list[str]) -> list[str]:
     sorted_numbered = [unique_map[k] for k in sorted(unique_map.keys(), key=lambda x: int(x))]
     return sorted_numbered + sorted(other_files)
 
-def is_photo_clip(dur: float, raw_fps: float, w: int, h: int) -> bool:
-    """Detects whether a clip is an iPhone Live Photo or still image capture."""
-    return (dur <= 3.2 and (raw_fps < 20.0 or w == 1440 or h == 1440 or (w == 1920 and h == 1440)))
+def is_photo_clip(file_path: str, dur: float, raw_fps: float, w: int, h: int) -> bool:
+    """Detects whether a clip is a still image (HEIC, JPG, PNG) or iPhone Live Photo."""
+    ext = Path(file_path).suffix.lower()
+    if ext in {".jpg", ".jpeg", ".png", ".heic", ".webp"}:
+        return True
+    return (dur <= 3.2 and (raw_fps < 20.0 or w == 1440 or h == 1440 or (w == 1920 and h == 1440) or dur <= 0.2))
 
 def render_photo_collage_segment(photo_paths: list[str], output_path: str, duration: float = 2.0) -> str:
     """
-    Composites 2, 3, or 4 photos into a dynamic multi-grid collage.
-    - 2 photos: Dual split (two 960x1080 columns)
-    - 3 photos: 3-column split (three 640x1080 columns)
-    - 4 photos: 2x2 grid (four 960x540 quadrants)
+    Composites 2, 3, or 4 photos into a dynamic multi-grid collage with CFR 30.0 fps
+    and continuous 48kHz stereo AAC audio for seamless concat demuxing.
     """
     k = len(photo_paths)
     inputs = []
@@ -82,20 +96,20 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
         inputs.extend(["-i", str(p)])
 
     if k == 2:
-        vf = (
+        grid_vf = (
             "[0:v]scale=956:1076:force_original_aspect_ratio=increase,crop=956:1076,pad=960:1080:2:2:color=black[v0];"
             "[1:v]scale=956:1076:force_original_aspect_ratio=increase,crop=956:1076,pad=960:1080:2:2:color=black[v1];"
             "[v0][v1]hstack=inputs=2,format=yuv420p[vout]"
         )
     elif k == 3:
-        vf = (
+        grid_vf = (
             "[0:v]scale=636:1076:force_original_aspect_ratio=increase,crop=636:1076,pad=640:1080:2:2:color=black[v0];"
             "[1:v]scale=636:1076:force_original_aspect_ratio=increase,crop=636:1076,pad=640:1080:2:2:color=black[v1];"
             "[2:v]scale=636:1076:force_original_aspect_ratio=increase,crop=636:1076,pad=640:1080:2:2:color=black[v2];"
             "[v0][v1][v2]hstack=inputs=3,format=yuv420p[vout]"
         )
     elif k == 4:
-        vf = (
+        grid_vf = (
             "[0:v]scale=956:536:force_original_aspect_ratio=increase,crop=956:536,pad=960:540:2:2:color=black[v0];"
             "[1:v]scale=956:536:force_original_aspect_ratio=increase,crop=956:536,pad=960:540:2:2:color=black[v1];"
             "[2:v]scale=956:536:force_original_aspect_ratio=increase,crop=956:536,pad=960:540:2:2:color=black[v2];"
@@ -107,16 +121,13 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
     else:
         raise ValueError(f"Unsupported collage count: {k}")
 
-    fade_dur = 0.04
-    af = f"afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={duration - fade_dur:.3f}:d={fade_dur:.3f},aformat=sample_rates=48000:channel_layouts=stereo"
-
+    fc = f"{grid_vf};anullsrc=r=48000:cl=stereo[aout]"
     cmd = [
         FFMPEG_PATH, "-y"
     ] + inputs + [
-        "-filter_complex", vf,
-        "-map", "[vout]", "-map", "0:a?",
+        "-filter_complex", fc,
+        "-map", "[vout]", "-map", "[aout]",
         "-t", f"{duration:.2f}",
-        "-af", af,
         "-r", "30", "-fps_mode", "cfr",
         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
         "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
@@ -130,7 +141,8 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
 
 def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 1.8) -> str:
     """
-    Renders an individual photo/Live Photo capped to max 1.8s with smooth Ken Burns zoom.
+    Renders an individual photo/Live Photo capped to max 1.8s with smooth Ken Burns zoom
+    and guaranteed 48kHz stereo AAC audio for 100% stable timeline concatenation.
     """
     frames = int(duration * 30)
     zoom_vf = (
@@ -138,16 +150,14 @@ def render_single_photo_segment(photo_path: str, output_path: str, duration: flo
         f"zoompan=z='min(1.0+in*{0.15/frames:.5f},1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s=1920x1080:fps=30,"
         f"eq=saturation=1.12:contrast=1.05,format=yuv420p"
     )
-    fade_dur = min(0.040, duration / 3.0)
-    fade_out_st = max(0.0, duration - fade_dur)
-    af = f"afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f},aformat=sample_rates=48000:channel_layouts=stereo"
+    fc = f"[0:v]{zoom_vf}[vout];anullsrc=r=48000:cl=stereo[aout]"
 
     cmd = [
         FFMPEG_PATH, "-y",
-        "-i", photo_path,
+        "-i", str(photo_path),
+        "-filter_complex", fc,
+        "-map", "[vout]", "-map", "[aout]",
         "-t", f"{duration:.2f}",
-        "-vf", zoom_vf,
-        "-af", af,
         "-r", "30", "-fps_mode", "cfr",
         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
         "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
@@ -210,7 +220,7 @@ def build_multi_clip_movie_pipeline(
         w = meta.get("width", 1920)
         h = meta.get("height", 1080)
 
-        if is_photo_clip(dur, raw_fps, w, h):
+        if is_photo_clip(c_p, dur, raw_fps, w, h):
             # Collect consecutive photo clips
             photo_group = [c_p]
             j = i + 1
@@ -221,7 +231,7 @@ def build_multi_clip_movie_pipeline(
                 next_fps = next_meta.get("fps", 30.0)
                 next_w = next_meta.get("width", 1920)
                 next_h = next_meta.get("height", 1080)
-                if is_photo_clip(next_dur, next_fps, next_w, next_h):
+                if is_photo_clip(next_p, next_dur, next_fps, next_w, next_h):
                     photo_group.append(next_p)
                     j += 1
                 else:
@@ -404,19 +414,36 @@ def build_multi_clip_movie_pipeline(
             if director_effects and director_effects.get("vignette_falloff"):
                 vf_scale = f"{vf_scale},vignette=PI/4.5"
 
-            cmd = [
-                FFMPEG_PATH, "-y",
-                "-i", str(c_p),
-                "-vf", f"setpts=PTS-STARTPTS,{vf_scale}",
-                "-af", f"asetpts=PTS-STARTPTS,{af}",
-                "-r", "30", "-fps_mode", "cfr",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
-                "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
-                "-g", "30", "-keyint_min", "30",
-                "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
-                "-shortest",
-                str(out_seg)
-            ]
+            has_audio = elem["meta"].get("has_audio", True)
+            if has_audio:
+                cmd = [
+                    FFMPEG_PATH, "-y",
+                    "-i", str(c_p),
+                    "-vf", f"setpts=PTS-STARTPTS,{vf_scale}",
+                    "-af", f"asetpts=PTS-STARTPTS,{af}",
+                    "-r", "30", "-fps_mode", "cfr",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+                    "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
+                    "-g", "30", "-keyint_min", "30",
+                    "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
+                    "-shortest",
+                    str(out_seg)
+                ]
+            else:
+                fc_scenic = f"[0:v]setpts=PTS-STARTPTS,{vf_scale}[vout];anullsrc=r=48000:cl=stereo[aout]"
+                cmd = [
+                    FFMPEG_PATH, "-y",
+                    "-i", str(c_p),
+                    "-filter_complex", fc_scenic,
+                    "-map", "[vout]", "-map", "[aout]",
+                    "-t", f"{dur:.3f}",
+                    "-r", "30", "-fps_mode", "cfr",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
+                    "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
+                    "-g", "30", "-keyint_min", "30",
+                    "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
+                    str(out_seg)
+                ]
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
             temp_processed_segments.append(str(out_seg))
             concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
