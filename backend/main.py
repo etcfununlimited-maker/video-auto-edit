@@ -128,6 +128,7 @@ current_project = {
         "aspect_ratio": "original",
         "color_grade": "teal_orange",
         "caption_style": "hyperframe_kinetic",
+        "model_tier": "large-v3",
         "audio_enhance": True,
         "auto_duck": True,
         "bg_mode": "none",
@@ -138,11 +139,11 @@ current_project = {
             "grid_transcribe": True,
             "grid_silence": True,
             "grid_scenic": True,
-            "grid_reframe": False,
+            "grid_reframe": True,
             "grid_audio": True,
             "grid_beatsync": True,
             "grid_captions": True,
-            "grid_bgremove": False,
+            "grid_bgremove": True,
             "grid_color": True,
             "grid_agent": True,
             "grid_render": True
@@ -468,11 +469,16 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         needs_stt = enabled_grids.get("grid_transcribe", True) or enabled_grids.get("grid_captions", True) or enabled_grids.get("grid_silence", True)
         if needs_stt:
             selected_lang = settings.get("language", "auto")
-            model_tier = settings.get("model_tier", "base")
+            model_tier = settings.get("model_tier", "large-v3")
             script_mode = settings.get("script_mode", "roman")
-            tier_label = "Studio Pro 95%" if model_tier in ("large-v3-turbo", "studio_pro") else (
-                "Indic Neural 98%" if model_tier in ("indic-neural", "indic") else "Fast Draft"
-            )
+            if model_tier in ("large-v3", "large_v3", "youtube_full", "gold_standard"):
+                tier_label = "YouTube Gold Standard (Large-v3 Full 1.55B)"
+            elif model_tier in ("large-v3-turbo", "studio_pro", "youtube_turbo"):
+                tier_label = "YouTube Studio (Large-v3-Turbo)"
+            elif model_tier in ("google-usm", "google"):
+                tier_label = "Google YouTube USM"
+            else:
+                tier_label = "Fast Draft (Base)"
             await update_grid("grid_transcribe", "in_progress", 30, 8, 12, f"Transcribing ({selected_lang.upper()} • {tier_label}) with Forced Alignment", 38)
             transcript = await asyncio.to_thread(transcribe_video, active_clip, language=selected_lang, model_tier=model_tier, script_mode=script_mode)
             current_project["transcript"] = transcript
@@ -510,7 +516,7 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             await update_grid("grid_silence", "skipped", 100, 0, 0, "Bypassed (Continuous timeline preserved)", 16)
 
         # --- GRID 5: Smart Reframer & Face Tracker (9:16) ---
-        if enabled_grids.get("grid_reframe", False):
+        if enabled_grids.get("grid_reframe", True):
             await update_grid("grid_reframe", "in_progress", 50, 4, 6, "Tracking face coordinates with EMA trajectory smoothing", 16)
             trajectory = await asyncio.to_thread(track_speaker_trajectory, active_clip, 2.0)
             current_project["trajectory"] = trajectory
@@ -561,8 +567,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             await update_grid("grid_captions", "skipped", 100, 0, 0, "Bypassed (No Burned Captions)", 4)
 
         # --- GRID 9: Background Segmentation ---
-        if enabled_grids.get("grid_bgremove", False):
-            await update_grid("grid_bgremove", "completed", 100, 0, 0, "Subject isolation matte ready", 3)
+        if enabled_grids.get("grid_bgremove", True):
+            await update_grid("grid_bgremove", "completed", 100, 0, 0, "Subject isolation matte & ambient blur ready", 3)
         else:
             await update_grid("grid_bgremove", "skipped", 100, 0, 0, "Bypassed (No Virtual Matte)", 3)
 
@@ -586,7 +592,7 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         await update_grid("grid_render", "in_progress", 40, est_render_sec, est_render_sec, "Rendering final master with selected features to final_export/ folder", est_render_sec)
         
         edit_mode = settings.get("edit_mode", "full_movie" if len(valid_files) > 1 else "single")
-        eff_aspect = "9:16" if (enabled_grids.get("grid_reframe", False) or settings.get("aspect_ratio") == "9:16") else "original"
+        eff_aspect = "9:16" if settings.get("aspect_ratio") == "9:16" else settings.get("aspect_ratio", "original")
         target_dur = float(settings.get("target_duration", 60.0)) if (edit_mode == "viral_short" or settings.get("target_duration")) else None
 
         if len(valid_files) > 1 and edit_mode in ["full_movie", "viral_short"]:
@@ -1483,6 +1489,7 @@ class ProjectSettingsPayload(BaseModel):
     aspect_ratio: Optional[str] = None
     audio_enhance: Optional[bool] = None
     auto_duck: Optional[bool] = None
+    model_tier: Optional[str] = None
     enabled_grids: Optional[dict] = None
 
 @app.post("/api/project/settings")

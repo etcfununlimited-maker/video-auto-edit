@@ -573,29 +573,7 @@ function setPlayerAspect(aspect) {
 
     // Automatically synchronize Grid 5 (Smart Reframer 9:16)
     if (aspect === "9:16") {
-        gridEnabledState.grid_reframe = true;
-        const toggle = document.getElementById("toggle-grid_reframe");
-        if (toggle) toggle.checked = true;
-        const card = document.getElementById("grid-card-grid_reframe");
-        if (card) {
-            card.classList.remove("bypassed");
-            const badge = card.querySelector(".grid-status-badge");
-            if (badge) { badge.className = "grid-status-badge ready"; badge.innerText = "READY"; }
-            const desc = card.querySelector(".grid-desc");
-            if (desc) desc.innerText = "Armed (Ready for 9:16 smart face trajectory tracking)";
-        }
-    } else {
-        gridEnabledState.grid_reframe = false;
-        const toggle = document.getElementById("toggle-grid_reframe");
-        if (toggle) toggle.checked = false;
-        const card = document.getElementById("grid-card-grid_reframe");
-        if (card) {
-            card.classList.add("bypassed");
-            const badge = card.querySelector(".grid-status-badge");
-            if (badge) { badge.className = "grid-status-badge bypassed"; badge.innerText = "BYPASS"; }
-            const desc = card.querySelector(".grid-desc");
-            if (desc) desc.innerText = "Bypassed (Original aspect preserved)";
-        }
+        toggleGridFeature("grid_reframe", true);
     }
 
     // Sync setting immediately to backend
@@ -804,6 +782,12 @@ function updateModelTierSettings(tier) {
     };
     const tierName = names[tier] || tier;
     showToast(`Active Speech Engine: ${tierName}`, "info");
+
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_tier: tier })
+    }).catch(e => console.error("Could not sync model tier:", e));
 }
 
 async function rerunHighAccuracyTranscribe() {
@@ -1269,17 +1253,7 @@ async function submitAgentPrompt() {
                 activeCaptionStyle = data.actions.caption_style;
                 const capEl = document.getElementById("caption-style-select");
                 if (capEl) capEl.value = data.actions.caption_style;
-                gridEnabledState.grid_captions = true;
-                const capToggle = document.getElementById("toggle-grid_captions");
-                if (capToggle) capToggle.checked = true;
-                const capCard = document.getElementById("grid-card-grid_captions");
-                if (capCard) {
-                    capCard.classList.remove("bypassed");
-                    const badge = capCard.querySelector(".grid-status-badge");
-                    if (badge) { badge.className = "grid-status-badge ready"; badge.innerText = "READY"; }
-                    const desc = capCard.querySelector(".grid-desc");
-                    if (desc) desc.innerText = `Armed (${data.actions.caption_style} kinetic pop captions)`;
-                }
+                toggleGridFeature("grid_captions", true);
             }
             // 4. Duration & Edit Mode (e.g. 60s TikTok / Viral Short)
             if (data.actions.target_duration) {
@@ -1378,11 +1352,11 @@ let gridEnabledState = {
     grid_transcribe: true,
     grid_silence: true,
     grid_scenic: true,
-    grid_reframe: false,
+    grid_reframe: true,
     grid_audio: true,
     grid_beatsync: true,
     grid_captions: true,
-    grid_bgremove: false,
+    grid_bgremove: true,
     grid_color: true,
     grid_agent: true,
     grid_render: true
@@ -1390,7 +1364,7 @@ let gridEnabledState = {
 
 const GRID_ARMED_DESCRIPTIONS = {
     grid_ingest: "Armed (Ready for media ingest & iPhone 16 HEVC decode)",
-    grid_transcribe: "Armed (Ready for Faster-Whisper neural STT transcription)",
+    grid_transcribe: "Armed (Ready for YouTube Gold Standard Large-v3 STT)",
     grid_silence: "Armed (Awaiting STT for dead-air & retake arbitration)",
     grid_scenic: "Armed (Ready for scenic B-roll & histogram protection)",
     grid_reframe: "Armed (Ready for 9:16 smart face trajectory tracking)",
@@ -1425,6 +1399,8 @@ function toggleGridFeature(gridId, isEnabled) {
     const detail = document.getElementById(`${gridId}-detail`);
     const bar = document.getElementById(`${gridId}-bar`);
     const etaEl = document.getElementById(`${gridId}-eta`);
+    const toggle = document.getElementById(`${gridId}-toggle`);
+    if (toggle) toggle.checked = isEnabled;
 
     if (!isEnabled) {
         if (card) card.classList.add("bypassed");
@@ -1714,7 +1690,7 @@ async function startPipelineProcess(customSettings = null) {
         edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
         target_duration: activeTargetDuration || null,
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
-        model_tier: document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo",
+        model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3")),
         script_mode: currentTranscriptScript,
         color_grade: activeColorPreset,
         aspect_ratio: activeAspectRatio,
