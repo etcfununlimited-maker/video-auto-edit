@@ -1,85 +1,78 @@
 """
-AUTO VIDEO EDITOR - Studio Launcher Entrypoint
-ANIRBAN AUTOMATIONS • STUDIO PRO v2.4
+ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR
+Desktop Studio Launcher (v2.6.1)
 
-Handles standalone startup, runtime directory initialization,
-automatic web browser launching, and graceful shutdown.
+Handles instant one-click launch:
+- Automatically detects if the server is already running on port 8000.
+- If already running, immediately opens the browser dashboard.
+- If not running, launches the Uvicorn backend and opens the browser.
+- Displays live logs and rendering progress.
 """
+
 import sys
 import os
 import time
+import socket
+import subprocess
 import threading
 import webbrowser
 from pathlib import Path
 
-# Support PyInstaller frozen bundle
-if getattr(sys, 'frozen', False):
-    APP_ROOT = Path(sys.executable).resolve().parent
-else:
-    APP_ROOT = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent
+os.chdir(PROJECT_DIR)
 
-os.chdir(APP_ROOT)
-sys.path.insert(0, str(APP_ROOT))
+PORT = 8000
+DASHBOARD_URL = f"http://localhost:{PORT}"
 
-# Ensure required directories exist
-for folder in ["raw_input", "final_export", "uploads", "exports"]:
-    (APP_ROOT / folder).mkdir(parents=True, exist_ok=True)
+def is_server_running(port: int = PORT) -> bool:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
 
-def open_browser_delayed(url="http://127.0.0.1:8000", delay=1.5):
-    """Waits for the Uvicorn server to bind to port 8000, then opens the browser."""
-    time.sleep(delay)
-    import urllib.request
-    # Wait until server responds
-    for _ in range(20):
-        try:
-            with urllib.request.urlopen(url, timeout=1) as resp:
-                if resp.status == 200:
-                    break
-        except Exception:
-            time.sleep(0.3)
-    webbrowser.open(url)
-
-def print_banner():
-    banner = r"""
-================================================================================
-          ANIRBAN AUTOMATIONS  *  AI AUTO VIDEO EDITOR STUDIO
-                    STUDIO * PRO v2.4 - DESKTOP EDITION
-================================================================================
-  [>] AI Neural Engine: ACTIVE (Hinglish/English STT + Two-Pass Retake Arbiter)
-  [>] 12-Grid Processing Pipeline: INITIALIZED & READY
-  [>] Studio Dashboard: http://127.0.0.1:8000
-  [>] Launching your default web browser automatically...
-
-  [*] Quick Tips:
-      - Raw clips go into:        .\raw_input\
-      - Finished exports save to: .\final_export\
-      - To quit, close this window or press Ctrl + C.
-================================================================================
-"""
-    print(banner, flush=True)
+def open_browser_when_ready():
+    for _ in range(40):
+        time.sleep(0.4)
+        if is_server_running(PORT):
+            print(f"[+] Server ready! Opening dashboard: {DASHBOARD_URL}")
+            webbrowser.open(DASHBOARD_URL)
+            return
+    print("[!] Warning: Server did not respond within 16s. Please check logs.")
 
 def main():
-    import multiprocessing
-    multiprocessing.freeze_support()
+    print("=" * 75)
+    print("            ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR")
+    print("                 Professional Desktop Video Suite v2.6.1")
+    print("=" * 75)
+    print()
 
-    print_banner()
+    if is_server_running(PORT):
+        print(f"[+] Studio Server is already active and running on {DASHBOARD_URL}!")
+        print("[+] Opening dashboard in your default browser...")
+        webbrowser.open(DASHBOARD_URL)
+        print()
+        print("Done! You may keep or close this launcher window.")
+        time.sleep(3)
+        return
 
-    # Launch browser in separate thread
-    threading.Thread(target=open_browser_delayed, args=("http://127.0.0.1:8000", 1.2), daemon=True).start()
+    print(f"[1/2] Starting Studio Server on 127.0.0.1:{PORT}...")
+    threading.Thread(target=open_browser_when_ready, daemon=True).start()
 
-    # Import and run backend app
-    import uvicorn
-    from backend.main import app
+    cmd = [
+        sys.executable, "-m", "uvicorn",
+        "backend.main:app",
+        "--host", "127.0.0.1",
+        "--port", str(PORT)
+    ]
 
-    config = uvicorn.Config(
-        app=app,
-        host="127.0.0.1",
-        port=8000,
-        log_level="info",
-        access_log=True
-    )
-    server = uvicorn.Server(config)
-    server.run()
+    print("[2/2] Backend initializing... Press Ctrl+C to stop.")
+    print()
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print("\n[+] Studio Server stopped.")
 
 if __name__ == "__main__":
     main()
