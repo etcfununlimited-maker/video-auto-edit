@@ -1697,6 +1697,7 @@ async function startPipelineProcess(customSettings = null) {
         caption_style: activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic"),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
+        license_plate_blur: document.getElementById("chk-license-plate-blur") ? document.getElementById("chk-license-plate-blur").checked : true,
         enabled_grids: gridEnabledState
     };
 
@@ -1715,6 +1716,15 @@ async function startPipelineProcess(customSettings = null) {
     } catch (e) {
         showToast("Error starting pipeline", "error");
     }
+}
+
+function toggleLicensePlateBlur(enabled) {
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ license_plate_blur: enabled })
+    }).catch(e => console.warn(e));
+    showToast(enabled ? "License Plate Privacy Blur Armed (HSRP & Cars) 🛡️" : "License Plate Blur Disabled", "info");
 }
 
 // ---------------- UTILITIES ----------------

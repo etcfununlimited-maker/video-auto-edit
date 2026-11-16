@@ -56,6 +56,17 @@ def render_final_master(
 
     final_path = FINAL_EXPORT_DIR / output_filename
 
+    # Automatic License Plate Privacy Blurring
+    try:
+        from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+        if clip_has_license_plates(str(src)):
+            blurred_src = src.parent / f".tmp_plate_blur_{src.stem}.mp4"
+            if not blurred_src.exists() or blurred_src.stat().st_size == 0:
+                process_video_plate_blur(str(src), str(blurred_src), method="gaussian")
+            src = blurred_src
+    except Exception as e:
+        print(f"License plate blur notice: {e}")
+
     # 1. Determine segments to keep
     keep_segments = build_timeline_segments(total_duration, cuts_to_remove)
     if not keep_segments:

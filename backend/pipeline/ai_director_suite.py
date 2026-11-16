@@ -622,6 +622,18 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "grid_target": "grid_captions",
         "grid_label": "Grid 8: Face-Safe Captions",
         "default": True
+    },
+    {
+        "id": "license_plate_blur",
+        "num": "51",
+        "name": "Vehicle License Plate Blur (Privacy)",
+        "category": "masking_splits",
+        "category_name": "Masking & Privacy",
+        "badge": "Vlog Privacy & HSRP",
+        "desc": "Auto-detects and blurs vehicle registration plates across all vlog takes with zero jitter.",
+        "grid_target": "grid_bgremove",
+        "grid_label": "Grid 9: Virtual Studio Matte / Privacy Mask",
+        "default": True
     }
 ]
 
@@ -652,17 +664,27 @@ def sync_director_with_grids(director_effects: Dict[str, bool], text_behind: Dic
     """
     active_count = sum(1 for v in director_effects.values() if v)
     
-    # 1. Update Grid 9 (Virtual Studio Matte) for Text Behind Person
+    # 1. Update Grid 9 (Virtual Studio Matte) for Text Behind Person & License Plate Privacy Blur
+    has_lp_blur = director_effects.get("license_plate_blur", True)
     if text_behind.get("enabled"):
         neon_label = f" + Neon {text_behind.get('neon_color', '#00F2FE')}" if text_behind.get("neon_enabled") else ""
         text_content = text_behind.get("text", "VLOG").upper()
         font_name = text_behind.get("font", "Montserrat")
+        lp_extra = " + Plate Blur" if has_lp_blur else ""
         grid_statuses["grid_bgremove"] = {
             "status": "ready",
             "progress": 100,
             "clip_eta_sec": 0,
             "eta_sec": 0,
-            "detail": f"Active: Bold Depth Text Behind Subject (\"{text_content}\" in {font_name}{neon_label})"
+            "detail": f"Active: Depth Text (\"{text_content}\"{neon_label}){lp_extra}"
+        }
+    elif has_lp_blur:
+        grid_statuses["grid_bgremove"] = {
+            "status": "ready",
+            "progress": 100,
+            "clip_eta_sec": 0,
+            "eta_sec": 0,
+            "detail": "Active: Vehicle Number Plate Privacy Blur Engine (HSRP Auto-Masked)"
         }
     else:
         if grid_statuses.get("grid_bgremove", {}).get("status") == "ready":

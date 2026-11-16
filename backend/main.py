@@ -132,6 +132,7 @@ current_project = {
         "audio_enhance": True,
         "auto_duck": True,
         "bg_mode": "none",
+        "license_plate_blur": True,
         "ai_director_effects": get_initial_active_effects(),
         "text_behind_person": copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON),
         "enabled_grids": {
@@ -566,9 +567,19 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             ass_path = None
             await update_grid("grid_captions", "skipped", 100, 0, 0, "Bypassed (No Burned Captions)", 4)
 
-        # --- GRID 9: Background Segmentation ---
+        # --- GRID 9: Background Segmentation & Privacy Matte ---
         if enabled_grids.get("grid_bgremove", True):
-            await update_grid("grid_bgremove", "completed", 100, 0, 0, "Subject isolation matte & ambient blur ready", 3)
+            has_lp = False
+            for vf in valid_files:
+                try:
+                    from backend.pipeline.license_plate_blur import clip_has_license_plates
+                    if clip_has_license_plates(vf):
+                        has_lp = True
+                        break
+                except Exception:
+                    pass
+            detail_g9 = "Subject isolation matte & License Plate Privacy Blur (HSRP) primed" if has_lp else "Subject isolation matte & ambient blur ready"
+            await update_grid("grid_bgremove", "completed", 100, 0, 0, detail_g9, 3)
         else:
             await update_grid("grid_bgremove", "skipped", 100, 0, 0, "Bypassed (No Virtual Matte)", 3)
 
@@ -1490,7 +1501,46 @@ class ProjectSettingsPayload(BaseModel):
     audio_enhance: Optional[bool] = None
     auto_duck: Optional[bool] = None
     model_tier: Optional[str] = None
+    license_plate_blur: Optional[bool] = None
     enabled_grids: Optional[dict] = None
+
+class LicensePlateBlurPayload(BaseModel):
+    filename: Optional[str] = None
+    method: Optional[str] = "gaussian"
+
+@app.post("/api/privacy/blur-license-plates")
+async def blur_license_plates_endpoint(payload: LicensePlateBlurPayload):
+    """
+    Renders automatic vehicle number plate blur on the target clip or active footage.
+    """
+    target = payload.filename
+    in_path = None
+    if target:
+        p1 = RAW_INPUT_DIR / target
+        p2 = FINAL_EXPORT_DIR / target
+        if p1.exists(): in_path = str(p1)
+        elif p2.exists(): in_path = str(p2)
+    if not in_path:
+        in_path = current_project.get("active_video_path")
+    if not in_path or not Path(in_path).exists():
+        raise HTTPException(status_code=400, detail="No video media specified or found")
+
+    out_name = f"BLURRED_{Path(in_path).stem}.mp4"
+    out_path = FINAL_EXPORT_DIR / out_name
+
+    from backend.pipeline.license_plate_blur import process_video_plate_blur
+    res = await asyncio.to_thread(
+        process_video_plate_blur,
+        in_path,
+        str(out_path),
+        method=payload.method or "gaussian"
+    )
+    return {
+        "status": "success",
+        "output_filename": out_name,
+        "url": f"/media_final/{out_name}",
+        "details": res
+    }
 
 @app.post("/api/project/settings")
 async def update_project_settings_endpoint(payload: ProjectSettingsPayload):

@@ -182,6 +182,7 @@ def build_multi_clip_movie_pipeline(
     - Enforces CFR 30.0 fps, timescale 30000, and 48kHz stereo AAC on every segment (0% freezing)
     - FastStart universal MP4 export for 100% native Windows Media Player playback
     """
+    enabled_grids = enabled_grids or {}
     if enabled_grids:
         if not enabled_grids.get("grid_captions", True):
             caption_style = None
@@ -359,6 +360,19 @@ def build_multi_clip_movie_pipeline(
             h = elem["meta"].get("height", 1080)
             is_portrait = (h > w)
 
+            # Automatic Vehicle License Plate Privacy Blurring
+            eff_lp_blur = director_effects.get("license_plate_blur", True) if director_effects else True
+            if eff_lp_blur and enabled_grids.get("grid_bgremove", True):
+                from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+                if clip_has_license_plates(str(c_p)):
+                    print(f"[{c_p.name}] Vehicle license plates detected! Applying privacy blur...")
+                    if progress_callback:
+                        progress_callback(pct, f"[{c_p.name}] Auto-blurring vehicle number plates (HSRP)")
+                    blurred_out = UPLOADS_DIR / f".lp_blur_{c_p.stem}.mp4"
+                    if not blurred_out.exists() or blurred_out.stat().st_size == 0:
+                        process_video_plate_blur(str(c_p), str(blurred_out), method="gaussian")
+                    c_p = blurred_out
+
             print(f"[{el_idx+1}/{total_elements}] Scenic B-Roll: {c_p.name} ({dur:.1f}s)")
             if progress_callback:
                 progress_callback(pct, f"[{el_idx+1}/{total_elements}] {c_p.name}: Scenic B-Roll")
@@ -417,6 +431,19 @@ def build_multi_clip_movie_pipeline(
             w = elem["meta"].get("width", 1920)
             h = elem["meta"].get("height", 1080)
             is_portrait = (h > w)
+
+            # Automatic Vehicle License Plate Privacy Blurring
+            eff_lp_blur = director_effects.get("license_plate_blur", True) if director_effects else True
+            if eff_lp_blur and enabled_grids.get("grid_bgremove", True):
+                from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+                if clip_has_license_plates(str(c_p)):
+                    print(f"[{c_p.name}] Vehicle license plates detected! Applying privacy blur...")
+                    if progress_callback:
+                        progress_callback(pct, f"[{c_p.name}] Auto-blurring vehicle number plates (HSRP)")
+                    blurred_out = UPLOADS_DIR / f".lp_blur_{c_p.stem}.mp4"
+                    if not blurred_out.exists() or blurred_out.stat().st_size == 0:
+                        process_video_plate_blur(str(c_p), str(blurred_out), method="gaussian")
+                    c_p = blurred_out
 
             print(f"[{el_idx+1}/{total_elements}] Dialogue Take: {c_p.name} ({dur:.1f}s) - Continuous Speech Protection")
             if progress_callback:
