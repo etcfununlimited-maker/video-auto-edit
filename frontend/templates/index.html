@@ -7,10 +7,11 @@
     <!-- Fonts & Feather Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@800;900&family=Bebas+Neue&family=Anton&family=Outfit:wght@800;900&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/premiere.css">
+    <link rel="stylesheet" href="/static/director.css">
 </head>
 <body>
     <!-- Top Navigation Bar -->
@@ -71,6 +72,11 @@
             <i data-feather="film"></i>
             <span>Premiere Pro & Instagram Studio</span>
             <span class="tab-badge badge-pro">NLE • Timeline Editor</span>
+        </button>
+        <button class="studio-tab-btn" id="tab-btn-director" onclick="switchStudioTab('director')">
+            <i data-feather="sliders"></i>
+            <span>AI Director FX Studio</span>
+            <span class="tab-badge badge-director">Top 50 FX & Depth Text</span>
         </button>
     </nav>
 
@@ -625,6 +631,9 @@
                             <button class="panel-tab" id="tab-bin-filters" onclick="setBinTab('filters')">
                                 <i data-feather="aperture"></i> IG Filters
                             </button>
+                            <button class="panel-tab" id="tab-bin-director" onclick="setBinTab('director')">
+                                <i data-feather="sliders"></i> AI Director (50+ FX)
+                            </button>
                         </div>
                     </div>
 
@@ -640,6 +649,11 @@
                         <div id="p-instagram-filters-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%;">
                             <!-- Populated dynamically via premiere.js -->
                         </div>
+                    </div>
+
+                    <!-- Bin Sub-view 3: AI Director Effects & Depth Text Quick View -->
+                    <div id="p-bin-director-view" class="director-bin-body" style="display:none; overflow-y:auto; padding:12px; height:calc(100% - 40px);">
+                        <!-- Rendered dynamically by director.js -->
                     </div>
                 </div>
 
@@ -737,6 +751,216 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: AI Director FX Studio (50+ Effects, Transitions & Bold Text Behind Person) -->
+    <div id="workspace-director" class="workspace-tab">
+        <div class="director-workspace">
+            <!-- Top Hero Banner -->
+            <div class="director-hero-header">
+                <div class="director-hero-info">
+                    <div class="director-hero-icon">
+                        <i data-feather="sliders"></i>
+                    </div>
+                    <div class="director-hero-text">
+                        <h1>AI Director FX Studio & Transition Engine</h1>
+                        <p>Direct creative control over 50+ vlog & cinema transitions, dynamic effects, and bold depth typography behind subjects.</p>
+                    </div>
+                </div>
+                <div class="director-hero-actions">
+                    <div class="director-stat-pill">
+                        <span class="pulse-dot"></span>
+                        <span id="director-active-stat-count">21 / 50 Active</span>
+                    </div>
+                    <button class="btn btn-secondary" onclick="applyDirectorPreset('vlog')">
+                        <i data-feather="zap"></i> ⚡ Viral Vlog Preset
+                    </button>
+                    <button class="btn btn-secondary" onclick="applyDirectorPreset('cinematic')">
+                        <i data-feather="film"></i> 🎬 Cinema Movie Preset
+                    </button>
+                    <button class="btn btn-secondary" style="border-color:#475569; color:#94a3b8;" onclick="applyDirectorPreset('reset_all')">
+                        <i data-feather="rotate-ccw"></i> Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- FLAGSHIP: DYNAMIC BOLD TEXT BEHIND PERSON (Depth Typography & Neon Studio) -->
+            <section class="depth-text-panel">
+                <div class="depth-header-row">
+                    <div class="depth-title-group">
+                        <span class="depth-badge">Flagship Feature</span>
+                        <h2>Bold Text Appearing Behind Person (Depth Title & Neon Spread)</h2>
+                    </div>
+                    <div class="depth-toggle-wrapper">
+                        <span style="font-size: 13px; font-weight: 700; color: #cbd5e1;">Enable Effect</span>
+                        <label class="switch">
+                            <input type="checkbox" id="depth-main-toggle" checked onchange="onDepthTextParamChange('enabled', this.checked)">
+                            <span class="slider-switch"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="depth-body-grid">
+                    <!-- Left: Real-Time Interactive Canvas Preview -->
+                    <div class="depth-canvas-preview-box">
+                        <div class="depth-preview-badges">
+                            <span class="preview-pill"><i data-feather="layers" style="width:11px; height:11px;"></i> Depth Layer: Behind Subject</span>
+                            <span class="preview-pill" style="color:#38bdf8; border-color:#0284c7;">Interactive 60 FPS Preview</span>
+                        </div>
+
+                        <!-- Simulated Subject Silhouette / Mask -->
+                        <div class="simulated-person-silhouette">
+                            <div class="simulated-person-head"></div>
+                            <span class="simulated-person-label">Foreground Subject</span>
+                        </div>
+
+                        <!-- Live Rendered Depth Text Behind Person -->
+                        <div class="depth-live-text-layer" id="depth-live-text">
+                            JAIPUR VLOG
+                        </div>
+                    </div>
+
+                    <!-- Right: Precision Controls -->
+                    <div class="depth-controls-column">
+                        <!-- Text Input & Quick Suggestions -->
+                        <div class="control-field-row">
+                            <label>Text Content <span>(Displays in massive bold typography)</span></label>
+                            <input type="text" class="control-input-text" id="depth-input-text" value="JAIPUR VLOG" placeholder="e.g. JAIPUR VLOG, DAY 1, EXPLORE" oninput="onDepthTextParamChange('text', this.value)">
+                            <div class="swatches-row" style="margin-top: 4px;">
+                                <span style="font-size: 11px; color: #64748b; font-weight: 600;">Quick Ideas:</span>
+                                <button class="btn-micro" onclick="setDepthPresetText('JAIPUR VLOG')">JAIPUR VLOG</button>
+                                <button class="btn-micro" onclick="setDepthPresetText('DAY 1')">DAY 1</button>
+                                <button class="btn-micro" onclick="setDepthPresetText('EXPLORE')">EXPLORE</button>
+                                <button class="btn-micro" onclick="setDepthPresetText('BEHIND THE SCENES')">BTS</button>
+                                <button class="btn-micro" onclick="setDepthPresetText('UNSTOPPABLE')">UNSTOPPABLE</button>
+                            </div>
+                        </div>
+
+                        <!-- Font Family & Position -->
+                        <div class="control-grid-2col">
+                            <div class="control-field-row">
+                                <label>Font Family</label>
+                                <select class="control-select" id="depth-select-font" onchange="onDepthTextParamChange('font', this.value)">
+                                    <option value="Montserrat" selected>Montserrat (Heavy 900)</option>
+                                    <option value="Impact">Impact (Classic Bold)</option>
+                                    <option value="Bebas Neue">Bebas Neue (Tall Display)</option>
+                                    <option value="Anton">Anton (Heavy Headline)</option>
+                                    <option value="Arial Black">Arial Black (Block)</option>
+                                    <option value="Outfit">Outfit (Creator Bold)</option>
+                                    <option value="Space Grotesk">Space Grotesk (Tech)</option>
+                                </select>
+                            </div>
+
+                            <div class="control-field-row">
+                                <label>Vertical Position</label>
+                                <div class="position-pills">
+                                    <button class="pos-btn" data-pos="head" onclick="setDepthPosition('head')">Behind Head</button>
+                                    <button class="pos-btn active" data-pos="center" onclick="setDepthPosition('center')">Chest</button>
+                                    <button class="pos-btn" data-pos="lower" onclick="setDepthPosition('lower')">Waist</button>
+                                    <button class="pos-btn" data-pos="wallpaper" onclick="setDepthPosition('wallpaper')">Wallpaper</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sliders: Size & Complete Spread (Letter Spacing) -->
+                        <div class="control-grid-2col">
+                            <div class="control-field-row">
+                                <label>Text Size <span class="val-badge" id="depth-val-size">110px</span></label>
+                                <input type="range" id="depth-range-size" min="40" max="220" value="110" oninput="document.getElementById('depth-val-size').innerText = this.value + 'px'; onDepthTextParamChange('size', parseInt(this.value))">
+                            </div>
+
+                            <div class="control-field-row">
+                                <label>Complete Spread (Tracking) <span class="val-badge" id="depth-val-spread">8px</span></label>
+                                <input type="range" id="depth-range-spread" min="-4" max="30" value="8" oninput="document.getElementById('depth-val-spread').innerText = this.value + 'px'; onDepthTextParamChange('spread', parseInt(this.value))">
+                            </div>
+                        </div>
+
+                        <!-- Text Color & Neon Glow -->
+                        <div class="control-grid-2col">
+                            <div class="control-field-row">
+                                <label>Text Fill Color</label>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <input type="color" id="depth-picker-color" value="#FFFFFF" style="width:36px; height:32px; border:none; background:none; cursor:pointer;" onchange="setDepthColor(this.value)">
+                                    <div class="swatches-row">
+                                        <div class="swatch-circle swatch-text active" data-color="#FFFFFF" style="background:#FFFFFF;" onclick="setDepthColor('#FFFFFF')"></div>
+                                        <div class="swatch-circle swatch-text" data-color="#FACC15" style="background:#FACC15;" onclick="setDepthColor('#FACC15')"></div>
+                                        <div class="swatch-circle swatch-text" data-color="#EF4444" style="background:#EF4444;" onclick="setDepthColor('#EF4444')"></div>
+                                        <div class="swatch-circle swatch-text" data-color="#38BDF8" style="background:#38BDF8;" onclick="setDepthColor('#38BDF8')"></div>
+                                        <div class="swatch-circle swatch-text" data-color="#E2E8F0" style="background:#E2E8F0;" onclick="setDepthColor('#E2E8F0')"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="control-field-row">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label style="margin: 0;">Neon Glow Halo</label>
+                                    <label class="switch" style="transform: scale(0.75);">
+                                        <input type="checkbox" id="depth-toggle-neon" checked onchange="onDepthTextParamChange('neon_enabled', this.checked)">
+                                        <span class="slider-switch"></span>
+                                    </label>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                    <input type="color" id="depth-picker-neon" value="#00F2FE" style="width:36px; height:32px; border:none; background:none; cursor:pointer;" onchange="setDepthNeonColor(this.value)">
+                                    <div class="swatches-row">
+                                        <div class="swatch-circle swatch-neon active" data-color="#00F2FE" style="background:#00F2FE; box-shadow:0 0 8px #00F2FE;" onclick="setDepthNeonColor('#00F2FE')"></div>
+                                        <div class="swatch-circle swatch-neon" data-color="#10B981" style="background:#10B981; box-shadow:0 0 8px #10B981;" onclick="setDepthNeonColor('#10B981')"></div>
+                                        <div class="swatch-circle swatch-neon" data-color="#EC4899" style="background:#EC4899; box-shadow:0 0 8px #EC4899;" onclick="setDepthNeonColor('#EC4899')"></div>
+                                        <div class="swatch-circle swatch-neon" data-color="#F59E0B" style="background:#F59E0B; box-shadow:0 0 8px #F59E0B;" onclick="setDepthNeonColor('#F59E0B')"></div>
+                                        <div class="swatch-circle swatch-neon" data-color="#8B5CF6" style="background:#8B5CF6; box-shadow:0 0 8px #8B5CF6;" onclick="setDepthNeonColor('#8B5CF6')"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sliders: Neon Radius & Opacity -->
+                        <div class="control-grid-2col">
+                            <div class="control-field-row">
+                                <label>Neon Glow Radius <span class="val-badge" id="depth-val-glow">24px</span></label>
+                                <input type="range" id="depth-range-glow" min="0" max="50" value="24" oninput="document.getElementById('depth-val-glow').innerText = this.value + 'px'; onDepthTextParamChange('glow_radius', parseInt(this.value))">
+                            </div>
+
+                            <div class="control-field-row">
+                                <label>Depth Opacity <span class="val-badge" id="depth-val-opacity">95%</span></label>
+                                <input type="range" id="depth-range-opacity" min="20" max="100" value="95" oninput="document.getElementById('depth-val-opacity').innerText = this.value + '%'; onDepthTextParamChange('opacity', parseFloat((this.value/100).toFixed(2)))">
+                            </div>
+                        </div>
+
+                        <!-- Sync Bar -->
+                        <div class="depth-pipeline-sync-bar">
+                            <span><i data-feather="check-circle" style="width:14px; height:14px; vertical-align:middle; margin-right:4px;"></i> Linked to Grid 9 (Virtual Studio Matte) & Grid 11 (AI Director)</span>
+                            <span class="sync-tag">ARMED IN PIPELINE</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: TOP 50 EFFECTS & TRANSITIONS SUITE -->
+            <section class="fx-suite-section">
+                <!-- Toolbar: Search, Category Filters, Quick Actions -->
+                <div class="fx-toolbar">
+                    <div class="fx-search-box">
+                        <i data-feather="search" style="width:14px; height:14px; color:#64748b;"></i>
+                        <input type="text" placeholder="Search 50 effects & transitions..." oninput="filterEffectsBySearch(this.value)">
+                    </div>
+
+                    <div class="fx-category-tabs">
+                        <button class="fx-cat-pill active" data-cat="all" onclick="filterEffectsByCategory('all')">All (50)</button>
+                        <button class="fx-cat-pill" data-cat="camera_motion" onclick="filterEffectsByCategory('camera_motion')">Camera Motion (10)</button>
+                        <button class="fx-cat-pill" data-cat="speed_pacing" onclick="filterEffectsByCategory('speed_pacing')">Speed & Pacing (8)</button>
+                        <button class="fx-cat-pill" data-cat="masking_splits" onclick="filterEffectsByCategory('masking_splits')">Masking & Splits (8)</button>
+                        <button class="fx-cat-pill" data-cat="lighting_optics" onclick="filterEffectsByCategory('lighting_optics')">Lighting & Optics (8)</button>
+                        <button class="fx-cat-pill" data-cat="film_emulation" onclick="filterEffectsByCategory('film_emulation')">Film Emulation (7)</button>
+                        <button class="fx-cat-pill" data-cat="audio_transitions" onclick="filterEffectsByCategory('audio_transitions')">Audio Cuts (5)</button>
+                        <button class="fx-cat-pill" data-cat="typography_motion" onclick="filterEffectsByCategory('typography_motion')">Typography & Motion (4)</button>
+                    </div>
+                </div>
+
+                <!-- 50 Effects Cards Grid -->
+                <div class="fx-cards-grid" id="fx-cards-grid">
+                    <!-- Populated dynamically by director.js -->
+                </div>
+            </section>
         </div>
     </div>
 
@@ -871,6 +1095,7 @@
 
     <script src="/static/app.js"></script>
     <script src="/static/premiere.js"></script>
+    <script src="/static/director.js"></script>
     <script>
         feather.replace();
     </script>

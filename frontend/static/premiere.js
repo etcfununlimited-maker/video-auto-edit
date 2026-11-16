@@ -16,18 +16,30 @@ let isTimelinePlaying = false;
 let timelinePlaybackTimer = null;
 let selectedTimelineClipIndex = null;
 
-// Tab switcher between AI Pipeline and Premiere Pro
+// Tab switcher between AI Pipeline, Premiere Pro, and AI Director FX Studio
 function switchStudioTab(tabId) {
     document.querySelectorAll(".studio-tab-btn").forEach(btn => btn.classList.remove("active"));
     document.querySelectorAll(".workspace-tab").forEach(tab => tab.classList.remove("active"));
 
     if (tabId === "premiere") {
-        document.getElementById("tab-btn-premiere").classList.add("active");
-        document.getElementById("workspace-premiere").classList.add("active");
+        const btnPrem = document.getElementById("tab-btn-premiere");
+        const wsPrem = document.getElementById("workspace-premiere");
+        if (btnPrem) btnPrem.classList.add("active");
+        if (wsPrem) wsPrem.classList.add("active");
         initPremiereStudio();
+    } else if (tabId === "director") {
+        const btnDir = document.getElementById("tab-btn-director");
+        const wsDir = document.getElementById("workspace-director");
+        if (btnDir) btnDir.classList.add("active");
+        if (wsDir) wsDir.classList.add("active");
+        if (typeof initDirectorStudio === "function") {
+            initDirectorStudio();
+        }
     } else {
-        document.getElementById("tab-btn-ai").classList.add("active");
-        document.getElementById("workspace-ai").classList.add("active");
+        const btnAi = document.getElementById("tab-btn-ai");
+        const wsAi = document.getElementById("workspace-ai");
+        if (btnAi) btnAi.classList.add("active");
+        if (wsAi) wsAi.classList.add("active");
     }
 
     if (window.feather) feather.replace();
@@ -313,6 +325,16 @@ function syncProgramMonitorToPlayhead() {
         }
         programVideo.currentTime = targetVideoTime;
         applyClipVisualTransforms(activeClip);
+
+        // HyperFrame 4-Quadrant Dynamic Captions in Program Monitor
+        if (typeof projectTranscript !== 'undefined' && projectTranscript.words && typeof renderHyperframeCaptions === 'function') {
+            const activeWord = projectTranscript.words.find(w => timelinePlayheadSec >= w.start && timelinePlayheadSec <= w.end);
+            renderHyperframeCaptions(activeWord, timelinePlayheadSec, 'p');
+        }
+    } else {
+        if (typeof renderHyperframeCaptions === 'function') {
+            renderHyperframeCaptions(null, 0, 'p');
+        }
     }
 }
 
@@ -669,21 +691,33 @@ function setBinTab(tab) {
     const tabExp = document.getElementById("tab-bin-exports");
     const tabRaw = document.getElementById("tab-bin-raws");
     const tabFlt = document.getElementById("tab-bin-filters");
+    const tabDir = document.getElementById("tab-bin-director");
 
     const viewMedia = document.getElementById("p-bin-media-view");
     const viewFilters = document.getElementById("p-bin-filters-view");
+    const viewDirector = document.getElementById("p-bin-director-view");
 
     if (tabExp) tabExp.classList.toggle("active", tab === "exported");
     if (tabRaw) tabRaw.classList.toggle("active", tab === "raw");
     if (tabFlt) tabFlt.classList.toggle("active", tab === "filters");
+    if (tabDir) tabDir.classList.toggle("active", tab === "director");
 
     if (tab === "filters") {
         if (viewMedia) viewMedia.style.display = "none";
         if (viewFilters) viewFilters.style.display = "grid";
+        if (viewDirector) viewDirector.style.display = "none";
         renderInstagramFilters();
+    } else if (tab === "director") {
+        if (viewMedia) viewMedia.style.display = "none";
+        if (viewFilters) viewFilters.style.display = "none";
+        if (viewDirector) viewDirector.style.display = "block";
+        if (typeof renderMiniDirectorBin === "function") {
+            renderMiniDirectorBin();
+        }
     } else {
         if (viewMedia) viewMedia.style.display = "flex";
         if (viewFilters) viewFilters.style.display = "none";
+        if (viewDirector) viewDirector.style.display = "none";
         renderMediaBin(tab);
     }
 }

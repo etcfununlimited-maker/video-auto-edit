@@ -452,6 +452,139 @@ HYPERFRAME_PRESETS: List[Dict] = [
         "js": """;(function() {
     console.log("Cinematic title HyperFrame initialized");
 })();"""
+    },
+    {
+        "id": "hyperframe_kinetic_captions",
+        "name": "HyperFrame 4-Quadrant Dynamic Kinetic Captions",
+        "category": "Captions & Typography",
+        "description": "Dynamic 4-quadrant kinetic subtitles (Left, Right, Top, Bottom, Zoom-In, Fly-In) with Face-Safe Exclusion Protection.",
+        "html": """<div class="hyperframe-caption-stage" id="hyperframe-caption-stage">
+    <div class="hf-slot hf-slot-bottom" id="hf-slot-bottom"></div>
+    <div class="hf-slot hf-slot-top" id="hf-slot-top"></div>
+    <div class="hf-slot hf-slot-left" id="hf-slot-left"></div>
+    <div class="hf-slot hf-slot-right" id="hf-slot-right"></div>
+</div>""",
+        "css": """.hyperframe-caption-stage {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 25;
+    overflow: hidden;
+}
+
+.hf-slot {
+    position: absolute;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hf-slot.active {
+    display: flex;
+}
+
+.hf-slot-bottom {
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.hf-slot-top {
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.hf-slot-left {
+    left: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 40%;
+}
+
+.hf-slot-right {
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 40%;
+}
+
+.hf-caption-card {
+    background: rgba(10, 16, 30, 0.90);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 2px solid #38bdf8;
+    border-radius: 14px;
+    padding: 8px 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(56, 189, 248, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-family: 'Impact', 'Montserrat', 'Arial Black', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    font-weight: 900;
+}
+
+.hf-caption-card .hf-highlight {
+    color: #facc15;
+    text-shadow: 0 0 12px rgba(250, 204, 21, 0.8);
+    transform: scale(1.15);
+    display: inline-block;
+    transition: transform 0.1s ease;
+}
+
+.hf-anim-zoom-in {
+    animation: hfZoomIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes hfZoomIn {
+    0% { transform: scale(0.6); opacity: 0; }
+    70% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.hf-anim-fly-left {
+    animation: hfFlyLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hfFlyLeft {
+    0% { transform: translateX(-60px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+.hf-anim-fly-right {
+    animation: hfFlyRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hfFlyRight {
+    0% { transform: translateX(60px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+.hf-anim-fly-up {
+    animation: hfFlyUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hfFlyUp {
+    0% { transform: translateY(35px) scale(0.9); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.hf-anim-drop-top {
+    animation: hfDropTop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes hfDropTop {
+    0% { transform: translateY(-35px) scale(0.9); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}""",
+        "js": """;(function() {
+    console.log("HyperFrame 4-Quadrant Dynamic Kinetic Captions Initialized");
+})();"""
     }
 ]
 

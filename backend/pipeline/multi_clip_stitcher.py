@@ -163,9 +163,13 @@ def build_multi_clip_movie_pipeline(
     clip_paths: list[str],
     color_grade: str = "teal_orange",
     aspect_ratio: str = "original",
-    caption_style: str = "youtube_create",
+    caption_style: str = "hyperframe_kinetic",
     output_filename: str = "MASTER_FULL_FEATURE_MOVIE.mp4",
-    progress_callback = None
+    progress_callback = None,
+    enabled_grids: dict = None,
+    target_duration: float = None,
+    text_behind: dict = None,
+    director_effects: dict = None
 ) -> str:
     """
     Assembles all authentic raw clips into the complete master feature movie:
@@ -174,10 +178,18 @@ def build_multi_clip_movie_pipeline(
     - Applies blurred ambient background padding for genuine portrait clips in 16:9
     - Composites consecutive photos into dynamic multi-photo grid collages (2x2, 3-split, dual-split)
     - Enforces Continuous Speech Protection on all dialogue takes (no mid-sentence cuts)
-    - Drops burned subtitles for now (0 Urdu/Arabic/translation glitches)
+    - Supports 9:16 vertical export (1080x1920) and target duration truncation (e.g. 60s viral shorts)
     - Enforces CFR 30.0 fps, timescale 30000, and 48kHz stereo AAC on every segment (0% freezing)
     - FastStart universal MP4 export for 100% native Windows Media Player playback
     """
+    if enabled_grids:
+        if not enabled_grids.get("grid_captions", True):
+            caption_style = None
+        if not enabled_grids.get("grid_color", True):
+            color_grade = "none"
+        if aspect_ratio == "9:16":
+            enabled_grids["grid_reframe"] = True
+
     final_path = FINAL_EXPORT_DIR / output_filename
     unique_paths = deduplicate_and_sort_clips(clip_paths)
     total_raw = len(unique_paths)
@@ -227,6 +239,24 @@ def build_multi_clip_movie_pipeline(
                 "meta": meta
             })
             i += 1
+
+    # If target_duration is set (e.g. 60s for TikTok/Shorts), limit story elements
+    if target_duration and target_duration > 0:
+        filtered_elements = []
+        accumulated_dur = 0.0
+        for elem in story_elements:
+            elem_dur = elem.get("meta", {}).get("duration", 3.0)
+            if elem["type"] == "photo_group":
+                elem_dur = 2.0
+            elif elem["type"] == "dialogue":
+                elem_dur = min(12.0, max(4.0, elem_dur))
+            if accumulated_dur + elem_dur <= target_duration + 5.0:
+                filtered_elements.append(elem)
+                accumulated_dur += elem_dur
+            if accumulated_dur >= target_duration:
+                break
+        if filtered_elements:
+            story_elements = filtered_elements
 
     total_elements = len(story_elements)
     temp_processed_segments = []
@@ -349,6 +379,17 @@ def build_multi_clip_movie_pipeline(
             fade_out_st = max(0.0, dur - fade_dur)
             af = f"afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f},aformat=sample_rates=48000:channel_layouts=stereo"
 
+            # Director FX for Scenic B-Roll (Flash Frame, Scope, Vignette)
+            if director_effects and director_effects.get("flash_frame") and seg_counter > 1:
+                vf_scale = f"{vf_scale},fade=t=in:st=0:d=0.10:c=white"
+            elif director_effects and director_effects.get("whip_pan") and seg_counter > 1:
+                vf_scale = f"{vf_scale},fade=t=in:st=0:d=0.12:c=white"
+
+            if director_effects and director_effects.get("letterbox_239") and aspect_ratio != "9:16":
+                vf_scale = f"{vf_scale},drawbox=y=0:h=135:color=black@1:t=fill,drawbox=y=ih-135:h=135:color=black@1:t=fill"
+            if director_effects and director_effects.get("vignette_falloff"):
+                vf_scale = f"{vf_scale},vignette=PI/4.5"
+
             cmd = [
                 FFMPEG_PATH, "-y",
                 "-i", str(c_p),
@@ -399,7 +440,8 @@ def build_multi_clip_movie_pipeline(
             trim_end = dur
             explicit_retakes = []
 
-            if words:
+            allow_silence_cut = enabled_grids.get("grid_silence", True) if enabled_grids else True
+            if words and allow_silence_cut:
                 first_w_st = float(words[0]["start"])
                 last_w_end = float(words[-1]["end"])
 
@@ -424,14 +466,51 @@ def build_multi_clip_movie_pipeline(
                 r_end = explicit_retakes[0]["end"]
                 print(f"  --> Explicit retake cluster detected in {c_p.name} at {r_st:.2f}s - {r_end:.2f}s (Removing false start)")
 
+                vf_p1 = vf_scale
+                vf_p2 = vf_scale
+                if caption_style and words:
+                    try:
+                        from backend.pipeline.hyperframe_captions import generate_ass_subtitles, extract_face_timeline
+                        fboxes = extract_face_timeline(str(c_p))
+                        words_p1 = [w for w in words if float(w.get("start", 0)) >= trim_start and float(w.get("end", 0)) <= r_st]
+                        words_p2 = [w for w in words if float(w.get("start", 0)) >= r_end and float(w.get("end", 0)) <= trim_end]
+                        if words_p1:
+                            ass_p1 = str(UPLOADS_DIR / f"captions_p1_{seg_counter:03d}_{c_p.stem}.ass")
+                            generate_ass_subtitles(words_p1, style_name=caption_style, output_path=ass_p1, face_boxes=fboxes, video_path=str(c_p))
+                            vf_p1 = f"{vf_scale},subtitles='{ass_p1.replace(chr(92), '/').replace(':', chr(92) + ':')}'"
+                        if words_p2:
+                            ass_p2 = str(UPLOADS_DIR / f"captions_p2_{seg_counter:03d}_{c_p.stem}.ass")
+                            generate_ass_subtitles(words_p2, style_name=caption_style, output_path=ass_p2, face_boxes=fboxes, video_path=str(c_p))
+                            vf_p2 = f"{vf_scale},subtitles='{ass_p2.replace(chr(92), '/').replace(':', chr(92) + ':')}'"
+                    except Exception as e_sub:
+                        print(f"Warning: retake subtitles fallback: {e_sub}")
+
                 # Part 1: from trim_start to r_st
                 out_part1 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_{c_p.stem}_part1.mp4"
                 dur_p1 = max(0.1, r_st - trim_start)
+
+                # Bold Depth Text Behind Person (Vlog Title Hook on opening take)
+                if text_behind and text_behind.get("enabled") and seg_counter == 0:
+                    try:
+                        from backend.pipeline.ai_director_suite import generate_depth_text_ass
+                        depth_ass_path = str(UPLOADS_DIR / f"depth_title_intro_{seg_counter:03d}.ass")
+                        generate_depth_text_ass(
+                            text_cfg=text_behind,
+                            duration=min(8.0, dur_p1),
+                            output_path=depth_ass_path,
+                            video_w=1080 if aspect_ratio == "9:16" else 1920,
+                            video_h=1920 if aspect_ratio == "9:16" else 1080
+                        )
+                        escaped_depth = depth_ass_path.replace("\\", "/").replace(":", "\\:")
+                        vf_p1 = f"{vf_p1},subtitles='{escaped_depth}'"
+                    except Exception as ex_dt:
+                        print(f"Warning: could not burn depth text: {ex_dt}")
+
                 cmd_p1 = [
                     FFMPEG_PATH, "-y",
                     "-ss", f"{trim_start:.3f}", "-to", f"{r_st:.3f}",
                     "-i", str(c_p),
-                    "-vf", f"setpts=PTS-STARTPTS,{vf_scale}",
+                    "-vf", f"setpts=PTS-STARTPTS,{vf_p1}",
                     "-af", f"asetpts=PTS-STARTPTS,afade=t=in:ss=0:d=0.030,afade=t=out:st={dur_p1-0.030:.3f}:d=0.030,aformat=sample_rates=48000:channel_layouts=stereo",
                     "-r", "30", "-fps_mode", "cfr",
                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
@@ -452,7 +531,7 @@ def build_multi_clip_movie_pipeline(
                     FFMPEG_PATH, "-y",
                     "-ss", f"{r_end:.3f}", "-to", f"{trim_end:.3f}",
                     "-i", str(c_p),
-                    "-vf", f"setpts=PTS-STARTPTS,{vf_scale}",
+                    "-vf", f"setpts=PTS-STARTPTS,{vf_p2}",
                     "-af", f"asetpts=PTS-STARTPTS,afade=t=in:ss=0:d=0.030,afade=t=out:st={dur_p2-0.030:.3f}:d=0.030,aformat=sample_rates=48000:channel_layouts=stereo",
                     "-r", "30", "-fps_mode", "cfr",
                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
@@ -469,11 +548,65 @@ def build_multi_clip_movie_pipeline(
             else:
                 # 100% Continuous dialogue take - ZERO mid-sentence cuts
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_{c_p.stem}.mp4"
+
+                # HyperFrame 4-Quadrant Face-Safe Captions
+                vf_dialogue = vf_scale
+                if caption_style and words:
+                    try:
+                        from backend.pipeline.hyperframe_captions import generate_ass_subtitles, extract_face_timeline
+                        dialogue_face_boxes = extract_face_timeline(str(c_p))
+                        ass_take_path = str(UPLOADS_DIR / f"captions_take_{seg_counter:03d}_{c_p.stem}.ass")
+                        generate_ass_subtitles(
+                            words=words,
+                            style_name=caption_style,
+                            output_path=ass_take_path,
+                            face_boxes=dialogue_face_boxes,
+                            cuts=[{"start": 0, "end": trim_start, "duration": trim_start}] if trim_start > 0 else None,
+                            video_path=str(c_p)
+                        )
+                        escaped_ass = ass_take_path.replace("\\", "/").replace(":", "\\:")
+                        vf_dialogue = f"{vf_scale},subtitles='{escaped_ass}'"
+                    except Exception as ex_sub:
+                        print(f"Warning: could not burn dialogue captions: {ex_sub}")
+                        vf_dialogue = vf_scale
+
+                # Bold Depth Text Behind Person (Vlog Title Hook on opening take)
+                if text_behind and text_behind.get("enabled") and seg_counter == 0:
+                    try:
+                        from backend.pipeline.ai_director_suite import generate_depth_text_ass
+                        depth_ass_path = str(UPLOADS_DIR / f"depth_title_intro_{seg_counter:03d}.ass")
+                        take_dur = max(0.5, trim_end - trim_start)
+                        generate_depth_text_ass(
+                            text_cfg=text_behind,
+                            duration=min(8.0, take_dur),
+                            output_path=depth_ass_path,
+                            video_w=1080 if aspect_ratio == "9:16" else 1920,
+                            video_h=1920 if aspect_ratio == "9:16" else 1080
+                        )
+                        escaped_depth = depth_ass_path.replace("\\", "/").replace(":", "\\:")
+                        vf_dialogue = f"{vf_dialogue},subtitles='{escaped_depth}'"
+                    except Exception as ex_dt:
+                        print(f"Warning: could not burn depth text: {ex_dt}")
+
+                # Director FX: Transitions & Optics
+                if director_effects and director_effects.get("flash_frame") and seg_counter > 0:
+                    vf_dialogue = f"{vf_dialogue},fade=t=in:st=0:d=0.10:c=white"
+
+                if director_effects and director_effects.get("punch_in") and seg_counter % 2 == 0:
+                    scale_res = "1080:1920" if aspect_ratio == "9:16" else "1920:1080"
+                    vf_dialogue = f"{vf_dialogue},crop=iw/1.08:ih/1.08:(iw-ow)/2:(ih-oh)/2,scale={scale_res}"
+
+                if director_effects and director_effects.get("letterbox_239") and aspect_ratio != "9:16":
+                    vf_dialogue = f"{vf_dialogue},drawbox=y=0:h=135:color=black@1:t=fill,drawbox=y=ih-135:h=135:color=black@1:t=fill"
+
+                if director_effects and director_effects.get("vignette_falloff"):
+                    vf_dialogue = f"{vf_dialogue},vignette=PI/4.5"
+
                 cmd = [
                     FFMPEG_PATH, "-y",
                     "-ss", f"{trim_start:.3f}", "-to", f"{trim_end:.3f}",
                     "-i", str(c_p),
-                    "-vf", f"setpts=PTS-STARTPTS,{vf_scale}",
+                    "-vf", f"setpts=PTS-STARTPTS,{vf_dialogue}",
                     "-af", f"asetpts=PTS-STARTPTS,{af}",
                     "-r", "30", "-fps_mode", "cfr",
                     "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20",
@@ -506,6 +639,8 @@ def build_multi_clip_movie_pipeline(
     if aspect_ratio == "9:16":
         vf_filters.append("crop=ih*9/16:ih:(iw-ow)/2:0,scale=1080:1920")
 
+    temp_final_path = final_path.with_name(f".tmp_{os.getpid()}_{final_path.name}")
+
     cmd_concat = [
         FFMPEG_PATH,
         "-y",
@@ -534,9 +669,18 @@ def build_multi_clip_movie_pipeline(
         "-ac", "2",
         "-b:a", "192k",
         "-movflags", "+faststart",
-        str(final_path)
+        str(temp_final_path)
     ])
     subprocess.run(cmd_concat, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+    # Atomic replace to prevent corrupted half-written files
+    if os.path.exists(temp_final_path):
+        if os.path.exists(final_path):
+            try:
+                os.remove(final_path)
+            except Exception:
+                pass
+        os.replace(temp_final_path, final_path)
 
     if progress_callback:
         progress_callback(100, f"Master Feature Movie Complete: {output_filename}")

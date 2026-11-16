@@ -18,7 +18,7 @@ def parse_agent_prompt(prompt: str) -> dict:
         "remove_fillers": True,
         "protect_scenic": True,
         "color_grade": "none",
-        "caption_style": "hormozi",
+        "caption_style": "hyperframe_kinetic",
         "audio_enhance": True,
         "beat_sync": False,
         "duck_music": False,
@@ -76,7 +76,10 @@ def parse_agent_prompt(prompt: str) -> dict:
         actions["summary"].append("Apply Social Viral Pop color boost")
 
     # 4. Captions
-    if "mrbeast" in p:
+    if any(k in p for k in ["hyperframe", "bold", "fly", "zoom", "left", "right", "quadrant", "face-safe", "face safe"]):
+        actions["caption_style"] = "hyperframe_kinetic"
+        actions["summary"].append("Use HyperFrame 4-Quadrant Dynamic Kinetic captions (Bold Left/Right/Top/Bottom, Zoom, Fly, Face-Safe)")
+    elif "mrbeast" in p:
         actions["caption_style"] = "mrbeast"
         actions["summary"].append("Add bold punchy MrBeast-style animated captions")
     elif "cyber" in p:
@@ -85,9 +88,12 @@ def parse_agent_prompt(prompt: str) -> dict:
     elif "cinematic" in p:
         actions["caption_style"] = "cinematic"
         actions["summary"].append("Add clean minimalist cinematic subtitles")
+    elif "youtube" in p:
+        actions["caption_style"] = "youtube_create"
+        actions["summary"].append("Add YouTube Create dynamic kinetic captions")
     else:
-        actions["caption_style"] = "hormozi"
-        actions["summary"].append("Add high-retention Hormozi kinetic word-highlight captions")
+        actions["caption_style"] = "hyperframe_kinetic"
+        actions["summary"].append("Use HyperFrame 4-Quadrant Dynamic Kinetic captions (Bold Left/Right/Top/Bottom, Zoom, Fly, Face-Safe)")
 
     # 5. Beat Sync & Ducking
     if "beat" in p or "rhythm" in p or "music" in p:

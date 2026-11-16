@@ -133,6 +133,7 @@ def render_final_master(
     filter_graph_str = "".join(filter_complex)
 
     # Universal encoding arguments
+    temp_final_path = final_path.with_name(f".tmp_{os.getpid()}_{final_path.name}")
     cmd = [
         FFMPEG_PATH,
         "-y",
@@ -154,11 +155,18 @@ def render_final_master(
         "-ac", "2",
         "-b:a", "192k",
         "-movflags", "+faststart",
-        str(final_path)
+        str(temp_final_path)
     ]
 
     try:
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        if os.path.exists(temp_final_path):
+            if os.path.exists(final_path):
+                try:
+                    os.remove(final_path)
+                except Exception:
+                    pass
+            os.replace(temp_final_path, final_path)
         return str(final_path)
     except subprocess.CalledProcessError as e:
         print(f"Direct render warning: {e.stderr.decode('utf-8', errors='replace')}")
@@ -182,7 +190,14 @@ def render_final_master(
             "-ac", "2",
             "-b:a", "192k",
             "-movflags", "+faststart",
-            str(final_path)
+            str(temp_final_path)
         ]
         subprocess.run(cmd_fallback, check=True)
+        if os.path.exists(temp_final_path):
+            if os.path.exists(final_path):
+                try:
+                    os.remove(final_path)
+                except Exception:
+                    pass
+            os.replace(temp_final_path, final_path)
         return str(final_path)

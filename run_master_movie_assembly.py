@@ -22,13 +22,15 @@ if __name__ == "__main__":
     clip_files = sorted([str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
     print(f"Found {len(clip_files)} files in raw_input. Starting Assembly...")
 
+    from backend.pipeline.ai_director_suite import DEFAULT_TEXT_BEHIND_PERSON
     master_path = build_multi_clip_movie_pipeline(
         clip_paths=clip_files,
         color_grade="teal_orange",
         aspect_ratio="original",
-        caption_style="youtube_create",
+        caption_style="hyperframe_kinetic",
         output_filename="MASTER_FULL_FEATURE_MOVIE.mp4",
-        progress_callback=progress_logger
+        progress_callback=progress_logger,
+        text_behind=DEFAULT_TEXT_BEHIND_PERSON
     )
 
     elapsed = time.time() - start_t

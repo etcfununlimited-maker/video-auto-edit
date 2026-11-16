@@ -1,0 +1,700 @@
+/* ==========================================================================
+   AI DIRECTOR FX STUDIO & TOP 50 TRANSITIONS ENGINE
+   ANIRBAN AUTOMATIONS • STUDIO PRO v2.5
+   ========================================================================== */
+
+/* Director Top Tab Badge */
+.studio-tab-btn .badge-director {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(168, 85, 247, 0.25));
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.2);
+}
+
+.studio-tab-btn.active .badge-director {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(168, 85, 247, 0.4));
+    color: #ffffff;
+    border-color: #38bdf8;
+}
+
+/* Director Workspace Container */
+.director-workspace {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #090d16;
+    color: #f1f5f9;
+    overflow-y: auto;
+    padding: 20px 28px;
+    gap: 22px;
+}
+
+/* Director Top Banner */
+.director-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.5));
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 18px 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.director-hero-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.director-hero-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0284c7, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.35);
+}
+
+.director-hero-text h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    margin: 0;
+    color: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.director-hero-text p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 4px 0 0 0;
+}
+
+.director-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.director-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(14, 165, 233, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.director-stat-pill .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 8px #38bdf8;
+    animation: pulseGlow 1.8s infinite;
+}
+
+@keyframes pulseGlow {
+    0% { transform: scale(0.95); opacity: 0.7; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+/* ==========================================================================
+   FLAGSHIP SECTION: BOLD TEXT BEHIND PERSON (Depth Typography & Neon Studio)
+   ========================================================================== */
+.depth-text-panel {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: relative;
+    overflow: hidden;
+}
+
+.depth-text-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #0ea5e9, #a855f7, #ec4899);
+}
+
+.depth-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.depth-title-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.depth-badge {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(168, 85, 247, 0.2));
+    color: #f472b6;
+    border: 1px solid rgba(236, 72, 153, 0.4);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 12px;
+    letter-spacing: 0.8px;
+}
+
+.depth-title-group h2 {
+    font-size: 16.5px;
+    font-weight: 700;
+    margin: 0;
+    color: #f1f5f9;
+}
+
+.depth-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* iOS-style toggle switches */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-switch {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #334155;
+    transition: .3s;
+    border-radius: 24px;
+    border: 1px solid #475569;
+}
+
+.slider-switch:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: #ffffff;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider-switch {
+    background: linear-gradient(135deg, #0284c7, #0ea5e9);
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+}
+
+input:checked + .slider-switch:before {
+    transform: translateX(20px);
+}
+
+/* Depth Text 2-Column Layout */
+.depth-body-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+/* Left: Interactive Canvas Preview */
+.depth-canvas-preview-box {
+    background: #020617;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.7);
+}
+
+.simulated-person-silhouette {
+    position: absolute;
+    bottom: 0;
+    width: 170px;
+    height: 230px;
+    background: radial-gradient(circle at 50% 30%, #334155, #1e293b 70%);
+    border-radius: 80px 80px 0 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.6);
+}
+
+.simulated-person-head {
+    width: 58px;
+    height: 68px;
+    border-radius: 50%;
+    background: #475569;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.simulated-person-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 15px;
+}
+
+.depth-live-text-layer {
+    position: absolute;
+    z-index: 2; /* Behind the silhouette (z-index 5) */
+    text-align: center;
+    user-select: none;
+    pointer-events: none;
+    transition: all 0.15s ease-out;
+    white-space: nowrap;
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.depth-preview-badges {
+    position: absolute;
+    top: 12px;
+    left: 14px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.preview-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    backdrop-filter: blur(4px);
+}
+
+/* Right: Controls & Parameters */
+.depth-controls-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.control-field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.control-field-row label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.control-field-row label .val-badge {
+    font-size: 11px;
+    color: #38bdf8;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.control-input-text {
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 9px 13px;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.control-input-text:focus {
+    border-color: #0ea5e9;
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.3);
+}
+
+.control-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.control-select {
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+}
+
+.control-select:focus {
+    border-color: #0ea5e9;
+}
+
+/* Quick Swatches Row */
+.swatches-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.swatch-circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+.swatch-circle:hover {
+    transform: scale(1.2);
+}
+
+.swatch-circle.active {
+    border-color: #ffffff;
+    transform: scale(1.25);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+}
+
+/* Position Radio Pills */
+.position-pills {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.pos-btn {
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.pos-btn:hover {
+    color: #ffffff;
+    border-color: #475569;
+}
+
+.pos-btn.active {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: #0ea5e9;
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+/* Custom range sliders */
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+    margin: 6px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #38bdf8;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    transition: transform 0.1s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Grid Pipeline Linking Banner */
+.depth-pipeline-sync-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px dashed rgba(56, 189, 248, 0.4);
+    border-radius: 8px;
+    padding: 9px 15px;
+    font-size: 12px;
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.depth-pipeline-sync-bar .sync-tag {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   TOP 50 EFFECTS & TRANSITIONS SUITE
+   ========================================================================== */
+.fx-suite-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fx-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 12px 18px;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.fx-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 7px 12px;
+    width: 260px;
+}
+
+.fx-search-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-size: 13px;
+    width: 100%;
+}
+
+.fx-category-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.fx-cat-pill {
+    background: #020617;
+    border: 1px solid #334155;
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.fx-cat-pill:hover {
+    color: #f1f5f9;
+    border-color: #475569;
+}
+
+.fx-cat-pill.active {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: #0ea5e9;
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.fx-quick-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 50 Effects Grid */
+.fx-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+}
+
+.fx-card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.fx-card:hover {
+    border-color: #334155;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.fx-card.active {
+    border-color: rgba(56, 189, 248, 0.5);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(14, 165, 233, 0.06));
+    box-shadow: 0 0 15px rgba(14, 165, 233, 0.1);
+}
+
+.fx-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.fx-card-num-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.fx-card-num-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fx-num-tag {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #64748b;
+    font-family: monospace;
+}
+
+.fx-badge {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #1e293b;
+    color: #94a3b8;
+}
+
+.fx-card.active .fx-badge {
+    background: rgba(14, 165, 233, 0.2);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.fx-card-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.fx-card-desc {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.fx-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid #1e293b;
+    font-size: 11px;
+}
+
+.fx-grid-target-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #64748b;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+.fx-card.active .fx-grid-target-pill {
+    color: #38bdf8;
+}
+
+.fx-grid-target-pill i {
+    width: 12px;
+    height: 12px;
+}
+
+/* Premiere Pro Mini Bin Panel for AI Director */
+.director-bin-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #0b0f19;
+}
+
+.mini-director-card {
+    background: #111827;
+    border: 1px solid #1f2937;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}

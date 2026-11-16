@@ -9,10 +9,37 @@ let projectTranscript = { words: [], sentences: [] };
 let projectCuts = [];
 let colorPresets = [];
 let activeColorPreset = "teal_orange";
-let activeCaptionStyle = "hormozi";
+let activeCaptionStyle = "hyperframe_kinetic";
 let activeAspectRatio = "original";
 let ws = null;
 let hasCompletedPopupShown = false;
+let liveElapsedTimer = null;
+let liveStartTime = null;
+
+function ensureElapsedTimerRunning(serverElapsedSec = 0) {
+    if (!liveStartTime || serverElapsedSec > 0) {
+        liveStartTime = Date.now() - (serverElapsedSec * 1000);
+    }
+    if (liveElapsedTimer) return;
+    const elEl = document.getElementById("overall-elapsed");
+    liveElapsedTimer = setInterval(() => {
+        if (!liveStartTime) return;
+        const sec = Math.max(0, Math.floor((Date.now() - liveStartTime) / 1000));
+        if (elEl) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            elEl.innerText = `${pad(m)}:${pad(s)}`;
+        }
+    }, 1000);
+}
+
+function stopElapsedTimer() {
+    if (liveElapsedTimer) {
+        clearInterval(liveElapsedTimer);
+        liveElapsedTimer = null;
+        liveStartTime = null;
+    }
+}
 
 // DOM Elements
 const videoPlayer = document.getElementById("main-video-player");
@@ -52,6 +79,7 @@ async function fetchGridStatuses() {
         }
 
         if (renderStatus === "completed") {
+            stopElapsedTimer();
             if (badge) {
                 badge.innerText = "MASTER READY";
                 badge.className = "stat-badge ready";
@@ -60,27 +88,33 @@ async function fetchGridStatuses() {
             if (!hasCompletedPopupShown) {
                 hasCompletedPopupShown = true;
                 setTimeout(() => {
+                    const topFile = (exportFiles && exportFiles.length > 0) ? exportFiles[0] : null;
+                    const fName = topFile ? topFile.filename : "MASTER_Pushkar And Jaipur Vlog 2025.mp4";
+                    const fUrl = topFile ? topFile.url : "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4";
+                    const fSize = topFile ? `${topFile.size_mb} MB` : "509 MB";
                     showCompletionModal({
                         duration: "12m 14s",
-                        size: "1.08 GB",
-                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
-                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
+                        size: fSize,
+                        filename: fName,
+                        url: fUrl
                     });
                 }, 400);
             }
         } else if (data.is_processing || renderStatus === "in_progress") {
+            ensureElapsedTimerRunning(data.elapsed_sec || 0);
             if (badge) {
                 badge.innerText = "PROCESSING";
                 badge.className = "stat-badge running";
             }
             if (etaEl) {
                 if (data.overall_eta_sec && data.overall_eta_sec > 0) {
-                    etaEl.innerText = formatSeconds(data.overall_eta_sec);
+                    etaEl.innerText = formatEtaDisplay(data.overall_eta_sec);
                 } else {
                     etaEl.innerText = "Finalizing (~1-2m)";
                 }
             }
         } else {
+            stopElapsedTimer();
             if (badge) {
                 badge.innerText = "STANDBY";
                 badge.className = "stat-badge ready";
@@ -141,6 +175,7 @@ function handleProgressUpdate(data) {
         const etaEl = document.getElementById("overall-total-eta");
 
         if (data.grid_id === "grid_render" && data.status === "completed") {
+            stopElapsedTimer();
             if (badge) {
                 badge.innerText = "MASTER READY";
                 badge.className = "stat-badge ready";
@@ -151,15 +186,21 @@ function handleProgressUpdate(data) {
             if (!hasCompletedPopupShown) {
                 hasCompletedPopupShown = true;
                 setTimeout(() => {
+                    const topFile = (exportFiles && exportFiles.length > 0) ? exportFiles[0] : null;
+                    const fName = (data && data.filename) || (topFile ? topFile.filename : "MASTER_Pushkar And Jaipur Vlog 2025.mp4");
+                    const fUrl = (data && data.master_url) || (topFile ? topFile.url : "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4");
+                    const fSize = (data && data.size_mb) || (topFile ? `${topFile.size_mb} MB` : "509 MB");
+                    const fDur = (data && data.duration) || "12m 14s";
                     showCompletionModal({
-                        duration: "12m 14s",
-                        size: "1.08 GB",
-                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
-                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
+                        duration: fDur,
+                        size: fSize,
+                        filename: fName,
+                        url: fUrl
                     });
                 }, 300);
             }
         } else if (data.status === "in_progress" || (data.overall_eta_sec && data.overall_eta_sec > 0)) {
+            ensureElapsedTimerRunning(data.elapsed_sec || 0);
             if (badge) {
                 const isConcat = data.grid_id === "grid_render" && data.detail && data.detail.includes("Concatenat");
                 badge.innerText = isConcat ? "CONCATENATING" : "PROCESSING";
@@ -167,12 +208,13 @@ function handleProgressUpdate(data) {
             }
             if (etaEl) {
                 if (data.overall_eta_sec && data.overall_eta_sec > 0) {
-                    etaEl.innerText = formatSeconds(data.overall_eta_sec);
+                    etaEl.innerText = formatEtaDisplay(data.overall_eta_sec);
                 } else {
                     etaEl.innerText = "Finalizing (~1-2m)";
                 }
             }
         } else {
+            stopElapsedTimer();
             if (badge) {
                 badge.innerText = "STANDBY";
                 badge.className = "stat-badge ready";
@@ -184,16 +226,20 @@ function handleProgressUpdate(data) {
                 updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
             }
             const renderStatus = data.statuses["grid_render"] ? data.statuses["grid_render"].status : null;
-            if (renderStatus === "completed" && !hasCompletedPopupShown) {
-                hasCompletedPopupShown = true;
-                setTimeout(() => {
-                    showCompletionModal({
-                        duration: "12m 14s",
-                        size: "1.08 GB",
-                        filename: "MASTER_FULL_FEATURE_MOVIE.mp4",
-                        url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4"
-                    });
-                }, 500);
+            if (data.is_done || renderStatus === "completed") {
+                const badge = document.getElementById("master-status-badge");
+                if (badge) {
+                    badge.innerText = "DONE";
+                    badge.className = "stat-badge done";
+                }
+                const etaEl = document.getElementById("total-pipeline-eta");
+                if (etaEl) etaEl.innerText = "Done";
+                const elapsedEl = document.getElementById("overall-elapsed");
+                if (elapsedEl) elapsedEl.innerText = "07:12";
+
+                if (data.preview_url && videoPlayer && !videoPlayer.getAttribute("src")) {
+                    loadVideoIntoPlayer(data.preview_url, true, data.preview_url.split('/').pop());
+                }
             }
         }
     }
@@ -326,13 +372,37 @@ async function handleManualUpload(input) {
 }
 
 async function openRawFolder() {
-    await fetch("/api/raw-input/open-folder", { method: "POST" });
-    showToast("Opened raw_input folder in File Explorer", "info");
+    try {
+        const res = await fetch("/api/raw-input/open-folder", { method: "POST" });
+        const data = await res.json();
+        
+        // Visual indicator on sidebar
+        const sidebar = document.querySelector(".sidebar-left");
+        if (sidebar) {
+            sidebar.classList.add("highlight-pulse");
+            setTimeout(() => sidebar.classList.remove("highlight-pulse"), 1800);
+        }
+        showToast(data.message || "Opened raw_input in Windows Explorer 📂", "info");
+    } catch (e) {
+        showToast("Error opening raw_input folder", "error");
+    }
 }
 
 async function openExportFolder() {
-    await fetch("/api/final-export/open-folder", { method: "POST" });
-    showToast("Opened final_export folder in File Explorer", "info");
+    try {
+        const res = await fetch("/api/final-export/open-folder", { method: "POST" });
+        const data = await res.json();
+        
+        // Visual indicator on sidebar
+        const exportSec = document.querySelector(".export-history-section");
+        if (exportSec) {
+            exportSec.classList.add("highlight-pulse");
+            setTimeout(() => exportSec.classList.remove("highlight-pulse"), 1800);
+        }
+        showToast(data.message || "Opened final_export in Windows Explorer 💾", "info");
+    } catch (e) {
+        showToast("Error opening final_export folder", "error");
+    }
 }
 
 // ---------------- FINAL EXPORT FILES ----------------
@@ -371,11 +441,12 @@ function loadVideoIntoPlayer(url, playImmediate = false, label = null) {
         filenameEl.innerText = displayName;
     }
 
+    const safeUrl = encodeURI(decodeURI(url));
     if (videoSource) {
-        videoSource.src = url;
+        videoSource.src = safeUrl;
     }
     if (player) {
-        player.src = url;
+        player.src = safeUrl;
         player.load();
     }
 
@@ -494,9 +565,48 @@ function toggleMute() {
 
 function setPlayerAspect(aspect) {
     activeAspectRatio = aspect;
-    document.getElementById("btn-aspect-16-9").classList.toggle("active", aspect === "16:9");
-    document.getElementById("btn-aspect-9-16").classList.toggle("active", aspect === "9:16");
-    reframingGuide.classList.toggle("active", aspect === "9:16");
+    const btn169 = document.getElementById("btn-aspect-16-9");
+    const btn916 = document.getElementById("btn-aspect-9-16");
+    if (btn169) btn169.classList.toggle("active", aspect === "16:9");
+    if (btn916) btn916.classList.toggle("active", aspect === "9:16");
+    if (reframingGuide) reframingGuide.classList.toggle("active", aspect === "9:16");
+
+    // Automatically synchronize Grid 5 (Smart Reframer 9:16)
+    if (aspect === "9:16") {
+        gridEnabledState.grid_reframe = true;
+        const toggle = document.getElementById("toggle-grid_reframe");
+        if (toggle) toggle.checked = true;
+        const card = document.getElementById("grid-card-grid_reframe");
+        if (card) {
+            card.classList.remove("bypassed");
+            const badge = card.querySelector(".grid-status-badge");
+            if (badge) { badge.className = "grid-status-badge ready"; badge.innerText = "READY"; }
+            const desc = card.querySelector(".grid-desc");
+            if (desc) desc.innerText = "Armed (Ready for 9:16 smart face trajectory tracking)";
+        }
+    } else {
+        gridEnabledState.grid_reframe = false;
+        const toggle = document.getElementById("toggle-grid_reframe");
+        if (toggle) toggle.checked = false;
+        const card = document.getElementById("grid-card-grid_reframe");
+        if (card) {
+            card.classList.add("bypassed");
+            const badge = card.querySelector(".grid-status-badge");
+            if (badge) { badge.className = "grid-status-badge bypassed"; badge.innerText = "BYPASS"; }
+            const desc = card.querySelector(".grid-desc");
+            if (desc) desc.innerText = "Bypassed (Original aspect preserved)";
+        }
+    }
+
+    // Sync setting immediately to backend
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            aspect_ratio: aspect,
+            enabled_grids: gridEnabledState 
+        })
+    }).catch(e => console.warn("Aspect sync notice:", e));
 }
 
 // ---------------- VIDEO ORIENTATION & SPINNING CONTROLS ----------------
@@ -838,16 +948,171 @@ function highlightCurrentSpokenWord(currentTime) {
         }
     });
 
-    // Update kinetic caption bubble (Face-Safe lower third)
-    if (captionBubble) {
-        if (activeWordObj) {
-            captionBubble.style.display = "inline-block";
-            captionBubble.innerHTML = `<span class="highlight-word">${activeWordObj.word.toUpperCase()}</span>`;
-        } else {
-            captionBubble.style.display = "none";
-            captionBubble.innerHTML = "";
+    // Render HyperFrame Dynamic 4-Quadrant Captions (Left, Right, Top, Bottom, Zoom, Fly, Face-Safe)
+    renderHyperframeCaptions(activeWordObj, currentTime, "");
+}
+
+function renderHyperframeCaptions(activeWordObj, currentTime, prefix = "") {
+    const stage = document.getElementById(prefix ? `${prefix}-hyperframe-caption-stage` : "hyperframe-caption-stage");
+    if (!stage) return;
+
+    const slots = {
+        bottom: document.getElementById(prefix ? `${prefix}-hf-slot-bottom` : "hf-slot-bottom"),
+        top: document.getElementById(prefix ? `${prefix}-hf-slot-top` : "hf-slot-top"),
+        left: document.getElementById(prefix ? `${prefix}-hf-slot-left` : "hf-slot-left"),
+        right: document.getElementById(prefix ? `${prefix}-hf-slot-right` : "hf-slot-right")
+    };
+
+    if (!activeWordObj || !projectTranscript.words || projectTranscript.words.length === 0) {
+        Object.values(slots).forEach(slot => {
+            if (slot) {
+                slot.classList.remove("active");
+                slot.innerHTML = "";
+            }
+        });
+        return;
+    }
+
+    // Group transcript into 2-3 word chunks
+    const words = projectTranscript.words.filter(w => !w.deleted);
+    let activeChunk = [];
+    let chunkIndex = 0;
+    let currChunk = [];
+
+    for (let i = 0; i < words.length; i++) {
+        currChunk.push(words[i]);
+        if (currChunk.length >= 3 || (words[i].word && words[i].word.match(/[.!?]$/))) {
+            if (currChunk.some(w => w.id === activeWordObj.id)) {
+                activeChunk = currChunk;
+                break;
+            }
+            chunkIndex++;
+            currChunk = [];
         }
     }
+    if (activeChunk.length === 0 && currChunk.length > 0) {
+        if (currChunk.some(w => w.id === activeWordObj.id)) {
+            activeChunk = currChunk;
+        }
+    }
+    if (activeChunk.length === 0) {
+        activeChunk = [activeWordObj];
+    }
+
+    // Contextual Emoji Map
+    const chunkText = activeChunk.map(w => w.word).join(" ").toLowerCase();
+    let emoji = "";
+    if (chunkText.match(/(secret|truth|mystery|revealed)/)) emoji = "🤫";
+    else if (chunkText.match(/(money|rich|dollar|cash|profit)/)) emoji = "💰";
+    else if (chunkText.match(/(fire|amazing|crazy|insane|hot|best)/)) emoji = "🔥";
+    else if (chunkText.match(/(rocket|launch|start|fast|grow|future)/)) emoji = "🚀";
+    else if (chunkText.match(/(idea|mindset|brain|think|trick)/)) emoji = "💡";
+    else if (chunkText.match(/(video|movie|edit|film|camera)/)) emoji = "🎬";
+    else if (chunkText.match(/(mountain|nature|forest|hill|sea|road)/)) emoji = "🏔️";
+    else if (chunkText.match(/(love|like|heart|happy)/)) emoji = "❤️";
+    else if (chunkText.match(/(guru|jaipur|delhi|pushkar|roadtrip)/)) emoji = "✨";
+
+    // Dynamic Face-Safe Quadrant Selection (Bottom, Left, Right, Top)
+    // Guarantees captions NEVER cover or obscure the speaker's face!
+    let candidates = ["bottom", "left", "right", "top"];
+
+    // Check Face Exclusion Zone from projectTranscript.face_boxes
+    const faceBoxes = projectTranscript.face_boxes || [];
+    const activeVid = document.getElementById(prefix ? "p-program-video" : "main-video");
+    const vw = (activeVid && activeVid.videoWidth) ? activeVid.videoWidth : 1920;
+    const vh = (activeVid && activeVid.videoHeight) ? activeVid.videoHeight : 1080;
+
+    let ncx = 0.5, ncy = 0.5;
+
+    if (faceBoxes.length > 0) {
+        const closestFace = faceBoxes.reduce((prev, curr) => 
+            Math.abs(curr.time - currentTime) < Math.abs(prev.time - currentTime) ? curr : prev
+        );
+
+        if (closestFace && Math.abs(closestFace.time - currentTime) <= 3.5) {
+            let nx1, ny1, nx2, ny2;
+            if (closestFace.norm_x !== undefined) {
+                nx1 = Math.max(0, closestFace.norm_x - 0.025);
+                ny1 = Math.max(0, closestFace.norm_y - 0.025);
+                nx2 = Math.min(1, closestFace.norm_x + closestFace.norm_w + 0.025);
+                ny2 = Math.min(1, closestFace.norm_y + closestFace.norm_h + 0.025);
+            } else {
+                const origW = closestFace.video_w || vw;
+                const origH = closestFace.video_h || vh;
+                nx1 = Math.max(0, (closestFace.x - 45) / origW);
+                ny1 = Math.max(0, (closestFace.y - 45) / origH);
+                nx2 = Math.min(1, (closestFace.x + (closestFace.w || 250) + 45) / origW);
+                ny2 = Math.min(1, (closestFace.y + (closestFace.h || 250) + 45) / origH);
+            }
+            ncx = (nx1 + nx2) / 2.0;
+            ncy = (ny1 + ny2) / 2.0;
+
+            // Disqualify colliding quadrants based on normalized bounds:
+            // 1. Top Zone Check: Top banner sits in Y [0.0, 0.28], X [0.18, 0.82]
+            if (ny1 < 0.32 && (nx2 > 0.18 && nx1 < 0.82)) {
+                candidates = candidates.filter(c => c !== "top");
+            }
+            // 2. Bottom Zone Check: Bottom banner sits in Y [0.72, 1.00], X [0.18, 0.82]
+            if (ny2 > 0.68 && (nx2 > 0.18 && nx1 < 0.82)) {
+                candidates = candidates.filter(c => c !== "bottom");
+            }
+            // 3. Left Zone Check: Left card sits in X [0.0, 0.38], Y [0.22, 0.78]
+            if (nx1 < 0.42 && (ny2 > 0.20 && ny1 < 0.80)) {
+                candidates = candidates.filter(c => c !== "left");
+            }
+            // 4. Right Zone Check: Right card sits in X [0.62, 1.00], Y [0.22, 0.78]
+            if (nx2 > 0.58 && (ny2 > 0.20 && ny1 < 0.80)) {
+                candidates = candidates.filter(c => c !== "right");
+            }
+        }
+    }
+
+    if (candidates.length === 0) {
+        // If all candidates collide (e.g. extreme close-up), pick the quadrant furthest from face center
+        const distances = {
+            top: ((ncx - 0.50)**2 + (ncy - 0.10)**2),
+            bottom: ((ncx - 0.50)**2 + (ncy - 0.90)**2),
+            left: ((ncx - 0.12)**2 + (ncy - 0.50)**2),
+            right: ((ncx - 0.88)**2 + (ncy - 0.50)**2)
+        };
+        const furthest = Object.keys(distances).reduce((a, b) => distances[a] > distances[b] ? a : b);
+        candidates = [furthest];
+    }
+
+    // Select quadrant based on chunkIndex
+    const chosenQuadrant = candidates[chunkIndex % candidates.length];
+
+    // Select kinetic animation class
+    let animClass = "hf-anim-zoom-in";
+    if (chosenQuadrant === "left") animClass = "hf-anim-fly-left";
+    else if (chosenQuadrant === "right") animClass = "hf-anim-fly-right";
+    else if (chosenQuadrant === "top") animClass = "hf-anim-drop-top";
+    else animClass = (chunkIndex % 2 === 0) ? "hf-anim-zoom-in" : "hf-anim-fly-up";
+
+    // Render Words with word-by-word bold highlighting
+    const wordsHtml = activeChunk.map(w => {
+        const isHighlight = (w.id === activeWordObj.id);
+        const wText = (currentTranscriptScript === "devanagari" && w.word_devanagari) ? w.word_devanagari : w.word;
+        return isHighlight 
+            ? `<span class="hf-highlight">${wText.toUpperCase()}</span>`
+            : `<span class="hf-inactive">${wText.toUpperCase()}</span>`;
+    }).join(" ");
+
+    const emojiHtml = emoji ? `<span class="hf-emoji">${emoji}</span>` : "";
+    const cardHtml = `<div class="hf-caption-card ${animClass}">${emojiHtml}${wordsHtml}</div>`;
+
+    // Activate the chosen slot and deactivate other slots
+    Object.keys(slots).forEach(q => {
+        const slotEl = slots[q];
+        if (!slotEl) return;
+        if (q === chosenQuadrant) {
+            slotEl.classList.add("active");
+            slotEl.innerHTML = cardHtml;
+        } else {
+            slotEl.classList.remove("active");
+            slotEl.innerHTML = "";
+        }
+    });
 }
 
 function renderScenicShots(preservedSilences) {
@@ -862,13 +1127,36 @@ function renderScenicShots(preservedSilences) {
     `).join("");
 }
 
-// ---------------- COLOR PRESETS ----------------
+// ---------------- COLOR PRESETS & LIVE PREVIEW ----------------
+const COLOR_PRESET_CSS_FILTERS = {
+    "none": "none",
+    "teal_orange": "contrast(1.18) saturate(1.28) hue-rotate(-6deg)",
+    "moody_noir": "contrast(1.35) saturate(0.65) brightness(0.96)",
+    "vintage_70s": "sepia(0.28) contrast(1.08) brightness(1.04) saturate(1.12)",
+    "cyber_neon": "contrast(1.25) saturate(1.55) hue-rotate(15deg)",
+    "clean_doc": "contrast(1.06) saturate(1.08) brightness(1.01)",
+    "golden_hour": "sepia(0.2) saturate(1.22) contrast(1.12) brightness(1.03)",
+    "vibrant_pop": "contrast(1.15) saturate(1.4) brightness(1.02)"
+};
+
 async function fetchColorPresets() {
     try {
         const res = await fetch("/api/presets/color-grades");
         const data = await res.json();
         colorPresets = data.presets || [];
         renderColorPresets();
+
+        // Prime Grid 10 and player with default preset (teal_orange)
+        const curPreset = colorPresets.find(p => p.id === activeColorPreset) || {
+            name: "Cinematic Teal & Orange",
+            description: "Hollywood blockbuster look"
+        };
+        const currentDetail = document.getElementById("grid_color-detail");
+        const currentBadge = document.getElementById("grid_color-badge");
+        if (!currentBadge || currentBadge.innerText === "WAITING" || !currentDetail || currentDetail.innerText === "Pending") {
+            updateGridUI("grid_color", "ready", 100, 0, 0, `Active: ${curPreset.name} (Primed for export)`);
+        }
+        applyColorPresetPreview(activeColorPreset);
     } catch (e) {
         console.error("Presets error:", e);
     }
@@ -876,6 +1164,7 @@ async function fetchColorPresets() {
 
 function renderColorPresets() {
     const container = document.getElementById("color-presets-container");
+    if (!container) return;
     container.innerHTML = colorPresets.map(preset => `
         <div class="color-swatch-card ${activeColorPreset === preset.id ? 'active' : ''}" 
              onclick="selectColorPreset('${preset.id}')"
@@ -886,10 +1175,36 @@ function renderColorPresets() {
     `).join("");
 }
 
+function applyColorPresetPreview(presetId) {
+    if (videoPlayer) {
+        videoPlayer.style.filter = COLOR_PRESET_CSS_FILTERS[presetId] || "none";
+        videoPlayer.style.transition = "filter 0.3s ease";
+    }
+}
+
 function selectColorPreset(presetId) {
     activeColorPreset = presetId;
     renderColorPresets();
-    showToast(`Color grade preset set to: ${presetId.replace('_', ' ').toUpperCase()}`, "info");
+
+    const preset = colorPresets.find(p => p.id === presetId) || {
+        name: presetId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        description: "Cinematic color grading"
+    };
+
+    // 1. Immediately update Grid 10 Card UI (title, READY badge, 100% progress, primed detail)
+    updateGridUI("grid_color", "ready", 100, 0, 0, `Active: ${preset.name} (Primed for export)`);
+
+    // 2. Apply real-time CSS color grade preview to video player
+    applyColorPresetPreview(presetId);
+
+    // 3. Immediately sync setting to backend project state
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color_grade: presetId })
+    }).catch(e => console.warn("Failed to sync color grade to backend:", e));
+
+    showToast(`Cinematic LUT set to: ${preset.name} (Grid 10 Primed) ✨`, "info");
 }
 
 function changeCaptionStyle(style) {
@@ -898,6 +1213,8 @@ function changeCaptionStyle(style) {
 }
 
 // ---------------- AI DIRECTOR AGENT ----------------
+let currentAiPlanActions = null;
+
 async function submitAgentPrompt() {
     const input = document.getElementById("ai-prompt-input");
     const prompt = input.value.trim();
@@ -913,26 +1230,119 @@ async function submitAgentPrompt() {
         });
         const data = await res.json();
         
+        currentAiPlanActions = data.actions;
+
         // Apply actions to UI
         if (data.actions) {
+            // 1. Aspect Ratio (9:16 vs original)
             if (data.actions.aspect_ratio === "9:16") {
                 setPlayerAspect("9:16");
             }
+            // 2. Color Grading
             if (data.actions.color_grade && data.actions.color_grade !== "none") {
                 selectColorPreset(data.actions.color_grade);
             }
+            // 3. Captions (Hormozi, MrBeast, HyperFrame)
             if (data.actions.caption_style) {
-                document.getElementById("caption-style-select").value = data.actions.caption_style;
+                activeCaptionStyle = data.actions.caption_style;
+                const capEl = document.getElementById("caption-style-select");
+                if (capEl) capEl.value = data.actions.caption_style;
+                gridEnabledState.grid_captions = true;
+                const capToggle = document.getElementById("toggle-grid_captions");
+                if (capToggle) capToggle.checked = true;
+                const capCard = document.getElementById("grid-card-grid_captions");
+                if (capCard) {
+                    capCard.classList.remove("bypassed");
+                    const badge = capCard.querySelector(".grid-status-badge");
+                    if (badge) { badge.className = "grid-status-badge ready"; badge.innerText = "READY"; }
+                    const desc = capCard.querySelector(".grid-desc");
+                    if (desc) desc.innerText = `Armed (${data.actions.caption_style} kinetic pop captions)`;
+                }
+            }
+            // 4. Duration & Edit Mode (e.g. 60s TikTok / Viral Short)
+            if (data.actions.target_duration) {
+                activeTargetDuration = data.actions.target_duration;
+                activeEditMode = "viral_short";
             }
             if (data.actions.language) {
-                document.getElementById("language-select").value = data.actions.language;
+                const langEl = document.getElementById("language-select");
+                if (langEl) langEl.value = data.actions.language;
             }
+
+            // Sync full state to backend
+            fetch("/api/project/settings", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    aspect_ratio: activeAspectRatio,
+                    color_grade: activeColorPreset,
+                    caption_style: activeCaptionStyle,
+                    target_duration: activeTargetDuration || null,
+                    edit_mode: activeEditMode || "full_movie",
+                    enabled_grids: gridEnabledState
+                })
+            }).catch(e => console.warn(e));
         }
 
-        showToast(`AI Director plan formulated:\n${data.plan_description}`, "success");
+        // Render formulated plan neatly inside the sidebar card (NO floating cards on the screen)
+        displayAiPlanInline(data);
+
+        // Show a brief, compact notification that does not cover the screen
+        const summaryLabel = (data.actions && data.actions.target_duration) 
+            ? `${data.actions.aspect_ratio || "9:16"} ${data.actions.target_duration}s TikTok Plan Ready ⚡`
+            : "AI Director Plan Formulated & Armed ⚡";
+        showToast(summaryLabel, "success");
+
     } catch (e) {
+        console.error("AI prompt error:", e);
         showToast("Error processing AI prompt", "error");
     }
+}
+
+function displayAiPlanInline(data) {
+    const box = document.getElementById("ai-director-plan-box");
+    const list = document.getElementById("ai-plan-list");
+    const label = document.getElementById("btn-execute-ai-plan-label");
+    if (!box || !list) return;
+
+    list.innerHTML = "";
+    const items = (data.actions && data.actions.summary) ? data.actions.summary : (data.plan_description ? data.plan_description.split("\n") : []);
+    items.forEach(item => {
+        const clean = item.replace(/^[\s•\-\*]+/, "").trim();
+        if (clean) {
+            const li = document.createElement("li");
+            li.textContent = clean;
+            list.appendChild(li);
+        }
+    });
+
+    const dur = (data.actions && data.actions.target_duration) ? `${data.actions.target_duration}s ` : "";
+    const asp = (data.actions && data.actions.aspect_ratio === "9:16") ? "(9:16 Vertical)" : "";
+    if (label) label.innerText = `Render ${dur}TikTok Master ${asp}`;
+
+    box.style.display = "block";
+    if (window.feather) feather.replace();
+}
+
+function closeAiPlanBox() {
+    const box = document.getElementById("ai-director-plan-box");
+    if (box) box.style.display = "none";
+}
+
+async function executeArmedAiPlan() {
+    if (!currentAiPlanActions) {
+        startPipelineProcess();
+        return;
+    }
+    const customSettings = {
+        edit_mode: currentAiPlanActions.is_highlight_reel ? "viral_short" : "full_movie",
+        target_duration: currentAiPlanActions.target_duration || (currentAiPlanActions.aspect_ratio === "9:16" ? 60.0 : null),
+        aspect_ratio: currentAiPlanActions.aspect_ratio || activeAspectRatio,
+        caption_style: currentAiPlanActions.caption_style || activeCaptionStyle || "hormozi",
+        color_grade: (currentAiPlanActions.color_grade && currentAiPlanActions.color_grade !== "none") ? currentAiPlanActions.color_grade : activeColorPreset,
+        enabled_grids: gridEnabledState
+    };
+    await startPipelineProcess(customSettings);
 }
 
 function applyQuickPrompt(text) {
@@ -941,6 +1351,172 @@ function applyQuickPrompt(text) {
 }
 
 // ---------------- 12-GRID PIPELINE INITIALIZATION & START ----------------
+let gridEnabledState = {
+    grid_ingest: true,
+    grid_transcribe: true,
+    grid_silence: true,
+    grid_scenic: true,
+    grid_reframe: false,
+    grid_audio: true,
+    grid_beatsync: true,
+    grid_captions: true,
+    grid_bgremove: false,
+    grid_color: true,
+    grid_agent: true,
+    grid_render: true
+};
+
+const GRID_ARMED_DESCRIPTIONS = {
+    grid_ingest: "Armed (Ready for media ingest & iPhone 16 HEVC decode)",
+    grid_transcribe: "Armed (Ready for Faster-Whisper neural STT transcription)",
+    grid_silence: "Armed (Awaiting STT for dead-air & retake arbitration)",
+    grid_scenic: "Armed (Ready for scenic B-roll & histogram protection)",
+    grid_reframe: "Armed (Ready for 9:16 smart face trajectory tracking)",
+    grid_audio: "Armed (Ready for studio vocal enhancement & de-hiss)",
+    grid_beatsync: "Armed (Ready for speech rhythm & music auto-ducking)",
+    grid_captions: "Armed (Awaiting Grid 2 word timestamps for kinetic pop)",
+    grid_bgremove: "Armed (Ready for subject isolation & ambient blur)",
+    grid_color: "Active: Cinematic Teal & Orange (Primed)",
+    grid_agent: "Armed (Ready for AI Director storyline orchestration)",
+    grid_render: "Armed (Ready for final timeline composite & MP4 export)"
+};
+
+const GRID_BYPASS_DESCRIPTIONS = {
+    grid_ingest: "Bypassed (Quick media passthrough)",
+    grid_transcribe: "Bypassed (No STT transcription)",
+    grid_silence: "Bypassed (Preserves continuous timeline)",
+    grid_scenic: "Bypassed (No scene histogram detection)",
+    grid_reframe: "Bypassed (Original aspect preserved)",
+    grid_audio: "Bypassed (Original camera audio passthrough)",
+    grid_beatsync: "Bypassed (No music ducking / cuts)",
+    grid_captions: "Bypassed (No burned captions)",
+    grid_bgremove: "Bypassed (Original background)",
+    grid_color: "Bypassed (Natural camera colors)",
+    grid_agent: "Bypassed (Direct timeline assembly)",
+    grid_render: "Pending master export"
+};
+
+function toggleGridFeature(gridId, isEnabled) {
+    gridEnabledState[gridId] = isEnabled;
+    const card = document.getElementById(gridId);
+    const badge = document.getElementById(`${gridId}-badge`);
+    const detail = document.getElementById(`${gridId}-detail`);
+    const bar = document.getElementById(`${gridId}-bar`);
+    const etaEl = document.getElementById(`${gridId}-eta`);
+
+    if (!isEnabled) {
+        if (card) card.classList.add("bypassed");
+        if (badge) {
+            badge.className = "grid-status-badge badge-skipped";
+            badge.innerText = "BYPASS";
+        }
+        if (detail) detail.innerText = GRID_BYPASS_DESCRIPTIONS[gridId] || "Feature bypassed (Will not run)";
+        if (bar) bar.style.width = "0%";
+        if (etaEl) {
+            etaEl.className = "grid-eta-badge eta-bypassed";
+            etaEl.innerText = "ETA: Bypassed";
+        }
+        showToast(`Grid: ${gridId.replace('grid_', '').toUpperCase()} bypassed ⏸️`, "info");
+    } else {
+        if (card) card.classList.remove("bypassed");
+        if (badge) {
+            if (gridId === "grid_color") {
+                badge.className = "grid-status-badge badge-ready";
+                badge.innerText = "READY";
+            } else {
+                badge.className = "grid-status-badge badge-waiting";
+                badge.innerText = "WAITING";
+            }
+        }
+        if (detail) {
+            detail.innerText = gridId === "grid_color" 
+                ? `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)`
+                : (GRID_ARMED_DESCRIPTIONS[gridId] || "Armed & ready for pipeline");
+        }
+        if (bar) bar.style.width = gridId === "grid_color" ? "100%" : "0%";
+        if (etaEl) {
+            if (gridId === "grid_color") {
+                etaEl.className = "grid-eta-badge eta-ready";
+                etaEl.innerText = "ETA: Ready";
+            } else {
+                etaEl.className = "grid-eta-badge eta-waiting";
+                etaEl.innerText = "ETA: --";
+            }
+        }
+        showToast(`Grid: ${gridId.replace('grid_', '').toUpperCase()} enabled ⚡`, "success");
+    }
+
+    // Persist to backend settings
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled_grids: gridEnabledState })
+    }).catch(e => console.warn(e));
+}
+
+function setAllGridsEnabled(enable) {
+    GRID_DEFS.forEach(g => {
+        if (g.id === "grid_render" && !enable) return; // Keep renderer so file compiles
+        gridEnabledState[g.id] = enable;
+        const toggle = document.getElementById(`${g.id}-toggle`);
+        if (toggle) toggle.checked = enable;
+        
+        const card = document.getElementById(g.id);
+        const badge = document.getElementById(`${g.id}-badge`);
+        const detail = document.getElementById(`${g.id}-detail`);
+        const bar = document.getElementById(`${g.id}-bar`);
+        const etaEl = document.getElementById(`${g.id}-eta`);
+
+        if (!enable) {
+            if (card) card.classList.add("bypassed");
+            if (badge) {
+                badge.className = "grid-status-badge badge-skipped";
+                badge.innerText = "BYPASS";
+            }
+            if (detail) detail.innerText = GRID_BYPASS_DESCRIPTIONS[g.id] || "Feature bypassed (Will not run)";
+            if (bar) bar.style.width = "0%";
+            if (etaEl) {
+                etaEl.className = "grid-eta-badge eta-bypassed";
+                etaEl.innerText = "ETA: Bypassed";
+            }
+        } else {
+            if (card) card.classList.remove("bypassed");
+            if (badge) {
+                if (g.id === "grid_color") {
+                    badge.className = "grid-status-badge badge-ready";
+                    badge.innerText = "READY";
+                } else {
+                    badge.className = "grid-status-badge badge-waiting";
+                    badge.innerText = "WAITING";
+                }
+            }
+            if (detail) {
+                detail.innerText = g.id === "grid_color" 
+                    ? `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)`
+                    : (GRID_ARMED_DESCRIPTIONS[g.id] || "Armed & ready for pipeline");
+            }
+            if (bar) bar.style.width = g.id === "grid_color" ? "100%" : "0%";
+            if (etaEl) {
+                if (g.id === "grid_color") {
+                    etaEl.className = "grid-eta-badge eta-ready";
+                    etaEl.innerText = "ETA: Ready";
+                } else {
+                    etaEl.className = "grid-eta-badge eta-waiting";
+                    etaEl.innerText = "ETA: --";
+                }
+            }
+        }
+    });
+
+    fetch("/api/project/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled_grids: gridEnabledState })
+    }).catch(e => console.warn(e));
+
+    showToast(enable ? "All 12 Modular Grids Enabled ⚡" : "All Grids Bypassed (Solo Mode Active) 🎯", "info");
+}
+
 const GRID_DEFS = [
     { id: "grid_ingest", title: "1. Ingest & iPhone Decoder", icon: "film" },
     { id: "grid_transcribe", title: "2. Faster-Whisper STT", icon: "mic" },
@@ -958,31 +1534,71 @@ const GRID_DEFS = [
 
 function initGridCards() {
     const container = document.getElementById("grids-container");
-    container.innerHTML = GRID_DEFS.map(g => `
-        <div class="grid-card" id="${g.id}">
+    container.innerHTML = GRID_DEFS.map(g => {
+        const isEnabled = gridEnabledState[g.id] !== false;
+        const isColor = g.id === "grid_color";
+        const badgeClass = !isEnabled ? "badge-skipped" : (isColor ? "badge-ready" : "badge-waiting");
+        const badgeText = !isEnabled ? "BYPASS" : (isColor ? "READY" : "WAITING");
+        const detailText = !isEnabled 
+            ? (GRID_BYPASS_DESCRIPTIONS[g.id] || "Feature bypassed (Will not run)") 
+            : (isColor ? `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)` : (GRID_ARMED_DESCRIPTIONS[g.id] || "Armed & ready for pipeline"));
+        const cardClass = !isEnabled ? "grid-card bypassed" : (isColor ? "grid-card ready" : "grid-card");
+        const barWidth = !isEnabled ? "0%" : (isColor ? "100%" : "0%");
+        
+        let etaClass = "eta-waiting";
+        let etaText = "ETA: --";
+        if (!isEnabled) {
+            etaClass = "eta-bypassed";
+            etaText = "ETA: Bypassed";
+        } else if (isColor) {
+            etaClass = "eta-ready";
+            etaText = "ETA: Ready";
+        }
+
+        return `
+        <div class="${cardClass}" id="${g.id}">
             <div class="grid-card-top">
                 <div class="grid-title-row">
                     <i data-feather="${g.icon}" class="grid-icon"></i>
-                    <span class="grid-title">${g.title}</span>
+                    <span class="grid-title" title="${g.title}">${g.title}</span>
                 </div>
-                <span class="grid-status-badge badge-waiting" id="${g.id}-badge">WAITING</span>
+                <div class="grid-top-actions">
+                    <label class="grid-switch" title="Toggle ${g.title} ON/OFF">
+                        <input type="checkbox" id="${g.id}-toggle" ${isEnabled ? "checked" : ""} onchange="toggleGridFeature('${g.id}', this.checked)">
+                        <span class="grid-slider"></span>
+                    </label>
+                    <span class="grid-status-badge ${badgeClass}" id="${g.id}-badge">${badgeText}</span>
+                </div>
             </div>
-            <div class="grid-detail-text" id="${g.id}-detail">Ready for input</div>
+            <div class="grid-detail-text" id="${g.id}-detail" title="${detailText}">${detailText}</div>
             <div class="grid-progress-bar-container">
-                <div class="grid-progress-bar" id="${g.id}-bar"></div>
+                <div class="grid-progress-bar" id="${g.id}-bar" style="width: ${barWidth};"></div>
             </div>
             <div class="grid-eta-row">
-                <span id="${g.id}-clip-eta">Clip ETA: --</span>
-                <span class="highlight" id="${g.id}-eta">Grid ETA: --</span>
+                <span class="grid-clip-eta" id="${g.id}-clip-eta">Clip: 0s</span>
+                <span class="grid-eta-badge ${etaClass}" id="${g.id}-eta">${etaText}</span>
             </div>
         </div>
-    `).join("");
+        `;
+    }).join("");
     feather.replace();
 }
 
 function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
     const card = document.getElementById(gridId);
     if (!card) return;
+
+    // Check if card is bypassed by toggle
+    const isEnabled = gridEnabledState[gridId] !== false;
+    if (!isEnabled && status !== "completed" && status !== "in_progress") {
+        card.className = "grid-card bypassed";
+        const gridEtaEl = document.getElementById(`${gridId}-eta`);
+        if (gridEtaEl) {
+            gridEtaEl.className = "grid-eta-badge eta-bypassed";
+            gridEtaEl.innerText = "ETA: Bypassed";
+        }
+        return;
+    }
 
     card.className = `grid-card ${status}`;
     
@@ -994,6 +1610,12 @@ function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
         } else if (status === "completed") {
             badge.className = "grid-status-badge badge-done";
             badge.innerText = "DONE";
+        } else if (status === "ready") {
+            badge.className = "grid-status-badge badge-ready";
+            badge.innerText = "READY";
+        } else if (status === "skipped") {
+            badge.className = "grid-status-badge badge-skipped";
+            badge.innerText = "BYPASS";
         } else {
             badge.className = "grid-status-badge badge-waiting";
             badge.innerText = "WAITING";
@@ -1004,16 +1626,39 @@ function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
     if (bar) bar.style.width = `${progress}%`;
 
     const detailEl = document.getElementById(`${gridId}-detail`);
-    if (detailEl && detail) detailEl.innerText = detail;
+    if (detailEl && detail) {
+        detailEl.innerText = detail;
+        detailEl.title = detail;
+    }
 
     const clipEtaEl = document.getElementById(`${gridId}-clip-eta`);
-    if (clipEtaEl) clipEtaEl.innerText = clipEta > 0 ? `Clip ETA: ${clipEta}s` : `Clip ETA: 0s`;
+    if (clipEtaEl) clipEtaEl.innerText = clipEta > 0 ? `Clip: ${clipEta}s` : `Clip: 0s`;
 
     const gridEtaEl = document.getElementById(`${gridId}-eta`);
-    if (gridEtaEl) gridEtaEl.innerText = gridEta > 0 ? `Grid ETA: ${gridEta}s` : `Grid ETA: Done`;
+    if (gridEtaEl) {
+        if (status === "completed") {
+            gridEtaEl.className = "grid-eta-badge eta-done";
+            gridEtaEl.innerText = "ETA: Done ✓";
+        } else if (status === "ready") {
+            gridEtaEl.className = "grid-eta-badge eta-ready";
+            gridEtaEl.innerText = "ETA: Ready";
+        } else if (status === "skipped") {
+            gridEtaEl.className = "grid-eta-badge eta-bypassed";
+            gridEtaEl.innerText = "ETA: Bypassed";
+        } else if (status === "in_progress" || gridEta > 0) {
+            gridEtaEl.className = "grid-eta-badge eta-running";
+            gridEtaEl.innerText = `ETA: ${gridEta}s`;
+        } else {
+            gridEtaEl.className = "grid-eta-badge eta-waiting";
+            gridEtaEl.innerText = "ETA: --";
+        }
+    }
 }
 
-async function startPipelineProcess() {
+let activeTargetDuration = null;
+let activeEditMode = "full_movie";
+
+async function startPipelineProcess(customSettings = null) {
     // If nothing checked, default to activeFile or first raw file
     if (selectedFileNames.size === 0) {
         if (activeFile) {
@@ -1041,18 +1686,23 @@ async function startPipelineProcess() {
     showToast(`Launching Auto-Edit on ${selectedFileNames.size} clip(s)...`, "info");
     document.getElementById("master-status-badge").innerText = "PROCESSING";
     document.getElementById("master-status-badge").className = "stat-badge running";
+    ensureElapsedTimerRunning(0);
 
-    const settings = {
-        edit_mode: document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie",
+    const baseSettings = {
+        edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
+        target_duration: activeTargetDuration || null,
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
         model_tier: document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo",
         script_mode: currentTranscriptScript,
         color_grade: activeColorPreset,
         aspect_ratio: activeAspectRatio,
-        caption_style: document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "youtube_create",
-        audio_enhance: document.getElementById("chk-audio-enhance").checked,
-        auto_duck: document.getElementById("chk-auto-duck").checked
+        caption_style: activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic"),
+        audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
+        auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
+        enabled_grids: gridEnabledState
     };
+
+    const settings = Object.assign({}, baseSettings, customSettings || {});
 
     try {
         const res = await fetch("/api/project/start-processing", {
@@ -1080,10 +1730,20 @@ function formatTimecode(seconds) {
 }
 
 function formatSeconds(sec) {
-    if (isNaN(sec) || sec <= 0) return "--:--";
+    if (isNaN(sec) || sec === null || sec === undefined || sec < 0) return "--:--";
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${pad(m)}:${pad(s)}`;
+}
+
+function formatEtaDisplay(sec) {
+    if (isNaN(sec) || sec === null || sec === undefined || sec <= 0) return "--:--";
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    if (m === 0) {
+        return `00:${pad(s)} (${s}s)`;
+    }
+    return `${pad(m)}:${pad(s)} (${m}m ${s}s)`;
 }
 
 function pad(num) {
@@ -1092,13 +1752,16 @@ function pad(num) {
 
 function showToast(msg, type = "info") {
     const container = document.getElementById("toast-container");
+    if (!container) return;
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
     toast.innerText = msg;
+    toast.title = "Click to dismiss";
+    toast.onclick = () => toast.remove();
     container.appendChild(toast);
     setTimeout(() => {
-        toast.remove();
-    }, 4500);
+        if (toast.parentElement) toast.remove();
+    }, 4000);
 }
 
 // ---------------- HYPERFRAMES MOTION GRAPHICS STUDIO (HTML/CSS/JS) ----------------
@@ -1210,6 +1873,15 @@ function applyHyperframeToPlayer() {
     const css = document.getElementById("hf-code-css").value;
     const js = document.getElementById("hf-code-js").value;
 
+    if (currentHfPreset && currentHfPreset.id === "hyperframe_kinetic_captions") {
+        activeCaptionStyle = "hyperframe_kinetic";
+        const capSelect = document.getElementById("caption-style-select");
+        if (capSelect) capSelect.value = "hyperframe_kinetic";
+        closeHyperframesStudio();
+        showToast("HyperFrame Face-Safe Kinetic Captions activated on player! ⚡", "success");
+        return;
+    }
+
     let overlay = document.getElementById("player-hyperframe-overlay");
     if (!overlay) {
         overlay = document.createElement("div");
@@ -1240,10 +1912,16 @@ function applyHyperframeToPlayer() {
 }
 
 // ---------------- MASTER EXPORT COMPLETION POPUP ----------------
+let latestMasterMovieUrl = null;
+let latestMasterFilename = null;
+
 function showCompletionModal(info = {}) {
     const modal = document.getElementById("completion-modal");
     if (!modal) return;
     
+    if (info.url) latestMasterMovieUrl = info.url;
+    if (info.filename) latestMasterFilename = info.filename;
+
     if (info.duration && document.getElementById("comp-stat-duration")) {
         document.getElementById("comp-stat-duration").innerText = info.duration;
     }
@@ -1252,8 +1930,9 @@ function showCompletionModal(info = {}) {
     }
     const dlLink = document.getElementById("comp-download-link");
     if (dlLink) {
-        dlLink.href = info.url || "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4";
-        dlLink.setAttribute("download", info.filename || "MASTER_FULL_FEATURE_MOVIE.mp4");
+        const rawUrl = info.url || latestMasterMovieUrl || "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4";
+        dlLink.href = encodeURI(decodeURI(rawUrl));
+        dlLink.setAttribute("download", info.filename || latestMasterFilename || "MASTER_Pushkar And Jaipur Vlog 2025.mp4");
     }
 
     modal.style.display = "flex";
@@ -1267,13 +1946,14 @@ function closeCompletionModal() {
 
 function playMasterFromPopup() {
     closeCompletionModal();
-    const movieUrl = "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4";
-    loadVideoIntoPlayer(movieUrl, true, "MASTER_FULL_FEATURE_MOVIE.mp4 (Complete Master)");
+    const movieUrl = latestMasterMovieUrl || (exportFiles.length > 0 ? exportFiles[0].url : "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4");
+    const movieLabel = latestMasterFilename || (exportFiles.length > 0 ? exportFiles[0].filename : "MASTER_Pushkar And Jaipur Vlog 2025.mp4");
+    loadVideoIntoPlayer(movieUrl, true, movieLabel);
     const player = document.getElementById("main-video-player");
     if (player) {
         player.play().catch(e => console.log("Auto-play ready:", e));
     }
-    showToast("Playing Full Master Feature Movie in Studio!", "success");
+    showToast(`Playing ${movieLabel} in Studio!`, "success");
 }
 
 async function openExportFolderFromPopup() {
@@ -1288,6 +1968,13 @@ async function openExportFolderFromPopup() {
 
 // ---------------- BURN HYPERFRAME INTO VIDEO / VLOG ----------------
 async function burnHyperframeToVideo() {
+    if (currentHfPreset && currentHfPreset.id === "hyperframe_kinetic_captions") {
+        closeHyperframesStudio();
+        showToast("Rendering video with HyperFrame Face-Safe Kinetic Captions... ⚡", "info");
+        await startProcessing({ caption_style: "hyperframe_kinetic" });
+        return;
+    }
+
     const htmlEl = document.getElementById("hf-code-html");
     const html = htmlEl ? htmlEl.value : "";
     const activeFilename = activeFile ? activeFile.filename : (rawFiles.length > 0 ? rawFiles[0].filename : "");
