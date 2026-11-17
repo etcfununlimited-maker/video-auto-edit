@@ -128,7 +128,7 @@ current_project = {
     "trajectory": [],
     "settings": {
         "aspect_ratio": "original",
-        "color_grade": "teal_orange",
+        "color_grade": "none",
         "caption_style": "hyperframe_kinetic",
         "model_tier": "large-v3",
         "audio_enhance": True,
@@ -147,7 +147,7 @@ current_project = {
             "grid_beatsync": True,
             "grid_captions": True,
             "grid_bgremove": True,
-            "grid_color": True,
+            "grid_color": False,
             "grid_agent": True,
             "grid_render": True
         }
@@ -391,15 +391,24 @@ def get_clean_grid_statuses(settings: dict = None) -> dict:
                 "detail": GRID_BYPASS_DETAILS.get(gid, "Feature bypassed (Will not run)")
             }
         elif gid == "grid_color":
-            cg = settings.get("color_grade", "teal_orange")
-            pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
-            clean[gid] = {
-                "status": "ready",
-                "progress": 100,
-                "clip_eta_sec": 0,
-                "eta_sec": 0,
-                "detail": f"Preset '{pname}' active & primed"
-            }
+            cg = settings.get("color_grade", "none")
+            if cg == "none" or not is_enabled:
+                clean[gid] = {
+                    "status": "skipped",
+                    "progress": 0,
+                    "clip_eta_sec": 0,
+                    "eta_sec": 0,
+                    "detail": "Bypassed (Natural Camera Colors - Zero LUT / Vignette)"
+                }
+            else:
+                pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
+                clean[gid] = {
+                    "status": "ready",
+                    "progress": 100,
+                    "clip_eta_sec": 0,
+                    "eta_sec": 0,
+                    "detail": f"Preset '{pname}' active & primed"
+                }
         else:
             clean[gid] = {
                 "status": "waiting",
@@ -489,15 +498,24 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                     "detail": GRID_BYPASS_DETAILS.get(gid, "Feature bypassed (Will not run)")
                 }
             elif gid == "grid_color":
-                cg = settings.get("color_grade", "teal_orange")
-                pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
-                current_project["grid_statuses"][gid] = {
-                    "status": "ready",
-                    "progress": 100,
-                    "clip_eta_sec": 0,
-                    "eta_sec": 0,
-                    "detail": f"Preset '{pname}' active & primed"
-                }
+                cg = settings.get("color_grade", "none")
+                if cg == "none" or not is_enabled:
+                    current_project["grid_statuses"][gid] = {
+                        "status": "skipped",
+                        "progress": 0,
+                        "clip_eta_sec": 0,
+                        "eta_sec": 0,
+                        "detail": "Bypassed (Natural Camera Colors - Zero LUT / Vignette)"
+                    }
+                else:
+                    pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
+                    current_project["grid_statuses"][gid] = {
+                        "status": "ready",
+                        "progress": 100,
+                        "clip_eta_sec": 0,
+                        "eta_sec": 0,
+                        "detail": f"Preset '{pname}' active & primed"
+                    }
             else:
                 current_project["grid_statuses"][gid] = {
                     "status": "waiting",
@@ -646,8 +664,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             await update_grid("grid_bgremove", "skipped", 100, 0, 0, "Bypassed (No Virtual Matte)", 3)
 
         # --- GRID 10: Cinematic LUT Color Grader ---
-        if enabled_grids.get("grid_color", True):
-            eff_color = settings.get("color_grade", "teal_orange")
+        if enabled_grids.get("grid_color", False):
+            eff_color = settings.get("color_grade", "none")
             if eff_color == "none":
                 await update_grid("grid_color", "skipped", 100, 0, 0, "Bypassed (Natural Camera Colors - Zero LUT / Vignette)", 2)
             else:
@@ -1195,7 +1213,7 @@ def get_media_audit_summary():
     settings = current_project.get("settings", {})
     enabled_grids = settings.get("enabled_grids", {})
     render_mode = settings.get("render_mode", "fast_preview")
-    color_grade = settings.get("color_grade", "teal_orange")
+    color_grade = settings.get("color_grade", "none")
     caption_style = settings.get("caption_style", "hyperframe_kinetic")
 
     stage_plan = []
@@ -1487,7 +1505,9 @@ async def generate_vertical_reel_endpoint():
 
     clip_p = Path(active_path)
     out_name = f"MASTER_VERTICAL_9_16_CINEMATIC_{clip_p.stem}.mp4"
-    cg = current_project.get("settings", {}).get("color_grade", "teal_orange")
+    cg = current_project.get("settings", {}).get("color_grade", "none")
+    if not current_project.get("settings", {}).get("enabled_grids", {}).get("grid_color", False):
+        cg = "none"
 
     loop = asyncio.get_event_loop()
     from backend.pipeline.renderer import render_final_master
@@ -1517,7 +1537,9 @@ async def generate_vertical_reel_endpoint():
 async def render_full_movie_endpoint():
     """Assembles all clips into the full master feature movie"""
     clip_files = sorted([str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
-    cg = current_project.get("settings", {}).get("color_grade", "teal_orange")
+    cg = current_project.get("settings", {}).get("color_grade", "none")
+    if not current_project.get("settings", {}).get("enabled_grids", {}).get("grid_color", False):
+        cg = "none"
     cap = current_project.get("settings", {}).get("caption_style", "hyperframe_kinetic")
     tb = current_project.get("settings", {}).get("text_behind_person")
     dfx = current_project.get("settings", {}).get("ai_director_effects")
@@ -1897,11 +1919,16 @@ async def update_project_settings_endpoint(payload: ProjectSettingsPayload):
                         current_project["grid_statuses"][gid]["detail"] = GRID_ARMED_DETAILS.get(gid, "Armed & waiting for pipeline stage")
                         current_project["grid_statuses"][gid]["progress"] = 0
                     elif gid == "grid_color":
-                        current_project["grid_statuses"][gid]["status"] = "ready"
-                        cg = current_project["settings"].get("color_grade", "teal_orange")
-                        pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
-                        current_project["grid_statuses"][gid]["detail"] = f"Preset '{pname}' active & primed"
-                        current_project["grid_statuses"][gid]["progress"] = 100
+                        cg = current_project["settings"].get("color_grade", "none")
+                        if cg == "none":
+                            current_project["grid_statuses"][gid]["status"] = "skipped"
+                            current_project["grid_statuses"][gid]["detail"] = "Natural Camera Colors - Zero LUT / Vignette"
+                            current_project["grid_statuses"][gid]["progress"] = 0
+                        else:
+                            current_project["grid_statuses"][gid]["status"] = "ready"
+                            pname = COLOR_PRESETS.get(cg, {}).get("name", cg)
+                            current_project["grid_statuses"][gid]["detail"] = f"Preset '{pname}' active & primed"
+                            current_project["grid_statuses"][gid]["progress"] = 100
         await broadcast_progress({
             "type": "initial_state",
             "statuses": current_project["grid_statuses"],
@@ -1913,13 +1940,22 @@ async def update_project_settings_endpoint(payload: ProjectSettingsPayload):
         cg = data["color_grade"]
         preset_info = COLOR_PRESETS.get(cg, {})
         preset_name = preset_info.get("name", cg)
-        status_obj = {
-            "status": "ready",
-            "progress": 100,
-            "clip_eta_sec": 0,
-            "eta_sec": 0,
-            "detail": f"Active: {preset_name} (Primed for export)"
-        }
+        if cg == "none":
+            status_obj = {
+                "status": "skipped",
+                "progress": 0,
+                "clip_eta_sec": 0,
+                "eta_sec": 0,
+                "detail": "Natural Camera Colors - Zero LUT / Vignette"
+            }
+        else:
+            status_obj = {
+                "status": "ready",
+                "progress": 100,
+                "clip_eta_sec": 0,
+                "eta_sec": 0,
+                "detail": f"Active: {preset_name} (Primed for export)"
+            }
         current_project["grid_statuses"]["grid_color"] = status_obj
         await broadcast_progress({
             "type": "grid_update",

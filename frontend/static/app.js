@@ -8,7 +8,7 @@ let selectedFileNames = new Set();
 let projectTranscript = { words: [], sentences: [] };
 let projectCuts = [];
 let colorPresets = [];
-let activeColorPreset = "teal_orange";
+let activeColorPreset = "none";
 let activeCaptionStyle = "hyperframe_kinetic";
 let activeAspectRatio = "original";
 let ws = null;
@@ -1250,17 +1250,22 @@ async function fetchColorPresets() {
         colorPresets = data.presets || [];
         renderColorPresets();
 
-        // Prime Grid 10 and player with default preset (teal_orange)
-        const curPreset = colorPresets.find(p => p.id === activeColorPreset) || {
-            name: "Cinematic Teal & Orange",
-            description: "Hollywood blockbuster look"
-        };
-        const currentDetail = document.getElementById("grid_color-detail");
-        const currentBadge = document.getElementById("grid_color-badge");
-        if (!currentBadge || currentBadge.innerText === "WAITING" || !currentDetail || currentDetail.innerText === "Pending") {
-            updateGridUI("grid_color", "ready", 100, 0, 0, `Active: ${curPreset.name} (Primed for export)`);
+        // Prime Grid 10 and player with default preset (none = Natural camera colors)
+        if (activeColorPreset === "none" || gridEnabledState.grid_color === false) {
+            updateGridUI("grid_color", "skipped", 0, 0, 0, "Bypassed (Natural Camera Colors - Zero LUT / Vignette)");
+            applyColorPresetPreview("none");
+        } else {
+            const curPreset = colorPresets.find(p => p.id === activeColorPreset) || {
+                name: "Standard / Natural",
+                description: "Original raw footage colors with neutral balance"
+            };
+            const currentDetail = document.getElementById("grid_color-detail");
+            const currentBadge = document.getElementById("grid_color-badge");
+            if (!currentBadge || currentBadge.innerText === "WAITING" || !currentDetail || currentDetail.innerText === "Pending") {
+                updateGridUI("grid_color", "ready", 100, 0, 0, `Active: ${curPreset.name} (Primed for export)`);
+            }
+            applyColorPresetPreview(activeColorPreset);
         }
-        applyColorPresetPreview(activeColorPreset);
     } catch (e) {
         console.error("Presets error:", e);
     }
@@ -1483,7 +1488,7 @@ let gridEnabledState = {
     grid_beatsync: true,
     grid_captions: true,
     grid_bgremove: true,
-    grid_color: true,
+    grid_color: false,
     grid_agent: true,
     grid_render: true
 };
@@ -2100,16 +2105,30 @@ function clearAndResetAllGridsUI() {
                 etaEl.innerText = "ETA: Bypassed";
             }
         } else if (g.id === "grid_color") {
-            if (card) { card.className = "grid-card ready"; }
-            if (badge) {
-                badge.className = "grid-status-badge badge-ready";
-                badge.innerText = "READY";
-            }
-            if (detail) detail.innerText = `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)`;
-            if (bar) bar.style.width = "100%";
-            if (etaEl) {
-                etaEl.className = "grid-eta-badge eta-ready";
-                etaEl.innerText = "ETA: Ready";
+            if (activeColorPreset === "none" || !isEnabled) {
+                if (card) { card.className = "grid-card bypassed"; }
+                if (badge) {
+                    badge.className = "grid-status-badge badge-skipped";
+                    badge.innerText = "BYPASS";
+                }
+                if (detail) detail.innerText = "Natural Camera Colors - Zero LUT / Vignette";
+                if (bar) bar.style.width = "0%";
+                if (etaEl) {
+                    etaEl.className = "grid-eta-badge eta-bypassed";
+                    etaEl.innerText = "ETA: Bypassed";
+                }
+            } else {
+                if (card) { card.className = "grid-card ready"; }
+                if (badge) {
+                    badge.className = "grid-status-badge badge-ready";
+                    badge.innerText = "READY";
+                }
+                if (detail) detail.innerText = `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)`;
+                if (bar) bar.style.width = "100%";
+                if (etaEl) {
+                    etaEl.className = "grid-eta-badge eta-ready";
+                    etaEl.innerText = "ETA: Ready";
+                }
             }
         } else {
             if (card) { card.className = "grid-card waiting"; }

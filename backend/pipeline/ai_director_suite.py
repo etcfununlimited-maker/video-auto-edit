@@ -821,7 +821,7 @@ def build_director_video_filters(
     seg_dur: float = 3.0,
     aspect_ratio: str = "original",
     is_dialogue: bool = False,
-    color_grade: str = "teal_orange"
+    color_grade: str = "none"
 ) -> List[str]:
     """
     Translates any active effect or transition from the Top 50 VFX Suite into

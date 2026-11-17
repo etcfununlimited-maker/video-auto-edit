@@ -292,7 +292,7 @@ def render_single_photo_segment(photo_path: str, output_path: str, duration: flo
 
 def build_multi_clip_movie_pipeline(
     clip_paths: list[str],
-    color_grade: str = "teal_orange",
+    color_grade: str = "none",
     aspect_ratio: str = "original",
     caption_style: str = "hyperframe_kinetic",
     output_filename: str = "MASTER_FULL_FEATURE_MOVIE.mp4",
@@ -320,7 +320,7 @@ def build_multi_clip_movie_pipeline(
     if enabled_grids:
         if not enabled_grids.get("grid_captions", True):
             caption_style = None
-        if not enabled_grids.get("grid_color", True):
+        if not enabled_grids.get("grid_color", False):
             color_grade = "none"
         if aspect_ratio == "9:16":
             enabled_grids["grid_reframe"] = True
