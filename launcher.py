@@ -64,7 +64,8 @@ def main():
         sys.executable, "-m", "uvicorn",
         "backend.main:app",
         "--host", "127.0.0.1",
-        "--port", str(PORT)
+        "--port", str(PORT),
+        "--reload"
     ]
 
     print("[2/2] Backend initializing... Press Ctrl+C to stop.")

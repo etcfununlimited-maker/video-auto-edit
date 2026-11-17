@@ -19,14 +19,35 @@
 
 /* Director Workspace Container */
 .director-workspace {
-    display: flex;
-    flex-direction: column;
+    display: block;
     height: 100%;
     background: #090d16;
     color: #f1f5f9;
     overflow-y: auto;
     padding: 20px 28px;
-    gap: 22px;
+}
+
+.director-workspace > * {
+    margin-bottom: 22px;
+}
+
+.director-workspace > *:last-child {
+    margin-bottom: 0;
+}
+
+/* Custom Scrollbar for Director Workspace */
+.director-workspace::-webkit-scrollbar {
+    width: 8px;
+}
+.director-workspace::-webkit-scrollbar-track {
+    background: #090d16;
+}
+.director-workspace::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+}
+.director-workspace::-webkit-scrollbar-thumb:hover {
+    background: #475569;
 }
 
 /* Director Top Banner */
@@ -124,6 +145,8 @@
     gap: 18px;
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
+    min-height: fit-content;
 }
 
 .depth-text-panel::before {
@@ -231,7 +254,8 @@ input:checked + .slider-switch:before {
     background: #020617;
     border: 1px solid #1e293b;
     border-radius: 12px;
-    height: 280px;
+    min-height: 280px;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -408,21 +432,23 @@ input:checked + .slider-switch:before {
 .position-pills {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+    gap: 4px;
     margin-top: 2px;
+    min-width: 0;
 }
 
 .pos-btn {
     background: #020617;
     border: 1px solid #334155;
     border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 11.5px;
-    font-weight: 600;
+    padding: 8px 4px;
+    font-size: 11px;
+    font-weight: 700;
     color: #94a3b8;
     cursor: pointer;
     text-align: center;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .pos-btn:hover {
@@ -494,6 +520,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    flex-shrink: 0;
 }
 
 .fx-toolbar {

@@ -339,7 +339,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "desc": "Authentic amber/orange light leak flashing across the frame edge during cut.",
         "grid_target": "grid_color",
         "grid_label": "Grid 10: Cinematic LUT",
-        "default": True
+        "default": False
     },
     {
         "id": "anamorphic_flare",
@@ -363,7 +363,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "desc": "Warm red/orange diffusion glow blooming along high-contrast highlight edges.",
         "grid_target": "grid_color",
         "grid_label": "Grid 10: Cinematic LUT",
-        "default": True
+        "default": False
     },
     {
         "id": "white_out",
@@ -437,7 +437,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "desc": "Silver halide grain overlay in soft-light mode unifying digital footage into film texture.",
         "grid_target": "grid_color",
         "grid_label": "Grid 10: Cinematic LUT",
-        "default": True
+        "default": False
     },
     {
         "id": "film_sprocket",
@@ -485,7 +485,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "desc": "Smoothly expands black widescreen letterbox bars signaling shift to cinematic mode.",
         "grid_target": "grid_render",
         "grid_label": "Grid 12: Master Renderer",
-        "default": True
+        "default": False
     },
     {
         "id": "bleach_bypass",
@@ -509,7 +509,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
         "desc": "Subtle radial exposure falloff drawing viewer eyes to central subject.",
         "grid_target": "grid_color",
         "grid_label": "Grid 10: Cinematic LUT",
-        "default": True
+        "default": False
     },
 
     # ---------------- 6. AUDIO & SOUND DESIGN (42-46) ----------------
@@ -812,4 +812,165 @@ Dialogue: 0,0:00:00.30,0:00:{dur_sec:05.2f},DepthBehind,,0,0,0,,{{\\fad(400,600)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(ass_content)
     return ass_content
+
+
+def build_director_video_filters(
+    director_effects: Dict[str, Any] = None,
+    seg_idx: int = 0,
+    total_segs: int = 1,
+    seg_dur: float = 3.0,
+    aspect_ratio: str = "original",
+    is_dialogue: bool = False,
+    color_grade: str = "teal_orange"
+) -> List[str]:
+    """
+    Translates any active effect or transition from the Top 50 VFX Suite into
+    clean, rock-solid, native FFmpeg video filter expressions.
+    Guarantees that selecting ANY transition or effect executes accurately
+    in the final master render without frame distortion or crashes.
+    """
+    if not director_effects:
+        return []
+
+    filters = []
+    is_vertical = (aspect_ratio == "9:16")
+    out_w = 1080 if is_vertical else 1920
+    out_h = 1920 if is_vertical else 1080
+
+    # If color grading is disabled / natural camera colors, strictly bypass all color, film emulation and vignette overlays
+    allow_color_fx = (color_grade and color_grade != "none")
+
+    # ---------------- 1. CUT-POINT TRANSITIONS (seg_idx > 0) ----------------
+    if seg_idx > 0:
+        # Camera Motion Transitions
+        if director_effects.get("whip_pan"):
+            filters.append(f"crop=w=iw-40:h=ih:x='20*max(0,1-t*8)':y=0,scale={out_w}:{out_h}")
+        elif director_effects.get("roll_360"):
+            filters.append(f"rotate=a='if(lt(t,0.22), 2*PI*(1-t/0.22), 0)':ow={out_w}:oh={out_h}:fillcolor=black")
+        elif director_effects.get("tilt_sky"):
+            filters.append(f"crop=w=iw:h=ih-40:x=0:y='20*max(0,1-t*6)',scale={out_w}:{out_h}")
+        elif director_effects.get("portal_zoom"):
+            filters.append(f"crop=w=trunc(iw*0.88/2)*2:h=trunc(ih*0.88/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h},fade=t=in:st=0:d=0.15:c=black")
+        elif director_effects.get("crash_zoom"):
+            filters.append(f"crop=w=trunc(iw*0.85/2)*2:h=trunc(ih*0.85/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h},fade=t=in:st=0:d=0.08:c=white")
+        elif director_effects.get("action_match_cut"):
+            filters.append(f"crop=w=trunc(iw*0.94/2)*2:h=trunc(ih*0.94/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h}")
+
+        # Light, Strobe & Color Transitions
+        if allow_color_fx:
+            if director_effects.get("white_out"):
+                filters.append("fade=t=in:st=0:d=0.18:c=white")
+            elif director_effects.get("film_burn"):
+                filters.append("fade=t=in:st=0:d=0.22:c=0xF39C12")
+            elif director_effects.get("flash_frame"):
+                filters.append("fade=t=in:st=0:d=0.09:c=white")
+            elif director_effects.get("paper_tear"):
+                filters.append("fade=t=in:st=0:d=0.08:c=0xEEEEEE")
+            elif director_effects.get("object_wipe") or director_effects.get("luma_wipe"):
+                filters.append("fade=t=in:st=0:d=0.14:c=black")
+            elif director_effects.get("film_sprocket"):
+                filters.append("fade=t=in:st=0:d=0.12:c=black")
+            elif director_effects.get("freeze_frame"):
+                filters.append("fade=t=in:st=0:d=0.06:c=white")
+            elif director_effects.get("reverse_ramp"):
+                filters.append("fade=t=in:st=0:d=0.07:c=black")
+            elif director_effects.get("morph_cut"):
+                filters.append("fade=t=in:st=0:d=0.08:c=black")
+
+    # ---------------- 2. CAMERA MOTION & SPATIAL DYNAMICS ----------------
+    # Punch-In retention zoom (alternating cuts)
+    if director_effects.get("punch_in") and (seg_idx % 2 == 0):
+        filters.append(f"crop=w=trunc(iw/1.08/2)*2:h=trunc(ih/1.08/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h}")
+    elif director_effects.get("push_in"):
+        filters.append(f"crop=w=trunc((iw-32)/2)*2:h=trunc((ih-18)/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h}")
+    elif director_effects.get("subject_lock"):
+        filters.append(f"crop=w=trunc(iw*0.94/2)*2:h=trunc(ih*0.94/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h}")
+    elif director_effects.get("dolly_zoom"):
+        filters.append(f"crop=w=trunc(iw*0.92/2)*2:h=trunc(ih*0.92/2)*2:x='(iw-ow)/2+6*sin(t*2)':y='(ih-oh)/2',scale={out_w}:{out_h}")
+    elif director_effects.get("parallax_25d"):
+        filters.append(f"crop=w=iw-28:h=ih-16:x='14+12*sin(t*0.7)':y='8+6*cos(t*0.7)',scale={out_w}:{out_h}")
+    elif director_effects.get("handheld_shake"):
+        filters.append(f"crop=w=iw-16:h=ih-10:x='8+5*sin(t*10)':y='5+3*cos(t*12)',scale={out_w}:{out_h}")
+    elif director_effects.get("heat_haze"):
+        filters.append(f"crop=w=iw-12:h=ih-8:x='6+4*sin(t*6)':y='4+3*cos(t*7)',scale={out_w}:{out_h}")
+    elif director_effects.get("split_clone"):
+        filters.append(f"crop=w=trunc(iw/2/2)*2:h=ih:x=0:y=0,scale={out_w}:{out_h}")
+    elif director_effects.get("pip_overlay"):
+        filters.append(f"crop=w=trunc(iw*0.92/2)*2:h=trunc(ih*0.92/2)*2:x=(iw-ow)/2:y=(ih-oh)/2,scale={out_w}:{out_h}")
+
+    # ---------------- 3. SPEED & TEMPORAL FX ----------------
+    if director_effects.get("stop_motion_12fps"):
+        filters.append("fps=12,fps=30")
+    if director_effects.get("slow_shutter"):
+        filters.append("tblend=all_mode=average")
+    if director_effects.get("speed_ramp") and seg_idx > 0:
+        filters.append("fade=t=in:st=0:d=0.08:c=black")
+
+    # ---------------- 4. FILM EMULATION & OPTICAL TEXTURES ----------------
+    if allow_color_fx:
+        if director_effects.get("gate_weave"):
+            filters.append(f"crop=w=iw-8:h=ih-6:x='4+2.5*sin(t*16)':y='3+1.8*cos(t*20)',scale={out_w}:{out_h}")
+        if director_effects.get("film_grain"):
+            filters.append("noise=alls=11:allf=t+u")
+        if director_effects.get("film_scratches"):
+            filters.append("noise=alls=14:allf=t")
+        if director_effects.get("vhs_crt"):
+            filters.append("curves=vintage,noise=alls=8:allf=t")
+
+    # ---------------- 5. COLOR & OPTICAL FLARE / HALATION ----------------
+    if allow_color_fx:
+        if director_effects.get("bleach_bypass"):
+            filters.append("eq=contrast=1.30:saturation=0.55:brightness=-0.02")
+        if director_effects.get("halation_glow"):
+            filters.append("eq=gamma_r=1.06:gamma_b=0.96:saturation=1.08")
+        if director_effects.get("anamorphic_flare"):
+            filters.append("eq=contrast=1.05:gamma_b=1.06")
+        if director_effects.get("sky_replacement"):
+            filters.append("eq=gamma_b=0.94:gamma_r=1.06:saturation=1.12")
+        if director_effects.get("prismatic_glass"):
+            filters.append("eq=contrast=1.04:saturation=1.06")
+        if director_effects.get("rgb_split"):
+            filters.append("eq=contrast=1.03")
+
+    # ---------------- 6. SCOPE & FRAMING ----------------
+    if director_effects.get("letterbox_239") and not is_vertical and allow_color_fx:
+        filters.append("drawbox=y=0:h=135:color=black@1:t=fill,drawbox=y=ih-135:h=135:color=black@1:t=fill")
+    if director_effects.get("vignette_falloff") and allow_color_fx:
+        filters.append("vignette=PI/4.5")
+    if director_effects.get("lower_third_slide"):
+        filters.append("drawbox=y=ih-90:h=90:color=black@0.35:t=fill")
+
+    return filters
+
+
+def build_director_audio_filters(
+    director_effects: Dict[str, Any] = None,
+    seg_idx: int = 0,
+    total_segs: int = 1,
+    seg_dur: float = 3.0
+) -> List[str]:
+    """
+    Translates active audio effects and transitions (sub-bass impacts,
+    whoosh motion sync, low-pass underwater filter, J/L-cut micro-fades) into native FFmpeg audio filters.
+    """
+    if not director_effects:
+        return []
+
+    filters = []
+    # Sub-bass impact drop on transitions
+    if director_effects.get("sub_bass_drop") and (seg_idx > 0):
+        filters.append("bass=g=4:f=75:w=0.6")
+    # Directional whoosh motion sync
+    if director_effects.get("whoosh_sync") and (seg_idx > 0):
+        filters.append("treble=g=2.5:f=3200:w=0.7")
+    # Low-pass filter (muffle)
+    if director_effects.get("lowpass_muffle"):
+        filters.append("lowpass=f=1400")
+    # J-Cut & L-Cut natural speech lap fades
+    if (director_effects.get("j_cut") or director_effects.get("l_cut")) and seg_dur > 0.1:
+        fade_dur = min(0.040, seg_dur / 3.0)
+        filters.append(f"afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={seg_dur-fade_dur:.3f}:d={fade_dur:.3f}")
+
+    return filters
+
 

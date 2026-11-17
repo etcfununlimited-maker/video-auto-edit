@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from backend.config import FFMPEG_PATH, FINAL_EXPORT_DIR
 from backend.pipeline.color_grading import get_color_grade_filter
+from backend.pipeline.ai_director_suite import build_director_video_filters, build_director_audio_filters
 
 def build_timeline_segments(total_duration: float, cuts_to_remove: list[dict]) -> list[tuple[float, float]]:
     """
@@ -44,7 +45,8 @@ def render_final_master(
     ass_subtitle_path: str = None,
     background_music_path: str = None,
     enable_audio_enhance: bool = True,
-    output_filename: str = None
+    output_filename: str = None,
+    director_effects: dict = None
 ) -> str:
     """
     Executes the comprehensive FFmpeg render pipeline and deposits output in final_export/.
@@ -72,6 +74,13 @@ def render_final_master(
     if not keep_segments:
         keep_segments = [(0.0, total_duration)]
 
+    # If natural camera colors (color_grade == 'none'), strictly disable all color, film emulation, and vignette overlays
+    if color_grade == "none" and director_effects:
+        import copy
+        director_effects = copy.deepcopy(director_effects)
+        for fx_key in ["vignette_falloff", "film_grain", "film_burn", "halation_glow", "bleach_bypass", "letterbox_239", "film_scratches", "vhs_crt", "anamorphic_flare", "sky_replacement", "prismatic_glass", "rgb_split"]:
+            director_effects[fx_key] = False
+
     # 2. Build Filtergraph
     v_parts = []
     a_parts = []
@@ -84,19 +93,25 @@ def render_final_master(
         fade_dur = min(0.035, round(seg_dur / 3.0, 3))
         fade_out_st = max(0.0, round(seg_dur - fade_dur, 3))
 
-        # Dynamic retention zoom: Alternate between normal 1.0x and subtle 1.08x punch zoom
-        # This transforms jarring jump cuts into intentional, professional retention cuts!
-        if idx % 2 == 1 and num_segs > 1 and aspect_ratio != "9:16":
-            filter_complex.append(f"[0:v]trim=start={s}:end={e},setpts=PTS-STARTPTS,scale=trunc(iw*1.08/2)*2:trunc(ih*1.08/2)*2,crop=1920:1080[v{idx}];")
-        else:
-            filter_complex.append(f"[0:v]trim=start={s}:end={e},setpts=PTS-STARTPTS[v{idx}];")
+        # Dynamic retention zoom & Top 50 VFX Suite filters
+        dfx_v = build_director_video_filters(director_effects, seg_idx=idx, total_segs=num_segs, seg_dur=seg_dur, aspect_ratio=aspect_ratio, is_dialogue=True, color_grade=color_grade)
+        v_filters = [f"trim=start={s}:end={e}", "setpts=PTS-STARTPTS"]
+        if dfx_v:
+            v_filters.extend(dfx_v)
+        elif idx % 2 == 1 and num_segs > 1 and aspect_ratio != "9:16":
+            v_filters.append("scale=trunc(iw*1.08/2)*2:trunc(ih*1.08/2)*2,crop=1920:1080")
+        filter_complex.append(f"[0:v]{','.join(v_filters)}[v{idx}];")
 
-        # Smooth audio transition: 35ms micro-fades on cut edges to eliminate clicks and pops
-        filter_complex.append(
-            f"[0:a]atrim=start={s}:end={e},asetpts=PTS-STARTPTS,"
-            f"afade=t=in:ss=0:d={fade_dur:.3f},"
-            f"afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f}[a{idx}];"
-        )
+        # Smooth audio transition & dynamic audio FX
+        dfx_a = build_director_audio_filters(director_effects, seg_idx=idx, total_segs=num_segs, seg_dur=seg_dur)
+        a_filters = [
+            f"atrim=start={s}:end={e}", "asetpts=PTS-STARTPTS",
+            f"afade=t=in:ss=0:d={fade_dur:.3f}",
+            f"afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f}"
+        ]
+        if dfx_a:
+            a_filters.extend(dfx_a)
+        filter_complex.append(f"[0:a]{','.join(a_filters)}[a{idx}];")
         v_parts.append(f"[v{idx}]")
         a_parts.append(f"[a{idx}]")
 

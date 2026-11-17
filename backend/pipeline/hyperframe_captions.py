@@ -253,140 +253,34 @@ def select_face_safe_quadrant(
     video_h: int = 1080
 ) -> dict:
     """
-    Determines optimal 4-quadrant placement (Bottom, Left, Right, Top) and motion animation
-    guaranteeing captions NEVER cover or intersect the speaker's face!
-    Works accurately across 16:9, 9:16 portrait, 4K, and 1080p footage.
+    Locked strictly to the Bottom (Lower-Third) of the screen across all cuts & styles.
+    Prevents captions from jumping all over the screen, while ensuring they stay
+    consistently in the lower third with perfect legibility and safety.
     """
-    mid_t = (start_sec + end_sec) / 2.0
-    active_face = None
-    if face_timeline:
-        # Find closest face detection within time proximity
-        active_face = min(face_timeline, key=lambda f: abs(f.get("time", 0.0) - mid_t))
-        if abs(active_face.get("time", 0.0) - mid_t) > 3.5:
-            active_face = None
-
-    candidates = ["bottom", "left", "right", "top"]
-    quadrant_distances = {
-        "top": 1.0,
-        "bottom": 1.0,
-        "left": 1.0,
-        "right": 1.0
-    }
-
-    if active_face and "x" in active_face and "y" in active_face:
-        # Get face coordinates and dimensions
-        fw_orig = active_face.get("video_w", video_w) or video_w
-        fh_orig = active_face.get("video_h", video_h) or video_h
-
-        # Scaled coordinates in current video canvas
-        scale_x = video_w / float(fw_orig)
-        scale_y = video_h / float(fh_orig)
-
-        fx = active_face["x"] * scale_x
-        fy = active_face["y"] * scale_y
-        fw = active_face["w"] * scale_x
-        fh = active_face["h"] * scale_y
-
-        # Generous face safety buffer margin (45px padding)
-        pad_x = max(35, int(video_w * 0.025))
-        pad_y = max(35, int(video_h * 0.025))
-
-        face_x1 = max(0, fx - pad_x)
-        face_y1 = max(0, fy - pad_y)
-        face_x2 = min(video_w, fx + fw + pad_x)
-        face_y2 = min(video_h, fy + fh + pad_y)
-
-        # Normalized coordinates [0.0 - 1.0]
-        nx1 = face_x1 / float(video_w)
-        ny1 = face_y1 / float(video_h)
-        nx2 = face_x2 / float(video_w)
-        ny2 = face_y2 / float(video_h)
-        ncx = (nx1 + nx2) / 2.0
-        ncy = (ny1 + ny2) / 2.0
-
-        # Calculate distances from face center to each quadrant anchor
-        quadrant_distances = {
-            "top": ((ncx - 0.50)**2 + (ncy - 0.10)**2),
-            "bottom": ((ncx - 0.50)**2 + (ncy - 0.90)**2),
-            "left": ((ncx - 0.12)**2 + (ncy - 0.50)**2),
-            "right": ((ncx - 0.88)**2 + (ncy - 0.50)**2)
-        }
-
-        # 1. Top Zone Check: Top banner sits in Y [0.0, 0.28], X [0.18, 0.82]
-        if ny1 < 0.32 and (nx2 > 0.18 and nx1 < 0.82):
-            if "top" in candidates: candidates.remove("top")
-
-        # 2. Bottom Zone Check: Bottom banner sits in Y [0.72, 1.00], X [0.18, 0.82]
-        if ny2 > 0.68 and (nx2 > 0.18 and nx1 < 0.82):
-            if "bottom" in candidates: candidates.remove("bottom")
-
-        # 3. Left Zone Check: Left card sits in X [0.0, 0.38], Y [0.22, 0.78]
-        if nx1 < 0.42 and (ny2 > 0.20 and ny1 < 0.80):
-            if "left" in candidates: candidates.remove("left")
-
-        # 4. Right Zone Check: Right card sits in X [0.62, 1.00], Y [0.22, 0.78]
-        if nx2 > 0.58 and (ny2 > 0.20 and ny1 < 0.80):
-            if "right" in candidates: candidates.remove("right")
-
-    if not candidates:
-        # If all candidates collide (e.g. extreme close-up), pick the quadrant furthest from face center
-        chosen_quadrant = max(quadrant_distances, key=quadrant_distances.get)
-    else:
-        chosen_quadrant = candidates[step_index % len(candidates)]
-
-    # Dynamic positioning & motion tags scaled to video canvas
-    if chosen_quadrant == "left":
-        anim_type = "fly_left"
-        an = 4
-        x, y = max(80, int(video_w * 0.08)), int(video_h * 0.50)
-        move_from_x, move_from_y = -120, y
-    elif chosen_quadrant == "right":
-        anim_type = "fly_right"
-        an = 6
-        x, y = min(video_w - 80, int(video_w * 0.92)), int(video_h * 0.50)
-        move_from_x, move_from_y = video_w + 120, y
-    elif chosen_quadrant == "top":
-        anim_type = "drop_top"
-        an = 8
-        x, y = video_w // 2, max(60, int(video_h * 0.10))
-        move_from_x, move_from_y = x, -60
-    else:  # bottom
-        anim_type = "zoom_in" if (step_index % 2 == 0) else "fly_up"
-        an = 2
-        x, y = video_w // 2, min(video_h - 60, int(video_h * 0.90))
-        move_from_x, move_from_y = (x, y) if anim_type == "zoom_in" else (x, video_h + 60)
+    an = 2  # ASS bottom-center alignment
+    x = video_w // 2
+    # Safe vertical placement in the lower third (bottom 8.5% of screen, ~90px on 1080p)
+    margin_v = max(70, min(120, int(video_h * 0.085)))
+    y = video_h - margin_v
 
     return {
-        "quadrant": chosen_quadrant,
-        "anim_type": anim_type,
+        "quadrant": "bottom",
+        "anim_type": "standard",
         "alignment": an,
         "pos_x": x,
         "pos_y": y,
-        "from_x": move_from_x,
-        "from_y": move_from_y,
+        "from_x": x,
+        "from_y": y,
         "video_w": video_w,
         "video_h": video_h
     }
 
 def compute_face_safe_margin(face_boxes: list[dict], video_h: int = 1080) -> dict:
     """
-    Guarantees captions and hyperframe graphics NEVER cover or obscure the speaker's face.
+    Guarantees captions are ALWAYS anchored strictly to the bottom center (Alignment 2).
     """
-    if not face_boxes:
-        return {"alignment": 2, "margin_v": 85, "position": "bottom"}
-
-    max_face_bottom = max(f.get("y", 300) + f.get("h", 250) for f in face_boxes)
-    min_face_top = min(f.get("y", 300) for f in face_boxes)
-
-    # Face is in upper or middle area: place captions safely in bottom third
-    if max_face_bottom < (video_h * 0.72):
-        safe_margin = int(video_h * 0.08)
-        return {"alignment": 2, "margin_v": safe_margin, "position": "bottom"}
-    elif min_face_top > (video_h * 0.28):
-        safe_margin = int(video_h * 0.08)
-        return {"alignment": 8, "margin_v": safe_margin, "position": "top"}
-    else:
-        return {"alignment": 2, "margin_v": 60, "position": "bottom"}
+    safe_margin = max(70, min(120, int(video_h * 0.085)))
+    return {"alignment": 2, "margin_v": safe_margin, "position": "bottom"}
 
 def remap_words_to_edited_timeline(words: list[dict], cuts: list[dict] = None) -> list[dict]:
     """

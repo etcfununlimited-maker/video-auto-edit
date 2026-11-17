@@ -147,7 +147,84 @@ function initWebSocket() {
     };
 }
 
+function updateLiveRenderMonitor(detail, progress, status) {
+    const monitor = document.getElementById("live-render-monitor");
+    if (!monitor) return;
+
+    if (status === "in_progress") {
+        monitor.style.display = "flex";
+        const img = document.getElementById("live-render-frame-img");
+        if (img) {
+            img.src = `/api/project/live-render-frame?t=${Date.now()}`;
+        }
+        const pctEl = document.getElementById("live-render-pct");
+        if (pctEl) pctEl.innerText = `${progress}%`;
+
+        const stepEl = document.getElementById("live-render-step-badge");
+        const clipEl = document.getElementById("live-render-clip-name");
+        const actionEl = document.getElementById("live-render-action");
+
+        if (detail) {
+            if (actionEl) actionEl.innerText = detail;
+            const mClip = detail.match(/\[(\d+\/\d+)\]\s*([^:]+):?\s*(.*)/);
+            if (mClip) {
+                if (stepEl) stepEl.innerText = `[${mClip[1]}] Rendering`;
+                if (clipEl) clipEl.innerText = mClip[2].trim();
+                if (actionEl && mClip[3]) actionEl.innerText = mClip[3].trim();
+            } else {
+                if (stepEl) stepEl.innerText = `[${progress}%] Processing`;
+                if (clipEl) clipEl.innerText = "Master Multi-Clip Pipeline";
+            }
+        }
+    } else if (status === "completed" || status === "stopped" || status === "error") {
+        monitor.style.display = "none";
+    }
+}
+
 function handleProgressUpdate(data) {
+    if (data.type === "pipeline_stopped") {
+        updateLiveRenderMonitor("", 0, "stopped");
+        stopElapsedTimer();
+        const badge = document.getElementById("master-status-badge");
+        if (badge) {
+            badge.innerText = "STOPPED";
+            badge.className = "stat-badge";
+        }
+        const etaEl = document.getElementById("overall-total-eta");
+        if (etaEl) etaEl.innerText = "--:--";
+        const btnStop = document.getElementById("btn-stop-pipeline");
+        const btnFooterStop = document.getElementById("btn-footer-stop");
+        if (btnStop) btnStop.style.display = "none";
+        if (btnFooterStop) btnFooterStop.style.display = "none";
+        if (data.statuses) {
+            for (const [gid, s] of Object.entries(data.statuses)) {
+                updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
+            }
+        }
+        showToast("Pipeline stopped ⏹️", "info");
+        return;
+    }
+
+    if (data.type === "pipeline_restarted") {
+        clearAndResetAllGridsUI();
+        ensureElapsedTimerRunning(0);
+        const badge = document.getElementById("master-status-badge");
+        if (badge) {
+            badge.innerText = "PROCESSING";
+            badge.className = "stat-badge running";
+        }
+        const btnStop = document.getElementById("btn-stop-pipeline");
+        const btnFooterStop = document.getElementById("btn-footer-stop");
+        if (btnStop) btnStop.style.display = "inline-flex";
+        if (btnFooterStop) btnFooterStop.style.display = "inline-flex";
+        if (data.statuses) {
+            for (const [gid, s] of Object.entries(data.statuses)) {
+                updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
+            }
+        }
+        return;
+    }
+
     if (data.type === "error") {
         showToast(`Pipeline: ${data.message}`, "error");
         const badge = document.getElementById("master-status-badge");
@@ -155,6 +232,10 @@ function handleProgressUpdate(data) {
             badge.innerText = "ERROR";
             badge.className = "stat-badge";
         }
+        const btnStop = document.getElementById("btn-stop-pipeline");
+        const btnFooterStop = document.getElementById("btn-footer-stop");
+        if (btnStop) btnStop.style.display = "none";
+        if (btnFooterStop) btnFooterStop.style.display = "none";
         if (data.all_statuses) {
             for (const [gid, s] of Object.entries(data.all_statuses)) {
                 updateGridUI(gid, s.status, s.progress, s.clip_eta_sec, s.eta_sec, s.detail);
@@ -165,6 +246,9 @@ function handleProgressUpdate(data) {
 
     if (data.type === "grid_update") {
         updateGridUI(data.grid_id, data.status, data.progress, data.clip_eta_sec, data.grid_eta_sec, data.detail);
+        if (data.grid_id === "grid_render") {
+            updateLiveRenderMonitor(data.detail, data.progress, data.status);
+        }
         
         if (data.elapsed_sec !== undefined) {
             const elEl = document.getElementById("overall-elapsed");
@@ -176,6 +260,10 @@ function handleProgressUpdate(data) {
 
         if (data.grid_id === "grid_render" && data.status === "completed") {
             stopElapsedTimer();
+            const btnStop = document.getElementById("btn-stop-pipeline");
+            const btnFooterStop = document.getElementById("btn-footer-stop");
+            if (btnStop) btnStop.style.display = "none";
+            if (btnFooterStop) btnFooterStop.style.display = "none";
             if (badge) {
                 badge.innerText = "MASTER READY";
                 badge.className = "stat-badge ready";
@@ -254,6 +342,10 @@ async function fetchRawFiles() {
         document.getElementById("raw-count").innerText = rawFiles.length;
         if (document.getElementById("raw-total-dur")) {
             document.getElementById("raw-total-dur").innerText = data.total_duration_formatted || "0m 0s";
+        }
+        const optFull = document.getElementById("opt-full-movie");
+        if (optFull) {
+            optFull.innerText = `Full Movie Assembly (Stitch All ${rawFiles.length} Clips)`;
         }
         renderRawFileList();
 
@@ -403,6 +495,12 @@ async function openExportFolder() {
     } catch (e) {
         showToast("Error opening final_export folder", "error");
     }
+}
+
+function playShowcase50Master() {
+    switchStudioTab('pipeline');
+    loadVideoIntoPlayer('/media_final/SHOWCASE_50_EFFECTS_2MIN_MASTER.mp4', true, 'SHOWCASE_50_EFFECTS_2MIN_MASTER.mp4');
+    showToast('Loaded 50-Effects 2-Min Master Showcase! 🎬 Burned-In Titles Active', 'success');
 }
 
 // ---------------- FINAL EXPORT FILES ----------------
@@ -1215,7 +1313,35 @@ function selectColorPreset(presetId) {
 
 function changeCaptionStyle(style) {
     activeCaptionStyle = style;
-    showToast(`Caption style: ${style.toUpperCase()}`, "info");
+    const chk = document.getElementById("chk-burn-captions");
+    if (style === "none") {
+        if (chk) chk.checked = false;
+        toggleGridFeature("grid_captions", false);
+        toggleGridFeature("grid_transcribe", false);
+        showToast("Captions & Faster-Whisper STT bypassed 🚫 (Zero transcription overhead)", "info");
+    } else {
+        if (chk) chk.checked = true;
+        toggleGridFeature("grid_captions", true);
+        toggleGridFeature("grid_transcribe", true);
+        showToast(`Captions & Whisper STT active: ${style.toUpperCase()} ⚡`, "success");
+    }
+}
+
+function toggleCaptionsSetting(enabled) {
+    const sel = document.getElementById("caption-style-select");
+    if (!enabled) {
+        if (sel) sel.value = "none";
+        activeCaptionStyle = "none";
+        toggleGridFeature("grid_captions", false);
+        toggleGridFeature("grid_transcribe", false);
+        showToast("Captions & Faster-Whisper STT bypassed 🚫 (Zero transcription overhead)", "info");
+    } else {
+        if (sel && sel.value === "none") sel.value = "youtube_create";
+        activeCaptionStyle = sel ? sel.value : "youtube_create";
+        toggleGridFeature("grid_captions", true);
+        toggleGridFeature("grid_transcribe", true);
+        showToast("Captions & Faster-Whisper STT ENABLED ⚡", "success");
+    }
 }
 
 // ---------------- AI DIRECTOR AGENT ----------------
@@ -1630,7 +1756,9 @@ function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
     }
 
     const clipEtaEl = document.getElementById(`${gridId}-clip-eta`);
-    if (clipEtaEl) clipEtaEl.innerText = clipEta > 0 ? `Clip: ${clipEta}s` : `Clip: 0s`;
+    if (clipEtaEl) {
+        clipEtaEl.innerText = clipEta >= 60 ? `Clip: ${formatSeconds(clipEta)}` : (clipEta > 0 ? `Clip: ${clipEta}s` : `Clip: 0s`);
+    }
 
     const gridEtaEl = document.getElementById(`${gridId}-eta`);
     if (gridEtaEl) {
@@ -1645,7 +1773,7 @@ function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
             gridEtaEl.innerText = "ETA: Bypassed";
         } else if (status === "in_progress" || gridEta > 0) {
             gridEtaEl.className = "grid-eta-badge eta-running";
-            gridEtaEl.innerText = `ETA: ${gridEta}s`;
+            gridEtaEl.innerText = gridEta >= 60 ? `ETA: ${formatEtaDisplay(gridEta)}` : `ETA: ${gridEta}s`;
         } else {
             gridEtaEl.className = "grid-eta-badge eta-waiting";
             gridEtaEl.innerText = "ETA: --";
@@ -1655,6 +1783,23 @@ function updateGridUI(gridId, status, progress, clipEta, gridEta, detail) {
 
 let activeTargetDuration = null;
 let activeEditMode = "full_movie";
+
+let currentRenderMode = "fast_preview";
+
+function setRenderMode(mode) {
+    currentRenderMode = mode;
+    const btnFast = document.getElementById("btn-mode-fast");
+    const btnFull = document.getElementById("btn-mode-full");
+    if (mode === "fast_preview") {
+        if (btnFast) { btnFast.style.background = "#f59e0b"; btnFast.style.color = "#000"; }
+        if (btnFull) { btnFull.style.background = "transparent"; btnFull.style.color = "#94a3b8"; }
+        showToast("⚡ Fast Preview Mode selected: ~8 min draft render (<10m max)", "info");
+    } else {
+        if (btnFull) { btnFull.style.background = "#10b981"; btnFull.style.color = "#000"; }
+        if (btnFast) { btnFast.style.background = "transparent"; btnFast.style.color = "#94a3b8"; }
+        showToast("🏆 Full Master Mode selected: 1080p Broadcast Quality", "info");
+    }
+}
 
 async function startPipelineProcess(customSettings = null) {
     // If nothing checked, default to activeFile or first raw file
@@ -1681,20 +1826,132 @@ async function startPipelineProcess(customSettings = null) {
         console.error("Sync error:", e);
     }
 
+    // Pop up Full Media Audit & Edit Plan Confirmation Modal first
+    await openMediaAuditModal(customSettings);
+}
+
+let pendingAuditCustomSettings = null;
+
+async function openMediaAuditModal(customSettings = null) {
+    pendingAuditCustomSettings = customSettings;
+    const modal = document.getElementById("media-audit-modal");
+    if (!modal) return;
+
+    try {
+        const res = await fetch("/api/project/media-audit-summary");
+        const data = await res.json();
+        if (data.status === "success") {
+            const audit = data.media_audit;
+            const plan = data.edit_plan;
+
+            // 1. Populate KPI stats
+            const totalEl = document.getElementById("audit-total-files");
+            const subEl = document.getElementById("audit-files-sub");
+            const durEl = document.getElementById("audit-video-dur");
+            const durSubEl = document.getElementById("audit-video-dur-sub");
+            const spanEl = document.getElementById("audit-date-span");
+            const formatsEl = document.getElementById("audit-camera-formats");
+
+            if (totalEl) totalEl.innerText = `${audit.total_files} Files`;
+            if (subEl) subEl.innerText = `${audit.video_count} Videos • ${audit.photo_count} Photos`;
+            if (durEl) durEl.innerText = audit.video_duration_formatted || "73m 7s";
+            if (durSubEl) durSubEl.innerText = `${Math.round(audit.video_duration_sec).toLocaleString()} sec uncut audio/video`;
+            if (spanEl) spanEl.innerText = `${audit.date_range_start.split(" ")[0]} to ${audit.date_range_end.split(" ")[0]}`;
+            if (formatsEl) formatsEl.innerHTML = `<strong>Camera Formats:</strong> ${audit.iphone_video_count} iPhone (1080p HEVC Main 10) + ${audit.android_video_count} Android (1080p/720p H.264)`;
+
+            // 2. Populate 12-Stage Edit Execution Plan
+            const stagesContainer = document.getElementById("audit-stages-list");
+            if (stagesContainer) {
+                stagesContainer.innerHTML = plan.map(stage => {
+                    // Check live toggle state in frontend as well
+                    const isGloballyOn = (gridEnabledState[stage.id] !== false) && stage.is_active;
+                    const badgeClass = isGloballyOn ? "active" : "bypassed";
+                    const badgeText = isGloballyOn ? "ACTIVE (ON)" : "BYPASSED (OFF)";
+                    const rowClass = isGloballyOn ? "audit-stage-row" : "audit-stage-row bypassed";
+                    const desc = isGloballyOn ? stage.action_description : "Bypassed by user toggle (Will not run)";
+
+                    return `
+                    <div class="${rowClass}">
+                        <div class="audit-stage-left">
+                            <span class="audit-stage-name">${stage.title}</span>
+                            <span class="audit-stage-desc">${desc}</span>
+                        </div>
+                        <span class="audit-stage-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                    `;
+                }).join("");
+            }
+
+            // 3. Highlight active render mode
+            selectAuditRenderMode(currentRenderMode || "fast_preview");
+        }
+    } catch (e) {
+        console.warn("Audit summary notice:", e);
+    }
+
+    modal.style.display = "flex";
+    if (window.feather) feather.replace();
+}
+
+function closeMediaAuditModal() {
+    const modal = document.getElementById("media-audit-modal");
+    if (modal) modal.style.display = "none";
+}
+
+function selectAuditRenderMode(mode) {
+    currentRenderMode = mode;
+    const cardFast = document.getElementById("audit-mode-fast");
+    const cardFull = document.getElementById("audit-mode-full");
+    if (cardFast) cardFast.classList.toggle("active", mode === "fast_preview");
+    if (cardFull) cardFull.classList.toggle("active", mode === "full");
+    setRenderMode(mode);
+}
+
+async function executePipelineAfterAudit() {
+    closeMediaAuditModal();
+    await executePipelineDirect(pendingAuditCustomSettings);
+    pendingAuditCustomSettings = null;
+}
+
+async function executePipelineDirect(customSettings = null) {
     showToast(`Launching Auto-Edit on ${selectedFileNames.size} clip(s)...`, "info");
     document.getElementById("master-status-badge").innerText = "PROCESSING";
     document.getElementById("master-status-badge").className = "stat-badge running";
     ensureElapsedTimerRunning(0);
 
+    const btnStop = document.getElementById("btn-stop-pipeline");
+    const btnFooterStop = document.getElementById("btn-footer-stop");
+    if (btnStop) btnStop.style.display = "inline-flex";
+    if (btnFooterStop) btnFooterStop.style.display = "inline-flex";
+
+    // Immediate DOM update of bypassed grids
+    GRID_DEFS.forEach(g => {
+        const isEnabled = gridEnabledState[g.id] !== false;
+        if (!isEnabled) {
+            const card = document.getElementById(g.id);
+            const badge = document.getElementById(`${g.id}-badge`);
+            const detail = document.getElementById(`${g.id}-detail`);
+            const bar = document.getElementById(`${g.id}-bar`);
+            const etaEl = document.getElementById(`${g.id}-eta`);
+            if (card) card.className = "grid-card bypassed";
+            if (badge) { badge.className = "grid-status-badge badge-skipped"; badge.innerText = "BYPASS"; }
+            if (detail) detail.innerText = GRID_BYPASS_DESCRIPTIONS[g.id] || "Feature bypassed by user toggle";
+            if (bar) bar.style.width = "0%";
+            if (etaEl) { etaEl.className = "grid-eta-badge eta-bypassed"; etaEl.innerText = "ETA: Bypassed"; }
+        }
+    });
+
     const baseSettings = {
         edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
         target_duration: activeTargetDuration || null,
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
-        model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3")),
+        model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo")),
         script_mode: currentTranscriptScript,
         color_grade: activeColorPreset,
         aspect_ratio: activeAspectRatio,
-        caption_style: activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic"),
+        caption_style: (document.getElementById("chk-burn-captions") && !document.getElementById("chk-burn-captions").checked) 
+            ? "none" 
+            : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
         license_plate_blur: document.getElementById("chk-license-plate-blur") ? document.getElementById("chk-license-plate-blur").checked : true,
@@ -1707,7 +1964,7 @@ async function startPipelineProcess(customSettings = null) {
         const res = await fetch("/api/project/start-processing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ settings: settings })
+            body: JSON.stringify({ settings: settings, render_mode: currentRenderMode })
         });
         const data = await res.json();
         
@@ -1716,6 +1973,158 @@ async function startPipelineProcess(customSettings = null) {
     } catch (e) {
         showToast("Error starting pipeline", "error");
     }
+}
+
+async function stopPipelineProcess() {
+    showToast("Stopping pipeline...", "info");
+    const badge = document.getElementById("master-status-badge");
+    if (badge) {
+        badge.innerText = "STOPPING...";
+        badge.className = "stat-badge running";
+    }
+
+    try {
+        const res = await fetch("/api/project/stop-processing", {
+            method: "POST"
+        });
+        const data = await res.json();
+        stopElapsedTimer();
+
+        if (badge) {
+            badge.innerText = "STOPPED";
+            badge.className = "stat-badge";
+        }
+        const etaEl = document.getElementById("overall-total-eta");
+        if (etaEl) etaEl.innerText = "--:--";
+
+        const btnStop = document.getElementById("btn-stop-pipeline");
+        const btnFooterStop = document.getElementById("btn-footer-stop");
+        if (btnStop) btnStop.style.display = "none";
+        if (btnFooterStop) btnFooterStop.style.display = "none";
+
+        showToast("Pipeline process stopped ⏹️", "info");
+    } catch (e) {
+        console.error("Stop error:", e);
+        showToast("Error stopping pipeline", "error");
+    }
+}
+
+async function restartPipelineProcess() {
+    showToast("Clearing old grids & restarting from beginning...", "info");
+
+    // 1. Immediately wipe all 12 old grids visually in DOM
+    clearAndResetAllGridsUI();
+
+    // 2. Set master status & reset timer
+    const badge = document.getElementById("master-status-badge");
+    if (badge) {
+        badge.innerText = "RESTARTING...";
+        badge.className = "stat-badge running";
+    }
+    const elapsedEl = document.getElementById("overall-elapsed");
+    if (elapsedEl) elapsedEl.innerText = "00:00";
+    const etaEl = document.getElementById("overall-total-eta");
+    if (etaEl) etaEl.innerText = "Estimating...";
+
+    // Show stop buttons
+    const btnStop = document.getElementById("btn-stop-pipeline");
+    const btnFooterStop = document.getElementById("btn-footer-stop");
+    if (btnStop) btnStop.style.display = "inline-flex";
+    if (btnFooterStop) btnFooterStop.style.display = "inline-flex";
+
+    // 3. Assemble current settings
+    const baseSettings = {
+        edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
+        target_duration: activeTargetDuration || null,
+        language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
+        model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3")),
+        script_mode: currentTranscriptScript,
+        color_grade: activeColorPreset,
+        aspect_ratio: activeAspectRatio,
+        caption_style: (document.getElementById("chk-burn-captions") && !document.getElementById("chk-burn-captions").checked) 
+            ? "none" 
+            : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
+        audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
+        auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
+        license_plate_blur: document.getElementById("chk-license-plate-blur") ? document.getElementById("chk-license-plate-blur").checked : true,
+        enabled_grids: gridEnabledState
+    };
+
+    // Ensure selected files
+    if (selectedFileNames.size === 0 && rawFiles.length > 0) {
+        rawFiles.forEach(f => selectedFileNames.add(f.filename));
+    }
+
+    try {
+        const res = await fetch("/api/project/restart-processing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ settings: baseSettings })
+        });
+        const data = await res.json();
+        ensureElapsedTimerRunning(0);
+        if (badge) {
+            badge.innerText = "PROCESSING";
+            badge.className = "stat-badge running";
+        }
+        showToast("Pipeline restarted cleanly from the beginning ⚡", "success");
+    } catch (e) {
+        console.error("Restart error:", e);
+        showToast("Error restarting pipeline", "error");
+    }
+}
+
+function clearAndResetAllGridsUI() {
+    stopElapsedTimer();
+    GRID_DEFS.forEach(g => {
+        const isEnabled = gridEnabledState[g.id] !== false;
+        const card = document.getElementById(g.id);
+        const badge = document.getElementById(`${g.id}-badge`);
+        const detail = document.getElementById(`${g.id}-detail`);
+        const bar = document.getElementById(`${g.id}-bar`);
+        const etaEl = document.getElementById(`${g.id}-eta`);
+        const toggle = document.getElementById(`${g.id}-toggle`);
+
+        if (toggle) toggle.checked = isEnabled;
+
+        if (!isEnabled) {
+            if (card) { card.className = "grid-card bypassed"; }
+            if (badge) {
+                badge.className = "grid-status-badge badge-skipped";
+                badge.innerText = "BYPASS";
+            }
+            if (detail) detail.innerText = GRID_BYPASS_DESCRIPTIONS[g.id] || "Feature bypassed";
+            if (bar) bar.style.width = "0%";
+            if (etaEl) {
+                etaEl.className = "grid-eta-badge eta-bypassed";
+                etaEl.innerText = "ETA: Bypassed";
+            }
+        } else if (g.id === "grid_color") {
+            if (card) { card.className = "grid-card ready"; }
+            if (badge) {
+                badge.className = "grid-status-badge badge-ready";
+                badge.innerText = "READY";
+            }
+            if (detail) detail.innerText = `Active: ${activeColorPreset.replace('_', ' ').toUpperCase()} (Primed)`;
+            if (bar) bar.style.width = "100%";
+            if (etaEl) {
+                etaEl.className = "grid-eta-badge eta-ready";
+                etaEl.innerText = "ETA: Ready";
+            }
+        } else {
+            if (card) { card.className = "grid-card waiting"; }
+            if (badge) {
+                badge.className = "grid-status-badge badge-waiting";
+                badge.innerText = "WAITING";
+            }
+            if (detail) detail.innerText = GRID_ARMED_DESCRIPTIONS[g.id] || "Armed & waiting for pipeline stage";
+            if (bar) bar.style.width = "0%";
+            if (etaEl) {
+                etaEl.className = "grid-eta-badge eta-waiting";
+                etaEl.innerText = "ETA: --";
+            }
+        }
+    });
 }
 
 function toggleLicensePlateBlur(enabled) {

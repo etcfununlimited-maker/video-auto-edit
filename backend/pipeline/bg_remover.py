@@ -26,19 +26,24 @@ def segment_foreground_frame(frame: np.ndarray) -> np.ndarray:
     h, w = frame.shape[:2]
     mask = np.zeros((h, w), dtype=np.uint8)
 
-    # Detect face to anchor subject region
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = []
-    if FACE_CASCADE:
-        faces = FACE_CASCADE.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=4, minSize=(60, 60))
+    # High-accuracy skin-tone and subject region detection in YCrCb + HSV
+    ycrcb = cv2.cvtColor(frame, cv2.COLOR_BGR2YCrCb)
+    skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    mask_hsv = cv2.inRange(hsv, np.array([0, 30, 50]), np.array([25, 200, 255]))
+    comb = cv2.bitwise_and(skin_mask, mask_hsv)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+    comb = cv2.morphologyEx(comb, cv2.MORPH_CLOSE, kernel)
+    contours, _ = cv2.findContours(comb, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    if len(faces) > 0:
-        fx, fy, fw, fh = max(faces, key=lambda f: f[2] * f[3])
-        # Approximate torso rectangle below face
-        torso_x = max(0, fx - int(fw * 0.8))
-        torso_w = min(w - torso_x, int(fw * 2.6))
-        torso_y = max(0, fy - int(fh * 0.2))
-        torso_h = min(h - torso_y, int(fh * 3.8))
+    if contours and cv2.contourArea(max(contours, key=cv2.contourArea)) > (w * h * 0.005):
+        c = max(contours, key=cv2.contourArea)
+        fx, fy, fw, fh = cv2.boundingRect(c)
+        # Anchor subject torso & head
+        torso_x = max(0, fx - int(fw * 0.4))
+        torso_w = min(w - torso_x, int(fw * 1.8))
+        torso_y = max(0, fy - int(fh * 0.15))
+        torso_h = min(h - torso_y, int(fh * 3.0))
         
         # Elliptical foreground mask
         center = (torso_x + torso_w // 2, torso_y + torso_h // 2)
@@ -46,8 +51,8 @@ def segment_foreground_frame(frame: np.ndarray) -> np.ndarray:
         cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
     else:
         # Fallback centered portrait oval
-        center = (w // 2, h // 2)
-        axes = (int(w * 0.35), int(h * 0.45))
+        center = (w // 2, int(h * 0.65))
+        axes = (int(w * 0.35), int(h * 0.40))
         cv2.ellipse(mask, center, axes, 0, 0, 360, 255, -1)
 
     # Feather edges with Gaussian blur for smooth natural blend
