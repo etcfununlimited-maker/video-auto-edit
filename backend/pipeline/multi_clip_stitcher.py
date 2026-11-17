@@ -411,6 +411,22 @@ def build_multi_clip_movie_pipeline(
             })
             i += 1
 
+    # Target duration timeline clipping (e.g. 120s for 2-minute vlog, or viral shorts)
+    if target_duration and target_duration > 0:
+        cum_dur = 0.0
+        trimmed_elements = []
+        for elem in story_elements:
+            if elem["type"] == "photo_group":
+                e_dur = 4.0 if len(elem["paths"]) <= 3 else 5.0
+            else:
+                e_dur = elem["meta"].get("duration", 0.0)
+            trimmed_elements.append(elem)
+            cum_dur += e_dur
+            if cum_dur >= target_duration:
+                break
+        story_elements = trimmed_elements
+        print(f"Target duration applied: limited timeline to {len(story_elements)} elements (~{cum_dur:.1f}s) for {target_duration:.0f}s vlog target.")
+
     total_elements = len(story_elements)
     temp_processed_segments = []
     concat_lines = []

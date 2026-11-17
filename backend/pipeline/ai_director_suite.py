@@ -653,9 +653,15 @@ DEFAULT_TEXT_BEHIND_PERSON: Dict[str, Any] = {
     "opacity": 0.95
 }
 
+ANIRBAN_DEFAULT_EFFECT_IDS = {
+    "whip_pan", "punch_in", "tilt_sky", "speed_ramp",
+    "dialogue_jump_cut", "object_wipe", "grid_collage",
+    "pip_overlay", "action_match_cut", "hormozi_captions", "lower_third_slide"
+}
+
 def get_initial_active_effects() -> Dict[str, bool]:
-    """Returns mapping of effect_id -> bool with smart vlog defaults active."""
-    return {fx["id"]: fx["default"] for fx in TOP_50_EFFECTS}
+    """Returns mapping of effect_id -> bool with Anirban Preset defaults active (11/50 active)."""
+    return {fx["id"]: (fx["id"] in ANIRBAN_DEFAULT_EFFECT_IDS) for fx in TOP_50_EFFECTS}
 
 def sync_director_with_grids(director_effects: Dict[str, bool], text_behind: Dict[str, Any], grid_statuses: Dict[str, Any]) -> Dict[str, Any]:
     """
