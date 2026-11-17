@@ -170,7 +170,7 @@ def update_live_render_frame_snapshot(source_path: str, is_photo: bool = False):
     except Exception:
         pass
 
-def render_photo_collage_segment(photo_paths: list[str], output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none") -> str:
+def render_photo_collage_segment(photo_paths: list[str], output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
     """
     Composites 2, 3, or 4 photos into a dynamic multi-grid collage with Computer Vision smart crop,
     CFR 30.0 fps, 4.0s - 5.0s comfortable viewing duration, and continuous 48kHz stereo AAC audio.
@@ -224,6 +224,18 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
         if cg:
             grid_vf = f"{grid_vf.replace('[vout]', '[vpre]')};[vpre]{cg}[vout]"
 
+    if text_behind and text_behind.get("enabled") and (text_behind.get("text") or "").strip():
+        try:
+            from backend.pipeline.ai_director_suite import generate_depth_text_ass
+            ass_dp = output_path.replace(".mp4", "_depth.ass")
+            w = 960 if is_fast else 1920
+            h = 540 if is_fast else 1080
+            generate_depth_text_ass(text_behind, duration=duration, output_path=ass_dp, video_w=w, video_h=h)
+            escaped_dp = ass_dp.replace("\\", "/").replace(":", "\\:")
+            grid_vf = f"{grid_vf.replace('[vout]', '[vpredepth]')};[vpredepth]subtitles='{escaped_dp}'[vout]"
+        except Exception as e_dp:
+            print(f"Collage depth title notice: {e_dp}")
+
     fc = f"{grid_vf};anullsrc=r=48000:cl=stereo[aout]"
     enc_preset = "ultrafast" if is_fast else "faster"
     enc_crf = "23" if is_fast else "18"
@@ -247,7 +259,7 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
     update_live_render_frame_snapshot(output_path, is_photo=False)
     return output_path
 
-def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 3.5, is_fast: bool = True, color_grade: str = "none") -> str:
+def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 3.5, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
     """
     Renders an individual photo with smooth Ken Burns zoom (3.5s duration)
     and clean silent audio for 100% stable timeline concatenation.
@@ -264,6 +276,16 @@ def render_single_photo_segment(photo_path: str, output_path: str, duration: flo
         cg = get_color_grade_filter(color_grade)
         if cg:
             zoom_vf = f"{zoom_vf},{cg}"
+
+    if text_behind and text_behind.get("enabled") and (text_behind.get("text") or "").strip():
+        try:
+            from backend.pipeline.ai_director_suite import generate_depth_text_ass
+            ass_dp = output_path.replace(".mp4", "_depth.ass")
+            generate_depth_text_ass(text_behind, duration=duration, output_path=ass_dp, video_w=w, video_h=h)
+            escaped_dp = ass_dp.replace("\\", "/").replace(":", "\\:")
+            zoom_vf = f"{zoom_vf},subtitles='{escaped_dp}'"
+        except Exception as e_dp:
+            print(f"Single photo depth title notice: {e_dp}")
 
     fc = f"[0:v]{zoom_vf}[vout];anullsrc=r=48000:cl=stereo[aout]"
     enc_preset = "ultrafast" if is_fast else "faster"
@@ -397,6 +419,14 @@ def build_multi_clip_movie_pipeline(
     target_w = 960 if is_fast else 1920
     target_h = 540 if is_fast else 1080
 
+    first_depth_title_burned = False
+    def get_depth_tb_for_next():
+        nonlocal first_depth_title_burned
+        if not first_depth_title_burned and text_behind and text_behind.get("enabled", True) and (text_behind.get("text") or "").strip():
+            first_depth_title_burned = True
+            return text_behind
+        return None
+
     for el_idx, elem in enumerate(story_elements):
         pct = int(8 + (el_idx / total_elements) * 80)
         if notify_progress(pct, f"[{el_idx+1}/{total_elements}] Rendering timeline element", el_idx + 1, total_elements) is False:
@@ -414,54 +444,54 @@ def build_multi_clip_movie_pipeline(
 
             if n_photos == 1:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_single_photo.mp4"
-                render_single_photo_segment(photos[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade)
+                render_single_photo_segment(photos[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             elif n_photos == 2:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_dual_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             elif n_photos == 3:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_3split_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             elif n_photos == 4:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_grid_2x2_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=5.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos, str(out_seg), duration=5.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             elif n_photos == 5:
                 out_seg1 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_5photo_part1.mp4"
-                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg1))
                 concat_lines.append(f"file '{str(out_seg1).replace(chr(92), '/')}'")
                 seg_counter += 1
 
                 out_seg2 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_5photo_part2.mp4"
-                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg2))
                 concat_lines.append(f"file '{str(out_seg2).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             elif n_photos == 6:
                 out_seg1 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_6photo_part1.mp4"
-                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg1))
                 concat_lines.append(f"file '{str(out_seg1).replace(chr(92), '/')}'")
                 seg_counter += 1
 
                 out_seg2 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_6photo_part2.mp4"
-                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg2))
                 concat_lines.append(f"file '{str(out_seg2).replace(chr(92), '/')}'")
                 seg_counter += 1
@@ -471,9 +501,9 @@ def build_multi_clip_movie_pipeline(
                     chunk = photos[chunk_idx:chunk_idx+3]
                     out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_chunk_{chunk_idx}.mp4"
                     if len(chunk) >= 2:
-                        render_photo_collage_segment(chunk, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade)
+                        render_photo_collage_segment(chunk, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                     else:
-                        render_single_photo_segment(chunk[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade)
+                        render_single_photo_segment(chunk[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                     temp_processed_segments.append(str(out_seg))
                     concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                     seg_counter += 1
@@ -523,6 +553,26 @@ def build_multi_clip_movie_pipeline(
                         vf_scale = f"{vf_scale},subtitles='{escaped_ass}'"
                 except Exception as ex_sub:
                     print(f"Subtitles notice for {c_p.name}: {ex_sub}")
+
+            # Bold Text Appearing Behind Person (Depth Title & Neon Spread)
+            tb_for_take = get_depth_tb_for_next()
+            if tb_for_take:
+                try:
+                    from backend.pipeline.ai_director_suite import generate_depth_text_ass
+                    depth_dur = min(dur, 6.0)
+                    ass_depth_path = str(UPLOADS_DIR / f"depth_title_take_{seg_counter:03d}_{c_p.stem}.ass")
+                    generate_depth_text_ass(
+                        tb_for_take,
+                        duration=depth_dur,
+                        output_path=ass_depth_path,
+                        video_w=target_w,
+                        video_h=target_h
+                    )
+                    escaped_depth_ass = ass_depth_path.replace("\\", "/").replace(":", "\\:")
+                    vf_scale = f"{vf_scale},subtitles='{escaped_depth_ass}'"
+                    print(f"Burned Bold Depth Title into Segment {seg_counter}: '{tb_for_take.get('text')}' ({depth_dur:.1f}s)")
+                except Exception as ex_depth:
+                    print(f"Depth title burn notice for {c_p.name}: {ex_depth}")
 
             # Top 50 VFX Suite & Transitions & Color Grading (baked into segment so final concat is instant -c copy)
             if color_grade and color_grade != "none":

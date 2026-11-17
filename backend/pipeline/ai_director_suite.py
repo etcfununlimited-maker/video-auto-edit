@@ -639,7 +639,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
 
 DEFAULT_TEXT_BEHIND_PERSON: Dict[str, Any] = {
     "enabled": True,
-    "text": "JAIPUR VLOG",
+    "text": "RANN OF KUTCH",
     "font": "Montserrat",
     "size": 110,
     "spread": 8,

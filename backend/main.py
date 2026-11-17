@@ -50,6 +50,10 @@ from backend.pipeline.ai_director_suite import (
     TOP_50_EFFECTS, DEFAULT_TEXT_BEHIND_PERSON,
     get_initial_active_effects, sync_director_with_grids
 )
+from backend.pipeline.user_preset_store import (
+    load_anirban_preset, save_anirban_preset,
+    load_user_settings, save_user_settings
+)
 import copy
 
 app = FastAPI(title="ANIRBAN AUTOMATIONS - AUTO VIDEO EDITOR")
@@ -154,17 +158,28 @@ current_project = {
     },
     "grid_statuses": {
         g["id"]: {
-            "status": "ready" if g["id"] == "grid_color" else "waiting",
-            "progress": 100 if g["id"] == "grid_color" else 0,
+            "status": "skipped" if g["id"] == "grid_color" else "waiting",
+            "progress": 0,
             "eta_sec": 0,
             "clip_eta_sec": 0,
-            "detail": "Preset 'Cinematic Teal & Orange' active & primed" if g["id"] == "grid_color" else GRID_ARMED_DETAILS.get(g["id"], "Ready for input")
+            "detail": "Bypassed (Natural Camera Colors - Zero LUT / Vignette)" if g["id"] == "grid_color" else GRID_ARMED_DETAILS.get(g["id"], "Ready for input")
         } for g in WORKFLOW_GRIDS
     },
     "overall_eta_sec": 0,
     "elapsed_sec": 0,
     "is_processing": False
 }
+
+# Hydrate persisted user settings across server restarts (Anirban Preset baseline + user custom overrides)
+_anirban_preset = load_anirban_preset()
+if _anirban_preset.get("active_effects"):
+    current_project["settings"]["ai_director_effects"].update(_anirban_preset["active_effects"])
+if _anirban_preset.get("text_behind_person"):
+    current_project["settings"]["text_behind_person"].update(_anirban_preset["text_behind_person"])
+
+_persisted_settings = load_user_settings()
+if _persisted_settings:
+    current_project["settings"].update(_persisted_settings)
 
 def sync_project_state_with_disk():
     """
@@ -737,6 +752,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                     pass
 
             text_behind_cfg = current_project.get("settings", {}).get("text_behind_person")
+            if not text_behind_cfg:
+                text_behind_cfg = load_anirban_preset().get("text_behind_person")
             master_out = await asyncio.to_thread(
                 build_multi_clip_movie_pipeline,
                 valid_files,
@@ -768,7 +785,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 ass_subtitle_path=ass_path,
                 enable_audio_enhance=eff_audio,
                 output_filename=single_out_name,
-                director_effects=director_fx_cfg
+                director_effects=director_fx_cfg,
+                text_behind=text_behind_cfg
             )
 
         current_project["master_output_path"] = master_out
@@ -1731,6 +1749,7 @@ async def toggle_fx_suite_endpoint(payload: FxTogglePayload):
     
     # Sync into 12 Modular Grid pipeline
     sync_director_with_grids(director_effects, text_behind, current_project["grid_statuses"])
+    save_user_settings(current_project["settings"])
 
     await broadcast_progress({
         "type": "director_update",
@@ -1772,6 +1791,7 @@ async def update_text_behind_person_endpoint(payload: TextBehindPersonPayload):
 
     director_effects = current_project["settings"].setdefault("ai_director_effects", get_initial_active_effects())
     sync_director_with_grids(director_effects, text_behind, current_project["grid_statuses"])
+    save_user_settings(current_project["settings"])
 
     await broadcast_progress({
         "type": "text_behind_update",
@@ -1793,7 +1813,16 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
     director_effects = current_project["settings"].setdefault("ai_director_effects", get_initial_active_effects())
     text_behind = current_project["settings"].setdefault("text_behind_person", copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON))
 
-    if payload.preset == "vlog":
+    if payload.preset == "anirban":
+        p_data = load_anirban_preset()
+        active_map = p_data.get("active_effects", {})
+        for fx in TOP_50_EFFECTS:
+            director_effects[fx["id"]] = active_map.get(fx["id"], False)
+        if "text_behind_person" in p_data:
+            text_behind.update(p_data["text_behind_person"])
+        save_user_settings(current_project["settings"])
+
+    elif payload.preset == "vlog":
         # Vibrant high-energy creator vlog preset
         vlog_ids = {
             "whip_pan", "punch_in", "tilt_sky", "speed_ramp", "flash_frame",
@@ -1826,6 +1855,7 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
         text_behind["enabled"] = False
 
     sync_director_with_grids(director_effects, text_behind, current_project["grid_statuses"])
+    save_user_settings(current_project["settings"])
 
     await broadcast_progress({
         "type": "director_preset_applied",
@@ -1838,7 +1868,22 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
     return {
         "status": "applied",
         "preset": payload.preset,
-        "active_count": sum(1 for v in director_effects.values() if v)
+        "active_count": sum(1 for v in director_effects.values() if v),
+        "active_effects": director_effects,
+        "text_behind_person": text_behind
+    }
+
+@app.post("/api/ai-director/save-anirban-preset")
+async def save_anirban_preset_endpoint():
+    """Saves currently active 50 effects and text-behind settings permanently as Anirban Preset."""
+    fx = current_project["settings"].get("ai_director_effects", {})
+    tb = current_project["settings"].get("text_behind_person", {})
+    res = save_anirban_preset(fx, tb)
+    save_user_settings(current_project["settings"])
+    return {
+        "status": "saved",
+        "message": "Current 50 effects and depth text saved permanently as Anirban Preset",
+        "preset": res
     }
 
 # ----------------- COLOR PRESETS & PROJECT SETTINGS -----------------
@@ -1969,6 +2014,7 @@ async def update_project_settings_endpoint(payload: ProjectSettingsPayload):
             "elapsed_sec": current_project["elapsed_sec"],
             "all_statuses": current_project["grid_statuses"]
         })
+    save_user_settings(current_project["settings"])
     return {"status": "success", "settings": current_project["settings"]}
 
 # ----------------- WEBSOCKET REAL-TIME PROGRESS -----------------

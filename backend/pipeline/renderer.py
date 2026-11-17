@@ -46,7 +46,8 @@ def render_final_master(
     background_music_path: str = None,
     enable_audio_enhance: bool = True,
     output_filename: str = None,
-    director_effects: dict = None
+    director_effects: dict = None,
+    text_behind: dict = None
 ) -> str:
     """
     Executes the comprehensive FFmpeg render pipeline and deposits output in final_export/.
@@ -139,6 +140,25 @@ def render_final_master(
         escaped_ass = ass_subtitle_path.replace("\\", "/").replace(":", "\\:")
         filter_complex.append(f"[{current_v}]subtitles='{escaped_ass}'[v_subbed];")
         current_v = "v_subbed"
+
+    # Depth text title burn-in if enabled
+    if text_behind and text_behind.get("enabled") and (text_behind.get("text") or "").strip():
+        try:
+            from backend.pipeline.ai_director_suite import generate_depth_text_ass
+            from backend.config import UPLOADS_DIR
+            depth_ass_path = str(UPLOADS_DIR / f"depth_title_single_{src.stem}.ass")
+            generate_depth_text_ass(
+                text_behind,
+                duration=min(total_duration, 6.0),
+                output_path=depth_ass_path,
+                video_w=1080 if aspect_ratio == "9:16" else 1920,
+                video_h=1920 if aspect_ratio == "9:16" else 1080
+            )
+            escaped_depth = depth_ass_path.replace("\\", "/").replace(":", "\\:")
+            filter_complex.append(f"[{current_v}]subtitles='{escaped_depth}'[v_depth];")
+            current_v = "v_depth"
+        except Exception as e_depth:
+            print(f"Renderer depth title notice: {e_depth}")
 
     # Universal pixel format conversion to YUV420P (MANDATORY for Windows Media Player & iOS)
     filter_complex.append(f"[{current_v}]format=yuv420p[v_universal];")

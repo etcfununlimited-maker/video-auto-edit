@@ -7,7 +7,7 @@ let directorCatalog = [];
 let directorActiveEffects = {};
 let directorTextBehind = {
     enabled: true,
-    text: "JAIPUR VLOG",
+    text: "RANN OF KUTCH",
     font: "Montserrat",
     size: 110,
     spread: 8,
@@ -32,6 +32,26 @@ async function initDirectorStudio() {
             directorCatalog = data.catalog;
             directorActiveEffects = data.active_effects || {};
             directorTextBehind = data.text_behind_person || directorTextBehind;
+
+            // Restore any localStorage user selections if available
+            try {
+                const localTb = localStorage.getItem("anirban_text_behind");
+                if (localTb) {
+                    const parsedTb = JSON.parse(localTb);
+                    if (parsedTb && parsedTb.text) {
+                        directorTextBehind = Object.assign({}, directorTextBehind, parsedTb);
+                    }
+                }
+                const localFx = localStorage.getItem("anirban_active_effects");
+                if (localFx) {
+                    const parsedFx = JSON.parse(localFx);
+                    if (parsedFx && typeof parsedFx === "object") {
+                        directorActiveEffects = Object.assign({}, directorActiveEffects, parsedFx);
+                    }
+                }
+            } catch (errLocal) {
+                console.warn("Could not read from localStorage:", errLocal);
+            }
 
             renderDepthTextControls();
             updateLiveDepthTextPreview();
@@ -61,7 +81,7 @@ function renderDepthTextControls() {
     const opacityVal = document.getElementById("depth-val-opacity");
     const mainToggle = document.getElementById("depth-main-toggle");
 
-    if (textInput) textInput.value = directorTextBehind.text || "JAIPUR VLOG";
+    if (textInput) textInput.value = directorTextBehind.text || "RANN OF KUTCH";
     if (fontSelect) fontSelect.value = directorTextBehind.font || "Montserrat";
     if (sizeRange) sizeRange.value = directorTextBehind.size || 110;
     if (sizeVal) sizeVal.innerText = `${directorTextBehind.size || 110}px`;
@@ -177,12 +197,27 @@ function updateStudioPlayerDepthOverlay() {
 // ----------------- DEPTH TEXT EVENT HANDLERS -----------------
 async function onDepthTextParamChange(param, value) {
     directorTextBehind[param] = value;
+
+    // If user entered or changed text, automatically ensure effect is enabled so it burns into video
+    if (param === "text" && value && value.trim().length > 0) {
+        directorTextBehind.enabled = true;
+        const mainToggle = document.getElementById("depth-main-toggle");
+        if (mainToggle) mainToggle.checked = true;
+    }
+
+    try {
+        localStorage.setItem("anirban_text_behind", JSON.stringify(directorTextBehind));
+    } catch (e) {}
+
     updateLiveDepthTextPreview();
 
     // Auto-sync with backend
     try {
         const payload = {};
         payload[param] = value;
+        if (directorTextBehind.enabled) {
+            payload["enabled"] = true;
+        }
         const res = await fetch("/api/ai-director/text-behind-person", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -228,6 +263,10 @@ function setDepthPosition(pos) {
 function setDepthPresetText(txt) {
     const input = document.getElementById("depth-input-text");
     if (input) input.value = txt;
+    directorTextBehind.enabled = true;
+    const mainToggle = document.getElementById("depth-main-toggle");
+    if (mainToggle) mainToggle.checked = true;
+    onDepthTextParamChange("enabled", true);
     onDepthTextParamChange("text", txt);
 }
 
@@ -296,6 +335,10 @@ function render50EffectsGrid() {
 
 async function toggleDirectorEffect(effectId, isEnabled) {
     directorActiveEffects[effectId] = isEnabled;
+    try {
+        localStorage.setItem("anirban_active_effects", JSON.stringify(directorActiveEffects));
+    } catch (e) {}
+
     const card = document.getElementById(`fx-card-${effectId}`);
     if (card) {
         card.classList.toggle("active", isEnabled);
@@ -346,14 +389,46 @@ async function applyDirectorPreset(presetName) {
         });
         const data = await res.json();
 
-        // Refresh full suite state
-        await initDirectorStudio();
+        if (data.active_effects) {
+            directorActiveEffects = data.active_effects;
+            try { localStorage.setItem("anirban_active_effects", JSON.stringify(directorActiveEffects)); } catch (e) {}
+        }
+        if (data.text_behind_person) {
+            directorTextBehind = data.text_behind_person;
+            try { localStorage.setItem("anirban_text_behind", JSON.stringify(directorTextBehind)); } catch (e) {}
+        }
 
-        const label = presetName === "vlog" ? "Viral Vlog Creator (TikTok / Shorts)" :
+        // Refresh UI state
+        renderDepthTextControls();
+        updateLiveDepthTextPreview();
+        render50EffectsGrid();
+        updateDirectorStatBadge();
+        renderMiniDirectorBin();
+
+        const label = presetName === "anirban" ? "⭐ Anirban Preset (Custom Saved 50 Effects + RANN OF KUTCH Depth Title)" :
+                      presetName === "vlog" ? "Viral Vlog Creator (TikTok / Shorts)" :
                       presetName === "cinematic" ? "Cinematic Movie (Anamorphic / Halation)" : "All Effects Bypassed";
         showToast(`✨ Preset Applied: ${label} (${data.active_count} active)`, "success");
     } catch (e) {
         console.error("Error applying preset:", e);
+    }
+}
+
+async function saveCurrentAsAnirbanPreset() {
+    try {
+        const res = await fetch("/api/ai-director/save-anirban-preset", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+        const data = await res.json();
+        try {
+            localStorage.setItem("anirban_active_effects", JSON.stringify(directorActiveEffects));
+            localStorage.setItem("anirban_text_behind", JSON.stringify(directorTextBehind));
+        } catch (e) {}
+        showToast("⭐ Anirban Preset Saved Permanently! Survives all browser refreshes & server restarts.", "success");
+    } catch (e) {
+        console.error("Error saving Anirban Preset:", e);
+        showToast("Failed to save Anirban Preset", "error");
     }
 }
 
@@ -427,11 +502,12 @@ function renderMiniDirectorBin() {
         </div>
 
         <div class="mini-director-card">
-            <span style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Quick Vlog Presets</span>
+            <span style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Quick Presets</span>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;">
+                <button class="btn btn-secondary" style="font-size:11px; padding:5px 6px; border-color:#38bdf8; color:#38bdf8; font-weight:700;" onclick="applyDirectorPreset('anirban')">⭐ Anirban</button>
                 <button class="btn btn-secondary" style="font-size:11px; padding:5px 6px;" onclick="applyDirectorPreset('vlog')">⚡ Viral Vlog</button>
-                <button class="btn btn-secondary" style="font-size:11px; padding:5px 6px;" onclick="applyDirectorPreset('cinematic')">🎬 Cinema Pro</button>
             </div>
+            <button class="btn btn-secondary" style="width:100%; font-size:11px; padding:4px 6px; margin-top:4px; border-color:#10b981; color:#34d399;" onclick="saveCurrentAsAnirbanPreset()"><i data-feather="save" style="width:11px; height:11px;"></i> Save as Anirban Preset</button>
         </div>
     `;
 
