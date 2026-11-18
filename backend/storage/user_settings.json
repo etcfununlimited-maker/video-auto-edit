@@ -2,9 +2,6 @@
   "color_grade": "none",
   "caption_style": "youtube_viral_pop",
   "aspect_ratio": "original",
-  "edit_mode": "viral_short",
-  "target_duration": 120.0,
-  "render_mode": "fast_preview",
   "ai_director_effects": {
     "whip_pan": true,
     "punch_in": true,
@@ -86,5 +83,7 @@
     "grid_color": false,
     "grid_agent": true,
     "grid_render": true
-  }
+  },
+  "edit_mode": "full_movie",
+  "render_mode": "full"
 }

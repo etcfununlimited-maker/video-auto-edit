@@ -769,8 +769,9 @@ def generate_depth_text_ass(
     font_name = text_cfg.get("font", "Montserrat")
     # Use high-impact bold font supported natively by DirectWrite / libass
     font_family = "Impact" if font_name.lower() in ["montserrat", "bebas neue", "anton", "outfit", "space grotesk", "impact"] else font_name
-    font_size = int(text_cfg.get("size", 110))
-    spread = int(text_cfg.get("spread", 8))
+    scale_factor = video_h / 1080.0
+    font_size = max(45, int(int(text_cfg.get("size", 100)) * scale_factor))
+    spread = max(4, int(int(text_cfg.get("spread", 10)) * scale_factor))
     opacity = float(text_cfg.get("opacity", 0.95))
     color_hex = text_cfg.get("color", "#FFFFFF")
     neon_hex = text_cfg.get("neon_color", "#00F2FE")
@@ -782,14 +783,14 @@ def generate_depth_text_ass(
     ass_pri = hex_to_ass_color(color_hex, opacity)
     ass_neon = hex_to_ass_color(neon_hex, 0.85 if neon_on else 0.0)
 
-    # Position coordinates: center and head both place text behind subject in the open sky/backdrop
+    # Position coordinates: place text in open backdrop/skyline cleanly behind subject's head
     pos_x = video_w // 2
     if position == "head":
-        pos_y = int(video_h * 0.26) + y_offset
+        pos_y = int(video_h * 0.15) + int(y_offset * scale_factor)
     elif position == "lower":
-        pos_y = int(video_h * 0.72) + y_offset
-    else:  # center / backdrop
-        pos_y = int(video_h * 0.28) + y_offset
+        pos_y = int(video_h * 0.75) + int(y_offset * scale_factor)
+    else:  # center / backdrop skyline behind subject
+        pos_y = int(video_h * 0.165) + int(y_offset * scale_factor)
 
     outline_width = max(3, int(glow_radius / 4)) if neon_on else 1
     blur_amount = max(4, int(glow_radius / 3)) if neon_on else 0
