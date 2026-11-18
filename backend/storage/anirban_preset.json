@@ -51,7 +51,7 @@
     "tracked_3d_title": false,
     "paper_tear": false,
     "lower_third_slide": true,
-    "license_plate_blur": false
+    "license_plate_blur": true
   },
   "text_behind_person": {
     "enabled": true,

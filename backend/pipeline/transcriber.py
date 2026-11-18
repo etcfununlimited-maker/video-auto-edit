@@ -241,7 +241,19 @@ def transcribe_video(
     - Filters out all Arabic/Urdu hallucinations
     - Restricts to English & Hindi vocabulary
     - Forced Acoustic Alignment snaps boundaries to voice bursts
+    - Fast disk cache enables instant subtitle reuse across Fast Preview and Master exports
     """
+    clean_stem = Path(video_path).stem.replace(".tmp_plate_blur_", "").replace(".tmp_raw_", "")
+    cache_path = UPLOADS_DIR / f".transcript_cache_{clean_stem}_{script_mode}.json"
+    if cache_path.exists():
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f_cache:
+                cached_data = json.load(f_cache)
+                if cached_data and "words" in cached_data:
+                    return cached_data
+        except Exception:
+            pass
+
     wav_path = extract_audio(video_path)
     model = get_whisper_model("large-v3-turbo")
 
@@ -348,7 +360,7 @@ def transcribe_video(
         meta = probe_media(video_path)
         duration = meta.get("duration", 10.0)
 
-    return {
+    result = {
         "is_offline": True,
         "selected_language": "hinglish",
         "model_tier": "large-v3-turbo",
@@ -365,3 +377,12 @@ def transcribe_video(
         "sentences": sentences_list,
         "full_text": " ".join(w["word"] for w in words_list)
     }
+
+    if words_list:
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f_cache:
+                json.dump(result, f_cache, ensure_ascii=False)
+        except Exception:
+            pass
+
+    return result

@@ -54,6 +54,7 @@ ENV/
 env/
 
 # IDE & OS files
+scratch/
 .idea/
 .vscode/
 *.swp

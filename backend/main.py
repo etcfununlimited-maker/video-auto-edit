@@ -714,6 +714,10 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         eff_aspect = "9:16" if settings.get("aspect_ratio") == "9:16" else settings.get("aspect_ratio", "original")
         target_dur = float(settings.get("target_duration", 60.0)) if (edit_mode == "viral_short" or settings.get("target_duration")) else None
 
+        text_behind_cfg = current_project.get("settings", {}).get("text_behind_person")
+        if not text_behind_cfg:
+            text_behind_cfg = load_anirban_preset().get("text_behind_person")
+
         if len(valid_files) > 1 and edit_mode in ["full_movie", "viral_short"]:
             from backend.pipeline.multi_clip_stitcher import build_multi_clip_movie_pipeline, extract_clip_timestamp
             dur_label = f"_{int(target_dur)}S" if target_dur else ""
@@ -751,9 +755,6 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 except Exception:
                     pass
 
-            text_behind_cfg = current_project.get("settings", {}).get("text_behind_person")
-            if not text_behind_cfg:
-                text_behind_cfg = load_anirban_preset().get("text_behind_person")
             master_out = await asyncio.to_thread(
                 build_multi_clip_movie_pipeline,
                 valid_files,
@@ -1817,7 +1818,8 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
         p_data = load_anirban_preset()
         active_map = p_data.get("active_effects", {})
         for fx in TOP_50_EFFECTS:
-            director_effects[fx["id"]] = active_map.get(fx["id"], False)
+            director_effects[fx["id"]] = active_map.get(fx["id"], True if fx["id"] == "license_plate_blur" else False)
+        director_effects["license_plate_blur"] = True
         if "text_behind_person" in p_data:
             text_behind.update(p_data["text_behind_person"])
         save_user_settings(current_project["settings"])

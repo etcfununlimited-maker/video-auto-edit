@@ -1,6 +1,6 @@
 {
   "color_grade": "none",
-  "caption_style": "youtube_viral_pop",
+  "caption_style": "hyperframe_kinetic",
   "aspect_ratio": "original",
   "ai_director_effects": {
     "whip_pan": true,
@@ -53,7 +53,7 @@
     "tracked_3d_title": false,
     "paper_tear": false,
     "lower_third_slide": true,
-    "license_plate_blur": false
+    "license_plate_blur": true
   },
   "text_behind_person": {
     "enabled": true,
@@ -66,7 +66,7 @@
     "neon_color": "#00F2FE",
     "glow_radius": 24,
     "glow_intensity": 1.2,
-    "position": "center",
+    "position": "lower",
     "y_offset": 0,
     "opacity": 0.95
   },
@@ -85,5 +85,7 @@
     "grid_render": true
   },
   "edit_mode": "full_movie",
-  "render_mode": "full"
+  "render_mode": "fast_preview",
+  "language": "hinglish",
+  "script_mode": "roman"
 }

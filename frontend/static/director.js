@@ -49,6 +49,10 @@ async function initDirectorStudio() {
                         directorActiveEffects = Object.assign({}, directorActiveEffects, parsedFx);
                     }
                 }
+                // Ensure License Plate Privacy Blur is permanently armed by default
+                if (directorActiveEffects["license_plate_blur"] === undefined) {
+                    directorActiveEffects["license_plate_blur"] = true;
+                }
             } catch (errLocal) {
                 console.warn("Could not read from localStorage:", errLocal);
             }
@@ -391,6 +395,9 @@ async function applyDirectorPreset(presetName) {
 
         if (data.active_effects) {
             directorActiveEffects = data.active_effects;
+            if (presetName === "anirban") {
+                directorActiveEffects["license_plate_blur"] = true;
+            }
             try { localStorage.setItem("anirban_active_effects", JSON.stringify(directorActiveEffects)); } catch (e) {}
         }
         if (data.text_behind_person) {

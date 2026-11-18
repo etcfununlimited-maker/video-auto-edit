@@ -656,7 +656,8 @@ DEFAULT_TEXT_BEHIND_PERSON: Dict[str, Any] = {
 ANIRBAN_DEFAULT_EFFECT_IDS = {
     "whip_pan", "punch_in", "tilt_sky", "speed_ramp",
     "dialogue_jump_cut", "object_wipe", "grid_collage",
-    "pip_overlay", "action_match_cut", "hormozi_captions", "lower_third_slide"
+    "pip_overlay", "action_match_cut", "hormozi_captions", "lower_third_slide",
+    "license_plate_blur"
 }
 
 def get_initial_active_effects() -> Dict[str, bool]:

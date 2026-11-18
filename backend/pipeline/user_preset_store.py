@@ -78,7 +78,7 @@ DEFAULT_ANIRBAN_EFFECTS = {
     "tracked_3d_title": False,  # #48 BYPASS
     "paper_tear": False,        # #49 BYPASS
     "lower_third_slide": True,   # #50 ENABLED
-    "license_plate_blur": False # #51 BYPASS
+    "license_plate_blur": True # #51 BYPASS
 }
 
 DEFAULT_ANIRBAN_TEXT_BEHIND = {

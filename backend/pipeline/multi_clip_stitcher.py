@@ -354,6 +354,13 @@ def build_multi_clip_movie_pipeline(
         for fx_key in ["vignette_falloff", "film_grain", "film_burn", "halation_glow", "bleach_bypass", "letterbox_239", "film_scratches", "vhs_crt", "anamorphic_flare", "sky_replacement", "prismatic_glass", "rgb_split"]:
             director_effects[fx_key] = False
 
+    # Vehicle License Plate Privacy Blur status
+    has_lp_blur = True
+    if director_effects and isinstance(director_effects, dict):
+        has_lp_blur = director_effects.get("license_plate_blur", True)
+    elif enabled_grids and not enabled_grids.get("grid_bgremove", True):
+        has_lp_blur = False
+
     def notify_progress(pct_val, msg_val, cur_step=0, tot_steps=0):
         if not progress_callback:
             return True
@@ -435,6 +442,13 @@ def build_multi_clip_movie_pipeline(
     target_w = 960 if is_fast else 1920
     target_h = 540 if is_fast else 1080
 
+    # Clean up stale temporary plate blur files from prior renders to guarantee latest detection engine runs
+    for stale_f in UPLOADS_DIR.glob(".tmp_plate_blur_*"):
+        try:
+            stale_f.unlink()
+        except Exception:
+            pass
+
     first_depth_title_burned = False
     def get_depth_tb_for_next():
         nonlocal first_depth_title_burned
@@ -454,6 +468,19 @@ def build_multi_clip_movie_pipeline(
         # ----------------------------------------------------
         if elem["type"] == "photo_group":
             photos = elem["paths"]
+            if has_lp_blur:
+                try:
+                    from backend.pipeline.license_plate_blur import process_image_plate_blur
+                    blurred_photos = []
+                    for p_item in photos:
+                        b_out = UPLOADS_DIR / f".tmp_plate_blur_photo_{Path(p_item).stem}.jpg"
+                        final_p, was_blurred = process_image_plate_blur(str(p_item), str(b_out))
+                        if was_blurred:
+                            print(f"Vehicle Number Plate Blurred on photo: {Path(p_item).name}")
+                        blurred_photos.append(final_p)
+                    photos = blurred_photos
+                except Exception as ex_lp_p:
+                    print(f"Photo license plate blur notice: {ex_lp_p}")
             n_photos = len(photos)
             print(f"[{el_idx+1}/{total_elements}] Photo Group: {n_photos} photos")
             notify_progress(pct, f"[{el_idx+1}/{total_elements}] Photo Collage: {n_photos} photos (CV Saliency Framing)", el_idx + 1, total_elements)
@@ -534,6 +561,20 @@ def build_multi_clip_movie_pipeline(
             h = elem["meta"].get("height", 1080)
             is_portrait = (h > w)
 
+            # Automatic Vehicle License Plate Privacy Blurring
+            if has_lp_blur:
+                try:
+                    from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+                    if clip_has_license_plates(str(c_p)):
+                        blurred_take = UPLOADS_DIR / f".tmp_plate_blur_{c_p.stem}.mp4"
+                        if not blurred_take.exists() or blurred_take.stat().st_size == 0:
+                            print(f"Applying License Plate Privacy Blur to video take: {c_p.name}...")
+                            process_video_plate_blur(str(c_p), str(blurred_take), method="gaussian")
+                        if blurred_take.exists() and blurred_take.stat().st_size > 0:
+                            c_p = blurred_take
+                except Exception as ex_lp:
+                    print(f"Video license plate blur notice for {c_p.name}: {ex_lp}")
+
             print(f"[{el_idx+1}/{total_elements}] Video Take: {c_p.name} ({dur:.1f}s) - 100% Full & Uncut")
             notify_progress(pct, f"[{el_idx+1}/{total_elements}] {c_p.name}: Complete Video Take", el_idx + 1, total_elements)
 
@@ -549,8 +590,8 @@ def build_multi_clip_movie_pipeline(
             else:
                 vf_scale = f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"
 
-            # Optional captions only if explicitly enabled (skip per-clip ASR in fast preview to guarantee <10m render)
-            if caption_style and not is_fast:
+            # Burn dynamic on-screen captions on dialogue takes (both Fast Preview & Full Master)
+            if caption_style:
                 try:
                     transcript = transcribe_video(str(c_p))
                     words = transcript.get("words", [])
