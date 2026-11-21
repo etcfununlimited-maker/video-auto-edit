@@ -770,11 +770,14 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             else:
                 for f_path in valid_files:
                     m = probe_media(f_path)
-                    dur = float(m.get("duration", 4.0)) if m else 4.0
+                    ext = Path(f_path).suffix.lower()
+                    is_img = ext in [".jpg", ".jpeg", ".png", ".heic", ".webp"]
+                    raw_dur = float(m.get("duration", 0.0)) if m else 0.0
+                    clip_dur = 4.0 if (is_img or raw_dur <= 0.1) else raw_dur
                     xml_clips.append({
                         "path": f_path,
                         "in_point": 0.0,
-                        "duration": min(dur, 6.0) if len(valid_files) > 1 else dur,
+                        "duration": clip_dur,
                         "track": "V1"
                     })
 

@@ -321,7 +321,9 @@ function loadNClipsMultiTrackSequence(count = 10) {
         : "RANN OF KUTCH | BHUJ | SOMNATH VLOG";
 
     clipsToUse.forEach((c, i) => {
-        const segDur = Math.min(c.duration || 4.0, 4.0);
+        const isPhoto = /\.(jpe?g|png|heic|webp)$/i.test(c.name || c.path || "");
+        const rawDur = parseFloat(c.duration) || 0.0;
+        const segDur = isPhoto ? 4.0 : (rawDur > 0 ? rawDur : 4.0);
         const clipId = `v1_clip_${Date.now()}_${i}`;
         const voiceId = `a1_clip_${Date.now()}_${i}`;
 
@@ -452,7 +454,9 @@ function addClipToTimeline(clipPath, track = "V1") {
         startSec = last.timeline_start + last.duration;
     }
 
-    const dur = Math.min(match.duration, 20.0);
+    const isPhoto = /\.(jpe?g|png|heic|webp)$/i.test(match.name || match.path || "");
+    const rawDur = parseFloat(match.duration) || 0.0;
+    const dur = isPhoto ? 4.0 : (rawDur > 0 ? rawDur : 4.0);
     const clipId = `clip_${Date.now()}`;
     activeTimelineClips.push({
         id: clipId,
