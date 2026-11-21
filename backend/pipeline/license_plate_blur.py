@@ -1,5 +1,5 @@
 """
-License Plate Privacy Blur Engine (v2.9.0) - User Car Targeted Edition
+License Plate Privacy Blur Engine (v3.0.0) - User Car Targeted Edition
 ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR
 
 High-precision vehicle license plate privacy blur engine specifically tuned

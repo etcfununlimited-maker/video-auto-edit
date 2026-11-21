@@ -11,10 +11,10 @@ from pathlib import Path
 from backend.config import COMMON_FILLER_WORDS
 from backend.pipeline.transcriber import extract_audio
 
-def detect_silence_regions(wav_path: str, min_silence_len: float = 0.55, silence_thresh_db: float = -38.0) -> list[dict]:
+def detect_silence_regions(wav_path: str, min_silence_len: float = 1.2, silence_thresh_db: float = -38.0) -> list[dict]:
     """
     Computes RMS energy over sliding windows to find dead air pauses in seconds.
-    Enforces min_silence_len >= 0.55s so natural human conversational pauses (300-450ms)
+    Enforces min_silence_len >= 1.2s so natural human conversational pauses
     are preserved for smooth, non-jumpy speech cadence.
     """
     try:
@@ -86,7 +86,10 @@ def detect_spoken_retakes_pass1(words: list[dict]) -> list[dict]:
     if n < 3:
         return retakes
 
-    stop_words = {'and', 'to', 'in', 'of', 'i', 'the', 'a', 'is', 'for', 'it', 'my', 'this', 'that', 'where', 'we', 'from'}
+    stop_words = {
+        'and', 'to', 'in', 'of', 'i', 'the', 'a', 'is', 'for', 'it', 'my', 'this', 'that', 'where', 'we', 'from',
+        'pe', 'hai', 'hain', 'ka', 'ki', 'ke', 'ko', 'se', 'me', 'mein', 'hum', 'yeh', 'woh', 'bhi', 'toh', 'par', 'aur', 'kya', 'tha', 'thi', 'ho', 'gaya', 'kar', 'rahe', 'raha', 'rahi', 'sab', 'kuchh', 'baad', 'usake', 'iske'
+    }
     skip_until = -1
 
     # 1. Progressive restart chains & immediate phrase repetitions
@@ -99,8 +102,8 @@ def detect_spoken_retakes_pass1(words: list[dict]) -> list[dict]:
         w1 = words[i]["word"].lower().strip(".,!?;:\"'")
         w2 = words[i+1]["word"].lower().strip(".,!?;:\"'")
 
-        # Skip generic stopword-only pairs like "i am", "where i", "in the"
-        if w1 in stop_words and w2 in stop_words:
+        # Skip generic stopword/auxiliary pairs like "pe hai", "where i", "in the", "sab kuchh"
+        if w1 in stop_words or w2 in stop_words:
             i += 1
             continue
 
@@ -161,11 +164,16 @@ def detect_spoken_retakes_pass1(words: list[dict]) -> list[dict]:
 
         i += 1
 
-    # 2. 3-word sentence repetitions (e.g. 'I am traveling to Manali' at start)
+    # 2. Immediate sentence restart repetitions (e.g. speaker restarts 'I am traveling... I am traveling')
     for i in range(len(words) - 3):
-        w3 = " ".join([words[i+k]["word"].lower().strip(".,!?;:\"'") for k in range(3)])
-        for j in range(i + 3, min(len(words) - 2, i + 14)):
-            if words[j]["start"] - words[i]["end"] > 5.0:
+        w_list = [words[i+k]["word"].lower().strip(".,!?;:\"'") for k in range(3)]
+        # Must have at least 2 non-stop words to be a meaningful sentence
+        non_stop_count = sum(1 for w in w_list if w not in stop_words)
+        if non_stop_count < 2:
+            continue
+        w3 = " ".join(w_list)
+        for j in range(i + 3, min(len(words) - 2, i + 7)):
+            if words[j]["start"] - words[i]["end"] > 2.5:
                 break
             nw3 = " ".join([words[j+k]["word"].lower().strip(".,!?;:\"'") for k in range(3)])
             if w3 == nw3:

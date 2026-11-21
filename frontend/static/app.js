@@ -386,6 +386,22 @@ function renderRawFileList() {
     }).join("");
 }
 
+let syncFilesTimeout = null;
+function syncSelectedFilesToBackend() {
+    if (syncFilesTimeout) clearTimeout(syncFilesTimeout);
+    syncFilesTimeout = setTimeout(async () => {
+        try {
+            await fetch("/api/project/select-files", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filenames: Array.from(selectedFileNames) })
+            });
+        } catch (e) {
+            console.error("Sync files error:", e);
+        }
+    }, 150);
+}
+
 function toggleFileSelect(filename, checked) {
     if (checked) {
         selectedFileNames.add(filename);
@@ -393,6 +409,7 @@ function toggleFileSelect(filename, checked) {
         selectedFileNames.delete(filename);
     }
     updateSelectAllCheckboxState();
+    syncSelectedFilesToBackend();
 }
 
 function toggleSelectAll(checkbox) {
@@ -402,6 +419,7 @@ function toggleSelectAll(checkbox) {
         selectedFileNames.clear();
     }
     renderRawFileList();
+    syncSelectedFilesToBackend();
 }
 
 function updateSelectAllCheckboxState() {
@@ -1487,7 +1505,7 @@ let gridEnabledState = {
     grid_audio: true,
     grid_beatsync: true,
     grid_captions: true,
-    grid_bgremove: true,
+    grid_bgremove: false,
     grid_color: false,
     grid_agent: true,
     grid_render: true
@@ -1959,8 +1977,8 @@ async function executePipelineDirect(customSettings = null) {
             : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
-        license_plate_blur: document.getElementById("chk-license-plate-blur") ? document.getElementById("chk-license-plate-blur").checked : true,
-        enabled_grids: gridEnabledState
+        license_plate_blur: false,
+        enabled_grids: { ...gridEnabledState, grid_bgremove: false }
     };
 
     const settings = Object.assign({}, baseSettings, customSettings || {});
@@ -1969,7 +1987,11 @@ async function executePipelineDirect(customSettings = null) {
         const res = await fetch("/api/project/start-processing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ settings: settings, render_mode: currentRenderMode })
+            body: JSON.stringify({ 
+                settings: settings, 
+                filenames: Array.from(selectedFileNames),
+                render_mode: currentRenderMode 
+            })
         });
         const data = await res.json();
         
@@ -2051,12 +2073,12 @@ async function restartPipelineProcess() {
             : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
-        license_plate_blur: document.getElementById("chk-license-plate-blur") ? document.getElementById("chk-license-plate-blur").checked : true,
-        enabled_grids: gridEnabledState
+        license_plate_blur: false,
+        enabled_grids: { ...gridEnabledState, grid_bgremove: false }
     };
 
-    // Ensure selected files
-    if (selectedFileNames.size === 0 && rawFiles.length > 0) {
+    // Ensure all 304 files are selected for full movie
+    if ((baseSettings.edit_mode === "full_movie" || selectedFileNames.size === 0) && rawFiles.length > 0) {
         rawFiles.forEach(f => selectedFileNames.add(f.filename));
     }
 
@@ -2064,7 +2086,11 @@ async function restartPipelineProcess() {
         const res = await fetch("/api/project/restart-processing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ settings: baseSettings })
+            body: JSON.stringify({ 
+                settings: baseSettings,
+                filenames: Array.from(selectedFileNames),
+                render_mode: currentRenderMode
+            })
         });
         const data = await res.json();
         ensureElapsedTimerRunning(0);

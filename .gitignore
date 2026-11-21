@@ -64,3 +64,9 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+# Compiled Binaries, Installers & Neural Weights
+*.exe
+*.msi
+*.spec
+*.rnnn

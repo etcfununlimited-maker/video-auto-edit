@@ -47,7 +47,8 @@ def render_final_master(
     enable_audio_enhance: bool = True,
     output_filename: str = None,
     director_effects: dict = None,
-    text_behind: dict = None
+    text_behind: dict = None,
+    enabled_grids: dict = None
 ) -> str:
     """
     Executes the comprehensive FFmpeg render pipeline and deposits output in final_export/.
@@ -59,16 +60,26 @@ def render_final_master(
 
     final_path = FINAL_EXPORT_DIR / output_filename
 
-    # Automatic License Plate Privacy Blurring
-    try:
-        from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
-        if clip_has_license_plates(str(src)):
-            blurred_src = src.parent / f".tmp_plate_blur_{src.stem}.mp4"
-            if not blurred_src.exists() or blurred_src.stat().st_size == 0:
-                process_video_plate_blur(str(src), str(blurred_src), method="gaussian")
-            src = blurred_src
-    except Exception as e:
-        print(f"License plate blur notice: {e}")
+    # Automatic License Plate Privacy Blurring (Bypassed if Grid 9 or license_plate_blur is toggled OFF)
+    has_lp_blur = True
+    if enabled_grids and not enabled_grids.get("grid_bgremove", True):
+        has_lp_blur = False
+    if director_effects and isinstance(director_effects, dict):
+        if not director_effects.get("license_plate_blur", True):
+            has_lp_blur = False
+        if not director_effects.get("grid_bgremove", True):
+            has_lp_blur = False
+
+    if has_lp_blur:
+        try:
+            from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+            if clip_has_license_plates(str(src)):
+                blurred_src = src.parent / f".tmp_plate_blur_{src.stem}.mp4"
+                if not blurred_src.exists() or blurred_src.stat().st_size == 0:
+                    process_video_plate_blur(str(src), str(blurred_src), method="gaussian")
+                src = blurred_src
+        except Exception as e:
+            print(f"License plate blur notice: {e}")
 
     # 1. Determine segments to keep
     keep_segments = build_timeline_segments(total_duration, cuts_to_remove)
@@ -96,17 +107,18 @@ def render_final_master(
 
         # Dynamic retention zoom & Top 50 VFX Suite filters
         dfx_v = build_director_video_filters(director_effects, seg_idx=idx, total_segs=num_segs, seg_dur=seg_dur, aspect_ratio=aspect_ratio, is_dialogue=True, color_grade=color_grade)
-        v_filters = [f"trim=start={s}:end={e}", "setpts=PTS-STARTPTS"]
+        v_filters = [f"trim=start={s}:end={e}", "setpts=PTS-STARTPTS", "fps=30"]
         if dfx_v:
             v_filters.extend(dfx_v)
         elif idx % 2 == 1 and num_segs > 1 and aspect_ratio != "9:16":
             v_filters.append("scale=trunc(iw*1.08/2)*2:trunc(ih*1.08/2)*2,crop=1920:1080")
         filter_complex.append(f"[0:v]{','.join(v_filters)}[v{idx}];")
 
-        # Smooth audio transition & dynamic audio FX
+        # Smooth audio transition & dynamic audio FX with sample-accurate sync
         dfx_a = build_director_audio_filters(director_effects, seg_idx=idx, total_segs=num_segs, seg_dur=seg_dur)
         a_filters = [
             f"atrim=start={s}:end={e}", "asetpts=PTS-STARTPTS",
+            "aresample=async=1000",
             f"afade=t=in:ss=0:d={fade_dur:.3f}",
             f"afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f}"
         ]
@@ -116,10 +128,9 @@ def render_final_master(
         v_parts.append(f"[v{idx}]")
         a_parts.append(f"[a{idx}]")
 
-    concat_v = f"{''.join(v_parts)}concat=n={num_segs}:v=1:a=0[v_concat];"
-    concat_a = f"{''.join(a_parts)}concat=n={num_segs}:v=0:a=1[a_concat];"
-    filter_complex.append(concat_v)
-    filter_complex.append(concat_a)
+    # Joint audio-video synchronization concat (locks A/V frames in exact phase)
+    concat_pairs = "".join(f"[v{i}][a{i}]" for i in range(num_segs))
+    filter_complex.append(f"{concat_pairs}concat=n={num_segs}:v=1:a=1[v_concat][a_concat];")
 
     current_v = "v_concat"
     current_a = "a_concat"
@@ -164,17 +175,31 @@ def render_final_master(
     filter_complex.append(f"[{current_v}]format=yuv420p[v_universal];")
     current_v = "v_universal"
 
-    # Audio enhancement & resample to standard 48kHz
+    # Audio enhancement & resample to standard 48kHz (Zero-Latency Professional Clarity)
     if enable_audio_enhance:
         audio_dsp = (
-            f"[{current_a}]highpass=f=80,afftdn=nr=14:nf=-40:tn=1,"
-            f"equalizer=f=3200:t=q:w=1.5:g=3.0,loudnorm=I=-14:TP=-1.0:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo[a_enhanced];"
+            f"[{current_a}]highpass=f=115:poles=2,lowpass=f=11000:poles=2,equalizer=f=220:t=q:w=1.4:g=-11.0,"
+            f"equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
+            f"compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,aformat=sample_rates=48000:channel_layouts=stereo,aresample=async=1000[a_enhanced];"
         )
         filter_complex.append(audio_dsp)
         current_a = "a_enhanced"
     else:
-        filter_complex.append(f"[{current_a}]aformat=sample_rates=48000:channel_layouts=stereo[a_resampled];")
+        filter_complex.append(f"[{current_a}]aformat=sample_rates=48000:channel_layouts=stereo,aresample=async=1000[a_resampled];")
         current_a = "a_resampled"
+
+    # Grid 7: Dynamic Background Music Auto-Ducking (Lively Bed with normalize=0)
+    has_music = bool(background_music_path and os.path.exists(background_music_path))
+    if has_music:
+        filter_complex.append(
+            f"[1:a]volume=0.40[bgm];"
+            f"[{current_a}]asplit=2[sp_raw][sp_key];"
+            f"[sp_key]highpass=f=120,volume=2.5[sp_trigger];"
+            f"[bgm][sp_trigger]sidechaincompress=threshold=0.030:ratio=6.0:attack=15:release=550[ducked_bgm];"
+            f"[sp_raw]volume=1.45[sp];"
+            f"[sp][ducked_bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a_ducked];"
+        )
+        current_a = "a_ducked"
 
     filter_graph_str = "".join(filter_complex)
 
@@ -184,6 +209,11 @@ def render_final_master(
         FFMPEG_PATH,
         "-y",
         "-i", str(src),
+    ]
+    if has_music:
+        cmd.extend(["-stream_loop", "-1", "-i", str(background_music_path)])
+
+    cmd.extend([
         "-filter_complex", filter_graph_str,
         "-map", f"[{current_v}]",
         "-map", f"[{current_a}]",
@@ -192,6 +222,8 @@ def render_final_master(
         "-level", "4.2",
         "-preset", "faster",
         "-crf", "20",
+        "-fps_mode", "cfr",
+        "-r", "30",
         "-pix_fmt", "yuv420p",
         "-colorspace", "bt709",
         "-color_primaries", "bt709",
@@ -199,10 +231,10 @@ def render_final_master(
         "-c:a", "aac",
         "-ar", "48000",
         "-ac", "2",
-        "-b:a", "192k",
+        "-b:a", "256k",
         "-movflags", "+faststart",
         str(temp_final_path)
-    ]
+    ])
 
     try:
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)

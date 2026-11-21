@@ -356,10 +356,11 @@ def build_multi_clip_movie_pipeline(
 
     # Vehicle License Plate Privacy Blur status
     has_lp_blur = True
-    if director_effects and isinstance(director_effects, dict):
-        has_lp_blur = director_effects.get("license_plate_blur", True)
-    elif enabled_grids and not enabled_grids.get("grid_bgremove", True):
+    if enabled_grids and not enabled_grids.get("grid_bgremove", True):
         has_lp_blur = False
+    if director_effects and isinstance(director_effects, dict):
+        if not director_effects.get("license_plate_blur", True):
+            has_lp_blur = False
 
     def notify_progress(pct_val, msg_val, cur_step=0, tot_steps=0):
         if not progress_callback:
@@ -650,7 +651,15 @@ def build_multi_clip_movie_pipeline(
 
             fade_dur = min(0.030, dur / 4.0)
             fade_out_st = max(0.0, dur - fade_dur)
-            af = f"afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f},aformat=sample_rates=48000:channel_layouts=stereo"
+            
+            # Grid 6: Studio Audio Denoise & Cabin Fan / Air Suppression (20% Deeper Zero-Latency Clean Denoise)
+            enable_grid_audio = enabled_grids.get("grid_audio", True) if enabled_grids else True
+            if enable_grid_audio:
+                dsp_audio = "highpass=f=115:poles=2,lowpass=f=11000:poles=2,equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,"
+            else:
+                dsp_audio = ""
+
+            af = f"{dsp_audio}aresample=async=1000:first_pts=0,afade=t=in:ss=0:d={fade_dur:.3f},afade=t=out:st={fade_out_st:.3f}:d={fade_dur:.3f},aformat=sample_rates=48000:channel_layouts=stereo"
 
             enc_preset = "ultrafast" if is_fast else "faster"
             enc_crf = "23" if is_fast else "18"
@@ -749,6 +758,62 @@ def build_multi_clip_movie_pipeline(
             except Exception:
                 pass
         os.replace(temp_final_path, final_path)
+
+        # Grid 7: Dynamic Beat Sync & Breathing Music Auto-Ducking
+        # Evaluated and applied AFTER Grid 6 has cleaned all speech dialogue
+        enable_beatsync = enabled_grids.get("grid_beatsync", True) if enabled_grids else True
+        if enable_beatsync:
+            try:
+                from backend.pipeline.beat_sync import get_available_soundtracks, mix_with_auto_ducking, build_movie_soundtrack_bed
+                soundtracks = get_available_soundtracks()
+                if soundtracks:
+                    notify_progress(96, "Mixing multi-track soundtrack with dynamic speech auto-ducking...", total_elements, total_elements)
+                    
+                    # Probe actual stitched movie duration to build matching multi-track soundtrack bed
+                    movie_dur = 4444.0
+                    try:
+                        import re
+                        probe_res = subprocess.run([FFMPEG_PATH, "-i", str(final_path)], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+                        m_dur = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", probe_res.stderr)
+                        if m_dur:
+                            movie_dur = int(m_dur.group(1)) * 3600 + int(m_dur.group(2)) * 60 + float(m_dur.group(3))
+                    except Exception:
+                        pass
+
+                    print(f"Building cinematic multi-track soundtrack bed across {len(soundtracks)} available music themes for {movie_dur/60:.1f} mins...")
+                    soundtrack_bed_path = build_movie_soundtrack_bed(target_duration=movie_dur)
+                    music_source = soundtrack_bed_path if soundtrack_bed_path and Path(soundtrack_bed_path).exists() else str(soundtracks[0])
+
+                    ducked_wav = UPLOADS_DIR / f".tmp_ducked_mix_{os.getpid()}.wav"
+                    mix_with_auto_ducking(
+                        speech_audio_path=str(final_path),
+                        music_path=music_source,
+                        output_path=str(ducked_wav),
+                        music_volume=0.40,
+                        speech_boost=1.45
+                    )
+                    if ducked_wav.exists() and ducked_wav.stat().st_size > 0:
+                        temp_ducked_movie = final_path.with_name(f".tmp_duck_{os.getpid()}_{final_path.name}")
+                        cmd_mux_music = [
+                            FFMPEG_PATH, "-y",
+                            "-i", str(final_path),
+                            "-i", str(ducked_wav),
+                            "-map", "0:v:0", "-c:v", "copy",
+                            "-map", "1:a:0", "-c:a", "aac", "-b:a", "256k",
+                            "-map", "0:s?", "-c:s", "copy",
+                            "-movflags", "+faststart",
+                            str(temp_ducked_movie)
+                        ]
+                        subprocess.run(cmd_mux_music, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                        if temp_ducked_movie.exists() and temp_ducked_movie.stat().st_size > 0:
+                            os.replace(temp_ducked_movie, final_path)
+                            print("Dynamic Music Auto-Ducking seamlessly integrated into Master Movie!")
+                    try:
+                        ducked_wav.unlink()
+                    except Exception:
+                        pass
+            except Exception as e_music:
+                print(f"Notice during music auto-ducking: {e_music}")
 
         # Explicitly stamp filesystem creation and modification time to IST
         try:

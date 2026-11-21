@@ -44,9 +44,17 @@ def open_browser_when_ready():
 def main():
     print("=" * 75)
     print("            ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR")
-    print("                 Professional Desktop Video Suite v2.6.1")
+    print("                 Professional Windows Desktop App v3.0.0")
     print("=" * 75)
     print()
+
+    # Delegate to native desktop app window
+    try:
+        from desktop_app import main as desktop_main
+        desktop_main()
+        return
+    except Exception as e:
+        print(f"[!] Desktop app notice: {e}")
 
     if is_server_running(PORT):
         print(f"[+] Studio Server is already active and running on {DASHBOARD_URL}!")

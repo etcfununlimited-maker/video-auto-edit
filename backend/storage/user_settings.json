@@ -53,11 +53,11 @@
     "tracked_3d_title": false,
     "paper_tear": false,
     "lower_third_slide": true,
-    "license_plate_blur": true
+    "license_plate_blur": false
   },
   "text_behind_person": {
     "enabled": true,
-    "text": "RANN OF KUTCH",
+    "text": "EHSAAS 2026 GURUDEV SRI SRI RAVI SHANKAR",
     "font": "Montserrat",
     "size": 110,
     "spread": 8,
@@ -66,7 +66,7 @@
     "neon_color": "#00F2FE",
     "glow_radius": 24,
     "glow_intensity": 1.2,
-    "position": "lower",
+    "position": "head",
     "y_offset": 0,
     "opacity": 0.95
   },
@@ -79,13 +79,13 @@
     "grid_audio": true,
     "grid_beatsync": true,
     "grid_captions": true,
-    "grid_bgremove": true,
+    "grid_bgremove": false,
     "grid_color": false,
     "grid_agent": true,
     "grid_render": true
   },
   "edit_mode": "full_movie",
   "render_mode": "fast_preview",
-  "language": "hinglish",
+  "language": "auto",
   "script_mode": "roman"
 }

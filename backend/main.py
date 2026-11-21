@@ -150,7 +150,7 @@ current_project = {
             "grid_audio": True,
             "grid_beatsync": True,
             "grid_captions": True,
-            "grid_bgremove": True,
+            "grid_bgremove": False,
             "grid_color": False,
             "grid_agent": True,
             "grid_render": True
@@ -158,11 +158,11 @@ current_project = {
     },
     "grid_statuses": {
         g["id"]: {
-            "status": "skipped" if g["id"] == "grid_color" else "waiting",
+            "status": "skipped" if g["id"] in ("grid_color", "grid_bgremove") else "waiting",
             "progress": 0,
             "eta_sec": 0,
             "clip_eta_sec": 0,
-            "detail": "Bypassed (Natural Camera Colors - Zero LUT / Vignette)" if g["id"] == "grid_color" else GRID_ARMED_DETAILS.get(g["id"], "Ready for input")
+            "detail": "Bypassed (Natural Camera Colors - Zero LUT / Vignette)" if g["id"] == "grid_color" else ("Bypassed (Original background)" if g["id"] == "grid_bgremove" else GRID_ARMED_DETAILS.get(g["id"], "Ready for input"))
         } for g in WORKFLOW_GRIDS
     },
     "overall_eta_sec": 0,
@@ -619,9 +619,9 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
 
         # --- GRID 6: AI Audio Enhancer & Denoise ---
         if enabled_grids.get("grid_audio", True):
-            await update_grid("grid_audio", "in_progress", 60, 4, 5, "Filtering AC hum, background hiss & normalizing vocal loudness to -14 LUFS", 12)
+            await update_grid("grid_audio", "in_progress", 60, 4, 5, "Suppressing highway truck rumble, AC/fan noise & lifting vocal presence +5dB (Pre-Music Speech Isolation)", 12)
             await asyncio.sleep(0.3)
-            await update_grid("grid_audio", "completed", 100, 0, 0, "Studio vocal clarity, de-hiss & broadcast loudness applied", 8)
+            await update_grid("grid_audio", "completed", 100, 0, 0, "AI vocal isolation, truck/fan suppression & +5dB speech forwarding applied", 8)
             eff_audio = True
         else:
             await update_grid("grid_audio", "skipped", 100, 0, 0, "Bypassed (Original Audio Passthrough)", 8)
@@ -629,9 +629,9 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
 
         # --- GRID 7: Beat Sync & Auto-Ducking ---
         if enabled_grids.get("grid_beatsync", True):
-            await update_grid("grid_beatsync", "in_progress", 50, 3, 4, "Analyzing soundtrack rhythm and ducking curves", 8)
+            await update_grid("grid_beatsync", "in_progress", 50, 3, 4, "Configuring breathing soundtrack ducking: ducks during speech, swells during driving/scenic pauses", 8)
             await asyncio.sleep(0.2)
-            await update_grid("grid_beatsync", "completed", 100, 0, 0, "Tempo locked (124 BPM) & speech auto-ducking ready", 6)
+            await update_grid("grid_beatsync", "completed", 100, 0, 0, "Dynamic music auto-ducking primed (Speech-triggered sidechain compression active)", 6)
         else:
             await update_grid("grid_beatsync", "skipped", 100, 0, 0, "Bypassed (No Music Ducking)", 6)
 
@@ -718,6 +718,12 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         if not text_behind_cfg:
             text_behind_cfg = load_anirban_preset().get("text_behind_person")
 
+        if edit_mode == "full_movie":
+            all_raw = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
+            if len(all_raw) > len(valid_files):
+                valid_files = all_raw
+                print(f"Full Movie Mode: automatically engaged all {len(valid_files)} authentic raw media files in raw_input/")
+
         if len(valid_files) > 1 and edit_mode in ["full_movie", "viral_short"]:
             from backend.pipeline.multi_clip_stitcher import build_multi_clip_movie_pipeline, extract_clip_timestamp
             dur_label = f"_{int(target_dur)}S" if target_dur else ""
@@ -776,6 +782,16 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             dur_label = f"_{int(target_dur)}S" if target_dur else ""
             asp_label = "_9_16" if eff_aspect == "9:16" else ""
             single_out_name = f"MASTER_VIRAL_SHORT{dur_label}_9_16.mp4" if (edit_mode == "viral_short" and eff_aspect == "9:16") else f"MASTER_{Path(active_clip).stem}{asp_label}.mp4"
+            
+            # Grid 7: Background Music Auto-Ducking track selection
+            bgm_track = None
+            if enabled_grids.get("grid_beatsync", True):
+                try:
+                    from backend.pipeline.beat_sync import build_movie_soundtrack_bed
+                    bgm_track = build_movie_soundtrack_bed(target_duration=eff_dur)
+                except Exception:
+                    pass
+
             master_out = await asyncio.to_thread(
                 render_final_master,
                 active_clip,
@@ -784,10 +800,12 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 color_grade=eff_color,
                 aspect_ratio=eff_aspect,
                 ass_subtitle_path=ass_path,
+                background_music_path=bgm_track,
                 enable_audio_enhance=eff_audio,
                 output_filename=single_out_name,
                 director_effects=director_fx_cfg,
-                text_behind=text_behind_cfg
+                text_behind=text_behind_cfg,
+                enabled_grids=enabled_grids
             )
 
         current_project["master_output_path"] = master_out
@@ -808,6 +826,17 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                     shutil.copy2(master_out, alias_path)
         except Exception as err:
             print(f"Alias creation notice: {err}")
+
+        # Also copy directly to Desktop for instant one-click access
+        try:
+            import shutil
+            desktop_out = Path("C:/Users/bhupp/Desktop/MASTER_FULL_FEATURE_MOVIE_304_CLIPS.mp4")
+            shutil.copy2(master_out, desktop_out)
+            desktop_alias = Path("C:/Users/bhupp/Desktop/MASTER_FULL_FEATURE_MOVIE.mp4")
+            shutil.copy2(master_out, desktop_alias)
+            print(f"Successfully copied Master Movie to Desktop: {desktop_out}")
+        except Exception as err_desk:
+            print(f"Desktop copy notice: {err_desk}")
 
         # Get exact file size & duration
         stat = os.stat(master_out)
@@ -858,12 +887,22 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
 class StartPipelinePayload(BaseModel):
     settings: Optional[dict] = None
     render_mode: Optional[str] = "fast_preview"
+    filenames: Optional[List[str]] = None
 
 @app.post("/api/project/start-processing")
 async def start_pipeline(payload: StartPipelinePayload):
     """
     Triggers automated processing across all 12 Grids on selected raw input files.
     """
+    if payload.filenames:
+        selected_paths = []
+        for fname in payload.filenames:
+            p = RAW_INPUT_DIR / fname
+            if p.exists():
+                selected_paths.append(str(p))
+        if selected_paths:
+            current_project["selected_files"] = selected_paths
+
     if not current_project["selected_files"]:
         raise HTTPException(status_code=400, detail="No files selected. Please select files from raw_input/ first.")
 
@@ -881,6 +920,9 @@ async def start_pipeline(payload: StartPipelinePayload):
     current_project["settings"].update(settings)
     if payload.render_mode:
         current_project["settings"]["render_mode"] = payload.render_mode
+    if current_project["settings"].get("edit_mode") == "full_movie":
+        raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
+        current_project["selected_files"] = raw_list
 
     # Launch pipeline in background task
     global active_pipeline_task, active_cancellation_requested
@@ -947,10 +989,25 @@ async def restart_pipeline_endpoint(payload: StartPipelinePayload):
         "is_processing": True
     })
 
+    if payload.render_mode:
+        current_project["settings"]["render_mode"] = payload.render_mode
+
     # 3. Ensure files selected
-    if not current_project["selected_files"]:
+    if payload.filenames:
+        selected_paths = []
+        for fname in payload.filenames:
+            p = RAW_INPUT_DIR / fname
+            if p.exists():
+                selected_paths.append(str(p))
+        if selected_paths:
+            current_project["selected_files"] = selected_paths
+
+    if not current_project["selected_files"] or current_project["settings"].get("edit_mode") == "full_movie":
         raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
-        current_project["selected_files"] = raw_list
+        if current_project["settings"].get("edit_mode") == "full_movie":
+            current_project["selected_files"] = raw_list
+        elif not current_project["selected_files"]:
+            current_project["selected_files"] = raw_list
 
     # 4. Launch pipeline fresh from beginning
     active_pipeline_task = asyncio.create_task(run_pipeline_task(current_project["selected_files"], current_project["settings"]))
