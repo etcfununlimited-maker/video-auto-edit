@@ -48,16 +48,16 @@ bdist_msi_options = {
     "upgrade_code": "{A7D5E8B1-3E2A-4C5D-8F9E-1A2B3C4D5E6F}",
     "summary_data": {
         "author": "Anirban Automations",
-        "comments": "AI Auto Video Editor Studio PRO v3.0.0",
+        "comments": "AI Auto Video Editor Studio PRO v3.1.0",
         "keywords": "video, editor, ai, studio, hsrp, blur"
     }
 }
 
 setup(
     name="AnirbanAutoVideoEditor",
-    version="3.0.0",
+    version="3.1.0",
     author="Anirban Automations",
-    description="Anirban Automations AI Auto Video Editor Studio PRO v3.0.0",
+    description="Anirban Automations AI Auto Video Editor Studio PRO v3.1.0",
     options={
         "build_exe": build_exe_options,
         "bdist_msi": bdist_msi_options

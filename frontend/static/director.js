@@ -7,7 +7,7 @@ let directorCatalog = [];
 let directorActiveEffects = {};
 let directorTextBehind = {
     enabled: true,
-    text: "RANN OF KUTCH | SOMNATH",
+    text: "RANN OF KUTCH | BHUJ | SOMNATH VLOG",
     font: "Montserrat",
     size: 110,
     spread: 8,
@@ -85,7 +85,7 @@ function renderDepthTextControls() {
     const opacityVal = document.getElementById("depth-val-opacity");
     const mainToggle = document.getElementById("depth-main-toggle");
 
-    if (textInput) textInput.value = directorTextBehind.text || "RANN OF KUTCH";
+    if (textInput) textInput.value = directorTextBehind.text || "RANN OF KUTCH | BHUJ | SOMNATH VLOG";
     if (fontSelect) fontSelect.value = directorTextBehind.font || "Montserrat";
     if (sizeRange) sizeRange.value = directorTextBehind.size || 110;
     if (sizeVal) sizeVal.innerText = `${directorTextBehind.size || 110}px`;
@@ -240,6 +240,63 @@ async function onDepthTextParamChange(param, value) {
     } catch (e) {
         console.error("Error updating text-behind-person:", e);
     }
+}
+
+async function saveDepthTextExplicitly() {
+    const textInput = document.getElementById("depth-input-text");
+    const saveBtn = document.getElementById("btn-save-depth-title");
+    const newText = (textInput && textInput.value.trim()) ? textInput.value.trim() : "RANN OF KUTCH | BHUJ | SOMNATH VLOG";
+    
+    directorTextBehind.text = newText;
+    directorTextBehind.enabled = true;
+    
+    // Save to localStorage
+    try {
+        localStorage.setItem("anirban_text_behind", JSON.stringify(directorTextBehind));
+    } catch (e) {}
+
+    // Update Live Previews
+    updateLiveDepthTextPreview();
+
+    // Synchronize Premiere Pro timeline title clip if present on V3
+    if (typeof activeTimelineClips !== "undefined" && Array.isArray(activeTimelineClips)) {
+        activeTimelineClips.forEach(c => {
+            if (c.track === "V3" || c.type === "title") {
+                c.text = newText;
+                c.name = `Title: ${newText}`;
+            }
+        });
+        if (typeof renderTimelineTracks === "function") {
+            renderTimelineTracks();
+        }
+    }
+
+    // Persist to backend
+    try {
+        if (saveBtn) {
+            saveBtn.innerHTML = `<i data-feather="check"></i> Saving...`;
+            saveBtn.style.background = "#059669";
+        }
+        const res = await fetch("/api/ai-director/text-behind-person", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(directorTextBehind)
+        });
+        const data = await res.json();
+        if (saveBtn) {
+            saveBtn.innerHTML = `<i data-feather="check"></i> Saved!`;
+            saveBtn.style.background = "#10b981";
+            setTimeout(() => {
+                saveBtn.innerHTML = `<i data-feather="save"></i> Save Title`;
+                if (window.feather) feather.replace();
+            }, 2000);
+        }
+        showToast(`✓ Title changes registered & saved: "${newText}"`, "success");
+    } catch (err) {
+        console.error("Error saving title:", err);
+        showToast("Error saving title to backend", "error");
+    }
+    if (window.feather) feather.replace();
 }
 
 function setDepthColor(hex) {
@@ -531,3 +588,11 @@ function renderMiniDirectorBin() {
 document.addEventListener("DOMContentLoaded", () => {
     initDirectorStudio();
 });
+
+// Explicit Global Window Bindings
+window.saveDepthTextExplicitly = saveDepthTextExplicitly;
+window.onDepthTextParamChange = onDepthTextParamChange;
+window.setDepthPresetText = setDepthPresetText;
+window.setDepthNeonColor = setDepthNeonColor;
+window.saveCurrentAsAnirbanPreset = saveCurrentAsAnirbanPreset;
+window.applyDirectorPreset = applyDirectorPreset;

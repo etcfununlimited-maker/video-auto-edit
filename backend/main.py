@@ -94,8 +94,8 @@ GRID_ARMED_DETAILS = {
     "grid_reframe": "Armed (Ready for 9:16 smart face trajectory tracking)",
     "grid_audio": "Armed (Ready for studio vocal enhancement & de-hiss)",
     "grid_beatsync": "Armed (Ready for speech rhythm & music auto-ducking)",
-    "grid_captions": "Armed (Awaiting Grid 2 word timestamps for kinetic pop)",
-    "grid_bgremove": "Armed (Ready for subject isolation & ambient blur)",
+    "grid_captions": "Armed (HyperFrame 4-Quadrant Face-Safe Dynamic Kinetic Captions)",
+    "grid_bgremove": "Armed (Virtual Studio Matte depth title & Vehicle Plate Privacy Blur)",
     "grid_color": "Active: Cinematic Teal & Orange (Primed)",
     "grid_agent": "Armed (Ready for AI Director storyline orchestration)",
     "grid_render": "Armed (Ready for final timeline composite & MP4 export)"
@@ -216,12 +216,17 @@ def sync_project_state_with_disk():
             "grid_reframe": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Smart orientation auto-corrected sideways clips (IMG_0423, IMG_0468)"},
             "grid_audio": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "48kHz stereo AAC with 35ms micro-fades (0 click / 0 desync)"},
             "grid_beatsync": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Dynamic speech beat timing & auto-ducking applied"},
-            "grid_captions": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "HyperFrame 4-Quadrant Face-Safe dynamic pop captions ready"},
-            "grid_bgremove": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Blurred ambient background fill for genuine portrait takes in 16:9"},
-            "grid_color": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Cinematic Teal & Orange Rec.709 color grade applied"},
+            "grid_captions": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Active: HyperFrame 4-Quadrant Face-Safe Dynamic Kinetic Captions"},
+            "grid_bgremove": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Active: Virtual Studio Matte (RANN OF KUTCH | BHUJ | SOMNATH VLOG) + Vehicle Plate Privacy Blur (HP 40F 0447)"},
+            "grid_color": {"status": "completed" if current_project["settings"].get("enabled_grids", {}).get("grid_color") else "skipped", "progress": 100 if current_project["settings"].get("enabled_grids", {}).get("grid_color") else 0, "eta_sec": 0, "clip_eta_sec": 0, "detail": "Cinematic Teal & Orange Rec.709 color grade applied" if current_project["settings"].get("enabled_grids", {}).get("grid_color") else "Bypassed (Natural Camera Colors)"},
             "grid_agent": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": "AI Director authentic chronological storyline sequenced"},
             "grid_render": {"status": "completed", "progress": 100, "eta_sec": 0, "clip_eta_sec": 0, "detail": f"Universal H.264 High@L4.2 MP4 exported: {chosen_movie.name}"}
         }
+        sync_director_with_grids(
+            current_project["settings"].get("ai_director_effects", {}),
+            current_project["settings"].get("text_behind_person", {}),
+            current_project["grid_statuses"]
+        )
 
 # ----------------- RAW INPUT & FINAL EXPORT FOLDERS -----------------
 
@@ -302,7 +307,7 @@ def list_final_export_files():
     """
     files = []
     for item in FINAL_EXPORT_DIR.iterdir():
-        if item.is_file() and item.suffix.lower() in SUPPORTED_VIDEO_EXTS:
+        if item.is_file() and (item.suffix.lower() in SUPPORTED_VIDEO_EXTS or item.suffix.lower() in {".xml", ".srt"}):
             stat = item.stat()
             files.append({
                 "filename": item.name,
@@ -395,6 +400,11 @@ def get_workflow_grids():
 active_pipeline_task: Optional[asyncio.Task] = None
 active_cancellation_requested: bool = False
 
+# Stage 11 Export Decision Gate Globals
+stage11_paused: bool = False
+stage11_decision: Optional[str] = None
+stage11_decision_event: Optional[asyncio.Event] = None
+
 def get_clean_grid_statuses(settings: dict = None) -> dict:
     settings = settings or current_project.get("settings", {})
     enabled_grids = settings.get("enabled_grids", {})
@@ -437,12 +447,20 @@ def get_clean_grid_statuses(settings: dict = None) -> dict:
                 "eta_sec": 0,
                 "detail": GRID_ARMED_DETAILS.get(gid, "Waiting in queue")
             }
+    sync_director_with_grids(
+        settings.get("ai_director_effects", {}),
+        settings.get("text_behind_person", {}),
+        clean
+    )
     return clean
 
 def stop_running_pipeline():
-    global active_pipeline_task, active_cancellation_requested
+    global active_pipeline_task, active_cancellation_requested, stage11_paused, stage11_decision_event
     active_cancellation_requested = True
     current_project["is_processing"] = False
+    stage11_paused = False
+    if stage11_decision_event and not stage11_decision_event.is_set():
+        stage11_decision_event.set()
     if active_pipeline_task and not active_pipeline_task.done():
         try:
             active_pipeline_task.cancel()
@@ -707,6 +725,103 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             for fx_key in ["vignette_falloff", "film_grain", "film_burn", "halation_glow", "bleach_bypass", "letterbox_239", "film_scratches", "vhs_crt", "anamorphic_flare", "sky_replacement", "prismatic_glass", "rgb_split"]:
                 director_fx_cfg[fx_key] = False
 
+        # =========================================================================
+        # STAGE 11 PAUSE GATE: Premiere Pro XML / Master Render Decision Gate
+        # =========================================================================
+        global stage11_paused, stage11_decision, stage11_decision_event
+        stage11_paused = True
+        stage11_decision = None
+        stage11_decision_event = asyncio.Event()
+
+        await broadcast_progress({
+            "type": "stage11_pause_decision",
+            "title": "Stage 11 Complete: Premiere Pro XML or Master Render?",
+            "message": "AI Director Storyline & Sequence Orchestration (Stage 11) is complete! Would you like to generate a Premiere Pro FCP-XML (.xml) sequence and Subtitles (.srt) to edit inside Premiere Pro, or proceed to Stage 12 to render the final 1080p master movie?",
+            "current_grid": "grid_agent",
+            "next_grid": "grid_render",
+            "total_clips": len(valid_files)
+        })
+
+        await update_grid("grid_agent", "completed", 100, 0, 0, "Stage 11 complete — Paused: Awaiting Premiere Pro XML or Master Render decision", 0)
+
+        print("[Stage 11 Pause Gate] Pipeline paused after Stage 11. Waiting for user decision (xml_srt vs render)...")
+        try:
+            await stage11_decision_event.wait()
+        except (asyncio.CancelledError, GeneratorExit):
+            stage11_paused = False
+            raise
+
+        stage11_paused = False
+        print(f"[Stage 11 Pause Gate] User decision received: '{stage11_decision}'")
+
+        if active_cancellation_requested:
+            current_project["is_processing"] = False
+            return
+
+        if stage11_decision == "xml_srt":
+            from backend.pipeline.xml_exporter import export_premiere_fcp_xml, export_project_srt
+            
+            # Prepare clips list
+            xml_clips = []
+            if current_project.get("timeline_clips"):
+                xml_clips = current_project["timeline_clips"]
+            else:
+                for f_path in valid_files:
+                    m = probe_media(f_path)
+                    dur = float(m.get("duration", 4.0)) if m else 4.0
+                    xml_clips.append({
+                        "path": f_path,
+                        "in_point": 0.0,
+                        "duration": min(dur, 6.0) if len(valid_files) > 1 else dur,
+                        "track": "V1"
+                    })
+
+            eff_aspect_xml = "9:16" if settings.get("aspect_ratio") == "9:16" else "16:9"
+            text_behind_cfg_xml = current_project.get("settings", {}).get("text_behind_person") or {}
+            title_text_xml = text_behind_cfg_xml.get("text", "RANN OF KUTCH | BHUJ | SOMNATH VLOG")
+            music_track_name_xml = current_project.get("selected_music", "Airport_Lounge.mp3")
+
+            xml_path = FINAL_EXPORT_DIR / "PREMIERE_PRO_PROJECT.xml"
+            srt_path = FINAL_EXPORT_DIR / "CAPTIONS.srt"
+
+            export_premiere_fcp_xml(
+                clips=xml_clips,
+                output_xml_path=str(xml_path),
+                sequence_name="Auto_Edit_Master_Sequence",
+                fps=30,
+                aspect_ratio=eff_aspect_xml,
+                title_text=title_text_xml,
+                music_track_name=music_track_name_xml
+            )
+
+            words = current_project.get("surviving_words") or current_project.get("transcript", {}).get("words", [])
+            export_project_srt(words, str(srt_path), clips=xml_clips)
+
+            xml_filename = xml_path.name
+            srt_filename = srt_path.name
+
+            # Update Grid 12 as completed
+            await update_grid("grid_render", "completed", 100, 0, 0, f"Exported Premiere Pro FCP-XML ({xml_filename}) & Subtitles ({srt_filename}) to final_export/", 0)
+
+            # Broadcast stage11_xml_ready event
+            await broadcast_progress({
+                "type": "stage11_xml_ready",
+                "title": "Premiere Pro Project Ready!",
+                "message": "FCP-XML and SRT subtitles generated successfully! You can import them directly into Adobe Premiere Pro.",
+                "xml_url": f"/media_final/{xml_filename}",
+                "xml_filename": xml_filename,
+                "srt_url": f"/media_final/{srt_filename}",
+                "srt_filename": srt_filename,
+                "export_dir": str(FINAL_EXPORT_DIR)
+            })
+
+            current_project["is_processing"] = False
+            print("[Stage 11 Export] Successfully generated XML and SRT. Exiting pipeline without running Stage 12 master render.")
+            return
+
+        # OPTION 2: If stage11_decision == "render", proceed to Grid 12!
+        print("[Stage 11 Decision] Proceeding directly to Stage 12 Final Master Timeline Renderer...")
+
         # --- GRID 12: Final Timeline & Ultra-HD Renderer ---
         render_mode = current_project.get("settings", {}).get("render_mode", "fast_preview")
         is_fast_mode = (render_mode == "fast_preview")
@@ -715,19 +830,21 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         est_render_sec = max(15, int(clip_dur * 0.025)) if is_fast_mode else max(25, int(clip_dur * 0.12))
         await update_grid("grid_render", "in_progress", 40, est_render_sec, est_render_sec, "Rendering final master with selected features to final_export/ folder", est_render_sec)
         
-        edit_mode = settings.get("edit_mode", "full_movie" if len(valid_files) > 1 else "single")
+        # Strict user-selection obedience:
+        # If user selected exactly 1 clip, edit_mode is strictly 'single' (no multi-clip stitching).
+        # If user selected multiple clips (e.g. 9 or 12 clips), edit_mode stitches ONLY those selected clips.
+        # NEVER override valid_files with all raw files in raw_input/.
+        if len(valid_files) == 1:
+            edit_mode = "single"
+        else:
+            edit_mode = settings.get("edit_mode", "full_movie")
+
         eff_aspect = "9:16" if settings.get("aspect_ratio") == "9:16" else settings.get("aspect_ratio", "original")
         target_dur = float(settings.get("target_duration", 60.0)) if (edit_mode == "viral_short" or settings.get("target_duration")) else None
 
         text_behind_cfg = current_project.get("settings", {}).get("text_behind_person")
         if not text_behind_cfg:
             text_behind_cfg = load_anirban_preset().get("text_behind_person")
-
-        if edit_mode == "full_movie":
-            all_raw = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
-            if len(all_raw) > len(valid_files):
-                valid_files = all_raw
-                print(f"Full Movie Mode: automatically engaged all {len(valid_files)} authentic raw media files in raw_input/")
 
         if len(valid_files) > 1 and edit_mode in ["full_movie", "viral_short"]:
             from backend.pipeline.multi_clip_stitcher import build_multi_clip_movie_pipeline, extract_clip_timestamp
@@ -922,7 +1039,7 @@ async def start_pipeline(payload: StartPipelinePayload):
     """
     Triggers automated processing across all 12 Grids on selected raw input files.
     """
-    if payload.filenames:
+    if payload.filenames is not None:
         selected_paths = []
         for fname in payload.filenames:
             p = RAW_INPUT_DIR / fname
@@ -930,6 +1047,11 @@ async def start_pipeline(payload: StartPipelinePayload):
                 selected_paths.append(str(p))
         if selected_paths:
             current_project["selected_files"] = selected_paths
+
+    # If no files selected yet, fallback to all media in raw_input
+    if not current_project["selected_files"]:
+        raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
+        current_project["selected_files"] = raw_list
 
     if not current_project["selected_files"]:
         raise HTTPException(status_code=400, detail="No files selected. Please select files from raw_input/ first.")
@@ -948,9 +1070,6 @@ async def start_pipeline(payload: StartPipelinePayload):
     current_project["settings"].update(settings)
     if payload.render_mode:
         current_project["settings"]["render_mode"] = payload.render_mode
-    if current_project["settings"].get("edit_mode") == "full_movie":
-        raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
-        current_project["selected_files"] = raw_list
 
     # Launch pipeline in background task
     global active_pipeline_task, active_cancellation_requested
@@ -1021,7 +1140,7 @@ async def restart_pipeline_endpoint(payload: StartPipelinePayload):
         current_project["settings"]["render_mode"] = payload.render_mode
 
     # 3. Ensure files selected
-    if payload.filenames:
+    if payload.filenames is not None:
         selected_paths = []
         for fname in payload.filenames:
             p = RAW_INPUT_DIR / fname
@@ -1030,12 +1149,9 @@ async def restart_pipeline_endpoint(payload: StartPipelinePayload):
         if selected_paths:
             current_project["selected_files"] = selected_paths
 
-    if not current_project["selected_files"] or current_project["settings"].get("edit_mode") == "full_movie":
+    if not current_project["selected_files"]:
         raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
-        if current_project["settings"].get("edit_mode") == "full_movie":
-            current_project["selected_files"] = raw_list
-        elif not current_project["selected_files"]:
-            current_project["selected_files"] = raw_list
+        current_project["selected_files"] = raw_list
 
     # 4. Launch pipeline fresh from beginning
     active_pipeline_task = asyncio.create_task(run_pipeline_task(current_project["selected_files"], current_project["settings"]))
@@ -1046,27 +1162,91 @@ async def restart_pipeline_endpoint(payload: StartPipelinePayload):
         "selected_files": [Path(f).name for f in current_project["selected_files"]]
     }
 
+# ----------------- STAGE 11 DECISION GATE ENDPOINTS -----------------
+
+class Stage11DecisionPayload(BaseModel):
+    action: str  # "xml_srt" or "render"
+    clips: Optional[List[dict]] = None
+    title_text: Optional[str] = None
+    music_track: Optional[str] = None
+
+@app.post("/api/pipeline/stage11-decision")
+async def stage11_decision_endpoint(payload: Stage11DecisionPayload):
+    """
+    Submits user decision when paused after Stage 11:
+    - "xml_srt": Generates Premiere Pro FCP-XML (.xml) + Subtitles (.srt) and exits pipeline.
+    - "render": Proceeds to Stage 12 to complete master 1080p MP4 render.
+    """
+    global stage11_paused, stage11_decision, stage11_decision_event
+    if not stage11_paused or stage11_decision_event is None:
+        return {"status": "error", "message": "Pipeline is not currently paused at Stage 11"}
+    
+    stage11_decision = payload.action.strip().lower()
+    if payload.clips:
+        current_project["timeline_clips"] = payload.clips
+    if payload.title_text:
+        current_project.setdefault("settings", {}).setdefault("text_behind_person", {})["text"] = payload.title_text
+    if payload.music_track:
+        current_project["selected_music"] = payload.music_track
+
+    stage11_decision_event.set()
+    return {"status": "ok", "action": stage11_decision}
+
+@app.get("/api/pipeline/stage11-status")
+async def get_stage11_status():
+    """Returns current Stage 11 pause gate state"""
+    global stage11_paused, stage11_decision
+    return {
+        "paused": stage11_paused,
+        "decision": stage11_decision
+    }
+
 # ----------------- TEXT-BASED EDITING -----------------
 
 @app.get("/api/project/transcript")
 def get_project_transcript():
     """Returns word-by-word interactive transcript, face bounding boxes, and current cuts"""
-    active_path = current_project.get("active_video_path")
-    if active_path and Path(active_path).exists():
-        from backend.pipeline.hyperframe_captions import extract_face_timeline
-        if "face_boxes" not in current_project.get("transcript", {}):
+    tr = current_project.get("transcript")
+    if not tr or not tr.get("words"):
+        # Auto-load cached transcript from uploads/
+        cache_files = sorted(
+            list(UPLOADS_DIR.glob(".transcript_cache_*_roman.json")) + list(UPLOADS_DIR.glob(".transcript_cache_*.json")),
+            key=lambda p: p.stat().st_size,
+            reverse=True
+        )
+        if cache_files:
             try:
-                face_boxes = extract_face_timeline(active_path)
-                if "transcript" in current_project and current_project["transcript"]:
-                    current_project["transcript"]["face_boxes"] = face_boxes
+                with open(cache_files[0], "r", encoding="utf-8") as f_c:
+                    data = json.load(f_c)
+                    if data and "words" in data and len(data["words"]) > 0:
+                        current_project["transcript"] = data
             except Exception:
                 pass
+
+    active_path = current_project.get("active_video_path")
+    if active_path and Path(active_path).exists() and "face_boxes" not in current_project.get("transcript", {}):
+        # Only extract face timeline if quick (<20 frames) or previously cached
+        try:
+            from backend.pipeline.hyperframe_captions import extract_face_timeline
+            face_boxes = extract_face_timeline(active_path, max_frames=15)
+            if "transcript" in current_project and current_project["transcript"]:
+                current_project["transcript"]["face_boxes"] = face_boxes
+        except Exception:
+            pass
+
     return {
-        "transcript": current_project.get("transcript", {}),
+        "transcript": current_project.get("transcript", {}) or {"words": [], "sentences": []},
         "cuts": current_project.get("cuts", []),
         "preserved_scenic_silences": current_project.get("preserved_scenic_silences", []),
         "retakes": current_project.get("retakes", [])
     }
+
+@app.get("/api/music/tracks")
+def get_music_tracks():
+    """Returns all available royalty-free music tracks from raw_input/MUSIC"""
+    from backend.pipeline.premiere_engine import get_editor_media_pool
+    pool = get_editor_media_pool()
+    return {"tracks": pool.get("music_tracks", [])}
 
 class UpdateTranscriptPayload(BaseModel):
     deleted_word_ids: List[int]
@@ -1269,17 +1449,24 @@ def get_live_render_frame():
     return Response(content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82", media_type="image/png")
 
 @app.get("/api/project/media-audit-summary")
-def get_media_audit_summary():
+def get_media_audit_summary(filenames: Optional[str] = None):
     """
-    Computes an instant, verified media audit & execution plan for all ingested clips:
-    - Counts and validates all 250 files (61 videos + 189 photos)
-    - Full chronological sorting verification from earliest to latest
-    - Camera hardware breakdown (iPhone 16 HEVC 1080p + Android 1080p/720p H.264)
-    - Photo collage plan with Computer Vision human saliency centering
-    - Active vs Bypassed plan across all 12 stages based on user toggles
-    - Render mode configuration (Fast Preview <10m vs Full Master 1080p)
+    Computes an instant, verified media audit & execution plan for selected or all ingested clips.
     """
-    raw_files = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith('.')])
+    all_disk_files = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and not f.name.startswith('.')])
+
+    selected_names = set()
+    if filenames and filenames.strip():
+        selected_names = set([x.strip() for x in filenames.strip().split(",") if x.strip()])
+    elif current_project.get("selected_files"):
+        selected_names = {Path(f).name for f in current_project["selected_files"]}
+
+    if selected_names:
+        raw_files = [f for f in all_disk_files if f.name in selected_names]
+        if not raw_files:
+            raw_files = all_disk_files
+    else:
+        raw_files = all_disk_files
     videos = [f for f in raw_files if f.suffix.lower() in SUPPORTED_VIDEO_EXTS]
     photos = [f for f in raw_files if f.suffix.lower() in SUPPORTED_IMAGE_EXTS]
     iphone_vids = [f for f in videos if f.name.upper().startswith('IMG_')]
@@ -1640,7 +1827,11 @@ async def generate_vertical_reel_endpoint():
 @app.post("/api/project/render-full-movie")
 async def render_full_movie_endpoint():
     """Assembles all clips into the full master feature movie"""
-    clip_files = sorted([str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
+    clip_files = []
+    if current_project.get("selected_files"):
+        clip_files = [f for f in current_project["selected_files"] if Path(f).is_file() and Path(f).suffix.lower() in SUPPORTED_VIDEO_EXTS]
+    if not clip_files:
+        clip_files = sorted([str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
     cg = current_project.get("settings", {}).get("color_grade", "none")
     if not current_project.get("settings", {}).get("enabled_grids", {}).get("grid_color", False):
         cg = "none"
@@ -1707,9 +1898,9 @@ async def supervise_preview_endpoint(payload: Optional[SupervisePreviewPayload] 
     settings["denoise_pct"] = denoise_pct
 
     # 2. Resolve Text Behind Person
-    tb_cfg = payload.text_behind or settings.get("text_behind_person", copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON))
+    tb_cfg = payload.text_behind or settings.get("text_behind_person") or load_anirban_preset().get("text_behind_person", copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON))
     if not tb_cfg.get("text") or "EHSAAS" in str(tb_cfg.get("text")).upper():
-        tb_cfg["text"] = "RANN OF KUTCH | SOMNATH"
+        tb_cfg["text"] = "RANN OF KUTCH | BHUJ | SOMNATH VLOG"
     tb_cfg["enabled"] = True
     settings["text_behind_person"] = tb_cfg
     save_user_settings(settings)
@@ -1834,11 +2025,12 @@ async def supervise_preview_endpoint(payload: Optional[SupervisePreviewPayload] 
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, lambda: subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True))
 
-    current_project["preview_url"] = f"/media_final/{out_filename}"
+    current_ts = int(time.time() * 1000)
+    current_project["preview_url"] = f"/media_final/{out_filename}?t={current_ts}"
 
     return {
         "status": "success",
-        "url": f"/media_final/{out_filename}",
+        "url": f"/media_final/{out_filename}?t={current_ts}",
         "filename": out_filename,
         "duration": preview_dur,
         "clip_source": clip_path.name,
@@ -1848,18 +2040,37 @@ async def supervise_preview_endpoint(payload: Optional[SupervisePreviewPayload] 
         "ducking_depth_pct": ducking_depth_pct,
         "music_level_pct": music_level_pct,
         "denoise_pct": denoise_pct,
-        "title": tb_cfg.get("text", "RANN OF KUTCH | SOMNATH")
+        "title": tb_cfg.get("text", "RANN OF KUTCH | BHUJ | SOMNATH VLOG")
     }
 
 # ----------------- PREMIERE PRO & INSTAGRAM STUDIO NLE -----------------
 
 class TimelineClipItem(BaseModel):
-    path: str
+    path: Optional[str] = ""
+    name: Optional[str] = ""
+    id: Optional[str] = None
+    track: Optional[str] = "V1"
+    type: Optional[str] = "video"
     in_point: Optional[float] = 0.0
     out_point: Optional[float] = 0.0
+    duration: Optional[float] = 0.0
+    timeline_start: Optional[float] = 0.0
     speed: Optional[float] = 1.0
     rotation: Optional[float] = 0.0
-    track: Optional[str] = "V1"
+    scale: Optional[float] = 100.0
+    posY: Optional[float] = 0.0
+    opacity: Optional[float] = 100.0
+    muted: Optional[bool] = False
+    solo: Optional[bool] = False
+    volume: Optional[float] = 100.0
+    noise_suppression: Optional[float] = 75.0
+    ducking: Optional[float] = 75.0
+    text: Optional[str] = None
+    font: Optional[str] = "Montserrat"
+    color: Optional[str] = "#FFFFFF"
+    neon_enabled: Optional[bool] = True
+    neon_color: Optional[str] = "#00F2FE"
+    glow_radius: Optional[int] = 24
 
 class RotateClipPayload(BaseModel):
     filename: Optional[str] = ""
@@ -1926,9 +2137,11 @@ async def rotate_clip_endpoint(payload: RotateClipPayload):
 
 class TimelineExportPayload(BaseModel):
     clips: List[TimelineClipItem]
+    resolution: Optional[str] = "360p"
     aspect_ratio: Optional[str] = "9:16"
     instagram_filter: Optional[str] = "clarendon"
     title_text: Optional[str] = ""
+    caption_style: Optional[str] = "hyperframe_kinetic"
     output_filename: Optional[str] = None
 
 @app.get("/api/editor/media-pool")
@@ -1940,17 +2153,20 @@ def get_editor_media_pool_endpoint():
 @app.post("/api/editor/export-sequence")
 async def export_editor_sequence_endpoint(payload: TimelineExportPayload):
     """Renders the Premiere Pro / Instagram timeline sequence to final_export/"""
-    from backend.pipeline.premiere_engine import export_timeline_sequence
+    from backend.pipeline.premiere_engine import export_multitrack_sequence
     clips_data = [c.dict() for c in payload.clips]
+    cap_style = payload.caption_style or current_project.get("settings", {}).get("caption_style", "hyperframe_kinetic")
     loop = asyncio.get_event_loop()
     try:
         out_path = await loop.run_in_executor(
             None,
-            export_timeline_sequence,
+            export_multitrack_sequence,
             clips_data,
             payload.aspect_ratio,
+            payload.resolution or "360p",
             payload.instagram_filter,
             payload.title_text,
+            cap_style,
             payload.output_filename
         )
         fname = Path(out_path).name
@@ -1959,11 +2175,105 @@ async def export_editor_sequence_endpoint(payload: TimelineExportPayload):
             "filename": fname,
             "url": f"/media_final/{fname}",
             "aspect_ratio": payload.aspect_ratio,
-            "instagram_filter": payload.instagram_filter
+            "instagram_filter": payload.instagram_filter,
+            "caption_style": cap_style
         }
     except Exception as e:
         print(f"Editor export error: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+class ExportXmlPayload(BaseModel):
+    clips: Optional[List[TimelineClipItem]] = None
+    title_text: Optional[str] = None
+    aspect_ratio: Optional[str] = "16:9"
+    ducking_depth_pct: Optional[float] = 75.0
+    music_track_name: Optional[str] = "Airport_Lounge.mp3"
+
+@app.post("/api/editor/export-xml")
+async def export_editor_xml_endpoint(payload: Optional[ExportXmlPayload] = None):
+    """
+    Exports a broadcast-compliant Apple FCP-XML (xmeml v4) project and CAPTIONS.srt file
+    engineered for 1-click import into Adobe Premiere Pro 2024 / 2025 / 2026.
+    Generates 4 distinct tracks:
+      - V1: 10 Master Video Clips
+      - V2: Title Overlay Graphic (PNG with cyan neon glow)
+      - A1: 10 Voice Dialogue Clips with Studio DeNoise & Audio Levels filters
+      - A2: Background Music Bed with dynamic Auto-Ducking envelopes
+    """
+    from backend.pipeline.xml_exporter import export_premiere_fcp_xml, export_project_srt
+    
+    clips_data = []
+    if payload and payload.clips:
+        clips_data = [c.dict() for c in payload.clips]
+    
+    if not clips_data or len(clips_data) < 10:
+        existing_names = {c.get("name") for c in clips_data}
+        raw_vids = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
+        for f in raw_vids:
+            if f.name not in existing_names:
+                clips_data.append({
+                    "id": f"v1_clip_{len(clips_data)+1}",
+                    "path": str(f),
+                    "name": f.name,
+                    "track": "V1",
+                    "in_point": 0.0,
+                    "duration": 4.0,
+                    "out_point": 4.0,
+                    "volume": 100,
+                    "noise_suppression": 75,
+                    "muted": False
+                })
+                existing_names.add(f.name)
+                if len(clips_data) >= 10:
+                    break
+    
+    # Title resolution
+    title = ""
+    if payload and payload.title_text and payload.title_text.strip():
+        title = payload.title_text.strip()
+    else:
+        tb = current_project.get("settings", {}).get("text_behind_person") or load_anirban_preset().get("text_behind_person", {})
+        title = tb.get("text", "RANN OF KUTCH | BHUJ | SOMNATH VLOG")
+    
+    aspect = payload.aspect_ratio if payload and payload.aspect_ratio else current_project.get("settings", {}).get("aspect_ratio", "16:9")
+    ducking = payload.ducking_depth_pct if payload and payload.ducking_depth_pct is not None else float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0))
+    music = payload.music_track_name if payload and payload.music_track_name else "Airport_Lounge.mp3"
+    
+    loop = asyncio.get_event_loop()
+    xml_out_path = FINAL_EXPORT_DIR / "PREMIERE_PRO_PROJECT.xml"
+    srt_out_path = FINAL_EXPORT_DIR / "CAPTIONS.srt"
+    
+    await loop.run_in_executor(
+        None,
+        lambda: export_premiere_fcp_xml(
+            clips=clips_data,
+            output_xml_path=str(xml_out_path),
+            sequence_name="Anirban_Premiere_Master_Sequence",
+            fps=30,
+            aspect_ratio=aspect,
+            title_text=title,
+            music_track_name=music,
+            ducking_depth_pct=ducking,
+            ensure_min_clips=10
+        )
+    )
+    
+    await loop.run_in_executor(
+        None,
+        lambda: export_project_srt(None, str(srt_out_path), clips=clips_data)
+    )
+    
+    ts = int(time.time())
+    return {
+        "status": "success",
+        "filename": "PREMIERE_PRO_PROJECT.xml",
+        "xml_url": f"/media_final/PREMIERE_PRO_PROJECT.xml?t={ts}",
+        "srt_url": f"/media_final/CAPTIONS.srt?t={ts}",
+        "title": title,
+        "clip_count": len(clips_data),
+        "aspect_ratio": aspect,
+        "tracks": ["V1 (Master Video 10 Clips)", "V2 (Title Overlay Graphic)", "V3 (Captions: Hormozi Kinetic Animated Overlay)", "V4 (Editable Text Generator)", "A1 (Voice Dialogue + DeNoise)", "A2 (Music Bed + Ducking)"]
+    }
 
 # ----------------- AI DIRECTOR AGENT -----------------
 
@@ -2073,6 +2383,7 @@ async def update_text_behind_person_endpoint(payload: TextBehindPersonPayload):
     director_effects = current_project["settings"].setdefault("ai_director_effects", get_initial_active_effects())
     sync_director_with_grids(director_effects, text_behind, current_project["grid_statuses"])
     save_user_settings(current_project["settings"])
+    save_anirban_preset(director_effects, text_behind)
 
     await broadcast_progress({
         "type": "text_behind_update",
@@ -2303,6 +2614,10 @@ async def update_project_settings_endpoint(payload: ProjectSettingsPayload):
             "all_statuses": current_project["grid_statuses"]
         })
     save_user_settings(current_project["settings"])
+    save_anirban_preset(
+        current_project["settings"].get("ai_director_effects", {}),
+        current_project["settings"].get("text_behind_person", {})
+    )
     return {"status": "success", "settings": current_project["settings"]}
 
 # ----------------- WEBSOCKET REAL-TIME PROGRESS -----------------

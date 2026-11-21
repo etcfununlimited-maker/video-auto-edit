@@ -56,6 +56,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     await fetchRawFiles();
     await fetchExportFiles();
     await fetchGridStatuses();
+    await loadTranscript();
     setupVideoEventListeners();
 });
 
@@ -182,6 +183,22 @@ function updateLiveRenderMonitor(detail, progress, status) {
 }
 
 function handleProgressUpdate(data) {
+    if (data.type === "stage11_pause_decision") {
+        console.log("Stage 11 complete: Paused for export decision", data);
+        showStage11DecisionModal(data);
+        showToast("Stage 11 Complete! Paused: Choose Premiere Pro XML or Master Render", "info");
+        return;
+    }
+
+    if (data.type === "stage11_xml_ready") {
+        console.log("Premiere Pro XML + SRT generated successfully", data);
+        closeStage11DecisionModal();
+        showStage11XmlReadyModal(data);
+        showToast("Premiere Pro XML & SRT Generated! Ready for download", "success");
+        fetchExportFiles();
+        return;
+    }
+
     if (data.type === "pipeline_stopped") {
         updateLiveRenderMonitor("", 0, "stopped");
         stopElapsedTimer();
@@ -206,6 +223,7 @@ function handleProgressUpdate(data) {
     }
 
     if (data.type === "pipeline_restarted") {
+        hasCompletedPopupShown = false;
         clearAndResetAllGridsUI();
         ensureElapsedTimerRunning(0);
         const badge = document.getElementById("master-status-badge");
@@ -363,6 +381,7 @@ function renderRawFileList() {
     const listEl = document.getElementById("raw-files-list");
     if (!rawFiles || rawFiles.length === 0) {
         listEl.innerHTML = `<div class="empty-state">raw_input folder is empty.<br>Click "Add Media" or copy files into raw_input.</div>`;
+        updateSelectionCountBadge();
         return;
     }
 
@@ -384,6 +403,7 @@ function renderRawFileList() {
             </div>
         `;
     }).join("");
+    updateSelectionCountBadge();
 }
 
 let syncFilesTimeout = null;
@@ -402,6 +422,30 @@ function syncSelectedFilesToBackend() {
     }, 150);
 }
 
+function updateSelectionCountBadge() {
+    const badge = document.getElementById("selected-count-badge");
+    if (badge) {
+        badge.innerText = `${selectedFileNames.size} selected`;
+        badge.style.color = selectedFileNames.size > 0 ? "#38bdf8" : "#94a3b8";
+    }
+    const optFullMovie = document.getElementById("opt-full-movie");
+    const editModeSelect = document.getElementById("edit-mode-select");
+    if (optFullMovie) {
+        if (selectedFileNames.size === 1) {
+            optFullMovie.innerText = "Single Selected Clip (1 Clip Only)";
+            optFullMovie.value = "single";
+            if (editModeSelect) editModeSelect.value = "single";
+        } else if (selectedFileNames.size > 1 && selectedFileNames.size < rawFiles.length) {
+            optFullMovie.innerText = `Selected Clips Assembly (Stitch ${selectedFileNames.size} Clips)`;
+            optFullMovie.value = "full_movie";
+            if (editModeSelect && editModeSelect.value === "single") editModeSelect.value = "full_movie";
+        } else {
+            optFullMovie.innerText = `Full Movie Assembly (Stitch All ${rawFiles.length || 304} Clips)`;
+            optFullMovie.value = "full_movie";
+        }
+    }
+}
+
 function toggleFileSelect(filename, checked) {
     if (checked) {
         selectedFileNames.add(filename);
@@ -409,6 +453,7 @@ function toggleFileSelect(filename, checked) {
         selectedFileNames.delete(filename);
     }
     updateSelectAllCheckboxState();
+    updateSelectionCountBadge();
     syncSelectedFilesToBackend();
 }
 
@@ -419,12 +464,53 @@ function toggleSelectAll(checkbox) {
         selectedFileNames.clear();
     }
     renderRawFileList();
+    updateSelectAllCheckboxState();
+    updateSelectionCountBadge();
     syncSelectedFilesToBackend();
 }
 
 function updateSelectAllCheckboxState() {
     const chk = document.getElementById("chk-select-all");
-    chk.checked = rawFiles.length > 0 && selectedFileNames.size === rawFiles.length;
+    if (chk) {
+        chk.checked = rawFiles.length > 0 && selectedFileNames.size === rawFiles.length;
+    }
+}
+
+async function selectFirstNClips(count) {
+    if (!rawFiles || rawFiles.length === 0) {
+        showToast("No media files loaded yet", "warning");
+        return;
+    }
+    selectedFileNames.clear();
+    const toPick = rawFiles.slice(0, count);
+    toPick.forEach(f => selectedFileNames.add(f.filename));
+    if (toPick.length > 0 && (!activeFile || !selectedFileNames.has(activeFile.filename))) {
+        selectActiveMedia(toPick[0]);
+    }
+    renderRawFileList();
+    updateSelectAllCheckboxState();
+    updateSelectionCountBadge();
+    syncSelectedFilesToBackend();
+    showToast(`Selected first ${selectedFileNames.size} clips! Click Auto-Edit Master or Import to Timeline. 🎬`, "success");
+}
+
+function selectAllRawFiles() {
+    if (!rawFiles || rawFiles.length === 0) return;
+    rawFiles.forEach(f => selectedFileNames.add(f.filename));
+    renderRawFileList();
+    updateSelectAllCheckboxState();
+    updateSelectionCountBadge();
+    syncSelectedFilesToBackend();
+    showToast(`Selected all ${rawFiles.length} clips!`, "info");
+}
+
+function clearFileSelection() {
+    selectedFileNames.clear();
+    renderRawFileList();
+    updateSelectAllCheckboxState();
+    updateSelectionCountBadge();
+    syncSelectedFilesToBackend();
+    showToast("Cleared clip selection. Pick clips to edit or select all.", "info");
 }
 
 function selectActiveMediaByName(filename) {
@@ -552,12 +638,16 @@ function loadVideoIntoPlayer(url, playImmediate = false, label = null) {
     const filenameEl = document.getElementById("player-filename");
     const videoSource = document.getElementById("video-source");
 
-    const displayName = label || decodeURIComponent(url.split("/").pop());
+    const cleanBaseName = url.split("?")[0].split("/").pop();
+    const displayName = label || decodeURIComponent(cleanBaseName);
     if (filenameEl) {
         filenameEl.innerText = displayName;
     }
 
-    const safeUrl = encodeURI(decodeURI(url));
+    let safeUrl = encodeURI(decodeURI(url));
+    if (!safeUrl.includes("?t=") && !safeUrl.includes("&t=")) {
+        safeUrl += (safeUrl.includes("?") ? "&" : "?") + `t=${Date.now()}`;
+    }
     if (videoSource) {
         videoSource.src = safeUrl;
     }
@@ -1505,7 +1595,7 @@ let gridEnabledState = {
     grid_audio: true,
     grid_beatsync: true,
     grid_captions: true,
-    grid_bgremove: false,
+    grid_bgremove: true,
     grid_color: false,
     grid_agent: true,
     grid_render: true
@@ -1519,8 +1609,8 @@ const GRID_ARMED_DESCRIPTIONS = {
     grid_reframe: "Armed (Ready for 9:16 smart face trajectory tracking)",
     grid_audio: "Armed (Ready for studio vocal enhancement & de-hiss)",
     grid_beatsync: "Armed (Ready for speech rhythm & music auto-ducking)",
-    grid_captions: "Armed (Awaiting Grid 2 word timestamps for kinetic pop)",
-    grid_bgremove: "Armed (Ready for subject isolation & ambient blur)",
+    grid_captions: "Armed (HyperFrame 4-Quadrant Face-Safe Dynamic Kinetic Captions)",
+    grid_bgremove: "Armed (Virtual Studio Matte depth title & Vehicle Plate Privacy Blur)",
     grid_color: "Active: Cinematic Teal & Orange (Primed)",
     grid_agent: "Armed (Ready for AI Director storyline orchestration)",
     grid_render: "Armed (Ready for final timeline composite & MP4 export)"
@@ -1861,7 +1951,11 @@ async function openMediaAuditModal(customSettings = null) {
     if (!modal) return;
 
     try {
-        const res = await fetch("/api/project/media-audit-summary");
+        const selectedList = Array.from(selectedFileNames);
+        const url = selectedList.length > 0 
+            ? `/api/project/media-audit-summary?filenames=${encodeURIComponent(selectedList.join(","))}`
+            : `/api/project/media-audit-summary`;
+        const res = await fetch(url);
         const data = await res.json();
         if (data.status === "success") {
             const audit = data.media_audit;
@@ -1937,6 +2031,7 @@ async function executePipelineAfterAudit() {
 }
 
 async function executePipelineDirect(customSettings = null) {
+    hasCompletedPopupShown = false;
     showToast(`Launching Auto-Edit on ${selectedFileNames.size} clip(s)...`, "info");
     document.getElementById("master-status-badge").innerText = "PROCESSING";
     document.getElementById("master-status-badge").className = "stat-badge running";
@@ -1964,8 +2059,13 @@ async function executePipelineDirect(customSettings = null) {
         }
     });
 
+    let effectiveEditMode = activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie");
+    if (selectedFileNames.size === 1) {
+        effectiveEditMode = "single";
+    }
+
     const baseSettings = {
-        edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
+        edit_mode: effectiveEditMode,
         target_duration: activeTargetDuration || null,
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
         model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3-turbo")),
@@ -1982,17 +2082,17 @@ async function executePipelineDirect(customSettings = null) {
         ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
         music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
         denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
-        license_plate_blur: false,
-        enabled_grids: { ...gridEnabledState, grid_bgremove: false },
+        license_plate_blur: true,
+        enabled_grids: { ...gridEnabledState, grid_bgremove: true },
         text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
             text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
                 ? document.getElementById("depth-input-text").value.trim() 
-                : (directorTextBehind.text || "RANN OF KUTCH | SOMNATH")
+                : (directorTextBehind.text || "RANN OF KUTCH | BHUJ | SOMNATH VLOG")
         }) : {
             enabled: true,
             text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
                 ? document.getElementById("depth-input-text").value.trim() 
-                : "RANN OF KUTCH | SOMNATH"
+                : "RANN OF KUTCH | BHUJ | SOMNATH VLOG"
         }
     };
 
@@ -2075,8 +2175,13 @@ async function restartPipelineProcess() {
     if (btnFooterStop) btnFooterStop.style.display = "inline-flex";
 
     // 3. Assemble current settings
+    let effectiveEditMode = activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie");
+    if (selectedFileNames.size === 1) {
+        effectiveEditMode = "single";
+    }
+
     const baseSettings = {
-        edit_mode: activeEditMode || (document.getElementById("edit-mode-select") ? document.getElementById("edit-mode-select").value : "full_movie"),
+        edit_mode: effectiveEditMode,
         target_duration: activeTargetDuration || null,
         language: document.getElementById("language-select") ? document.getElementById("language-select").value : "auto",
         model_tier: (document.getElementById("toolbar-model-select") ? document.getElementById("toolbar-model-select").value : (document.getElementById("model-tier-select") ? document.getElementById("model-tier-select").value : "large-v3")),
@@ -2093,22 +2198,22 @@ async function restartPipelineProcess() {
         ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
         music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
         denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
-        license_plate_blur: false,
-        enabled_grids: { ...gridEnabledState, grid_bgremove: false },
+        license_plate_blur: true,
+        enabled_grids: { ...gridEnabledState, grid_bgremove: true },
         text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
             text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
                 ? document.getElementById("depth-input-text").value.trim() 
-                : (directorTextBehind.text || "RANN OF KUTCH | SOMNATH")
+                : (directorTextBehind.text || "RANN OF KUTCH | BHUJ | SOMNATH VLOG")
         }) : {
             enabled: true,
             text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
                 ? document.getElementById("depth-input-text").value.trim() 
-                : "RANN OF KUTCH | SOMNATH"
+                : "RANN OF KUTCH | BHUJ | SOMNATH VLOG"
         }
     };
 
-    // Ensure all 304 files are selected for full movie
-    if ((baseSettings.edit_mode === "full_movie" || selectedFileNames.size === 0) && rawFiles.length > 0) {
+    // Fallback to all files only if user hasn't selected any specific files
+    if (selectedFileNames.size === 0 && rawFiles.length > 0) {
         rawFiles.forEach(f => selectedFileNames.add(f.filename));
     }
 
@@ -2422,9 +2527,11 @@ function showCompletionModal(info = {}) {
     }
     const dlLink = document.getElementById("comp-download-link");
     if (dlLink) {
-        const rawUrl = info.url || latestMasterMovieUrl || "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4";
+        const fallbackFile = (exportFiles.length > 0) ? exportFiles[0] : { url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4", filename: "MASTER_FULL_FEATURE_MOVIE.mp4" };
+        const rawUrl = info.url || latestMasterMovieUrl || fallbackFile.url;
+        const fname = info.filename || latestMasterFilename || fallbackFile.filename;
         dlLink.href = encodeURI(decodeURI(rawUrl));
-        dlLink.setAttribute("download", info.filename || latestMasterFilename || "MASTER_Pushkar And Jaipur Vlog 2025.mp4");
+        dlLink.setAttribute("download", fname);
     }
 
     modal.style.display = "flex";
@@ -2438,8 +2545,11 @@ function closeCompletionModal() {
 
 function playMasterFromPopup() {
     closeCompletionModal();
-    const movieUrl = latestMasterMovieUrl || (exportFiles.length > 0 ? exportFiles[0].url : "/media_final/MASTER_Pushkar%20And%20Jaipur%20Vlog%202025.mp4");
-    const movieLabel = latestMasterFilename || (exportFiles.length > 0 ? exportFiles[0].filename : "MASTER_Pushkar And Jaipur Vlog 2025.mp4");
+    const fallbackFile = (exportFiles.length > 0) ? exportFiles[0] : { url: "/media_final/MASTER_FULL_FEATURE_MOVIE.mp4", filename: "MASTER_FULL_FEATURE_MOVIE.mp4" };
+    const movieUrl = latestMasterMovieUrl || fallbackFile.url;
+    const movieLabel = latestMasterFilename || fallbackFile.filename;
+
+    switchStudioTab("ai");
     loadVideoIntoPlayer(movieUrl, true, movieLabel);
     const player = document.getElementById("main-video-player");
     if (player) {
@@ -2563,7 +2673,9 @@ async function runSupervisionPreview() {
     showToast("Supervising Mix... Rendering 15s preview (renders in ~3s) 👁️", "info");
 
     const depthTextInput = document.getElementById("depth-input-text");
-    const customTitle = (depthTextInput && depthTextInput.value.trim()) ? depthTextInput.value.trim() : "RANN OF KUTCH | SOMNATH";
+    const customTitle = (depthTextInput && depthTextInput.value.trim()) 
+        ? depthTextInput.value.trim() 
+        : ((typeof directorTextBehind !== "undefined" && directorTextBehind.text) ? directorTextBehind.text : "RANN OF KUTCH | BHUJ | SOMNATH VLOG");
     const moodSelect = document.getElementById("select-music-mood");
     const sacredChk = document.getElementById("chk-sacred-mode");
     const duckSlider = document.getElementById("slider-ducking-depth");
@@ -2614,6 +2726,144 @@ async function runSupervisionPreview() {
         showToast("Error rendering supervision preview", "error");
     }
 }
+
+async function saveAudioSettingsAndTitle() {
+    const depthTextInput = document.getElementById("depth-input-text");
+    const customTitle = (depthTextInput && depthTextInput.value.trim()) 
+        ? depthTextInput.value.trim() 
+        : ((typeof directorTextBehind !== "undefined" && directorTextBehind.text) ? directorTextBehind.text : "RANN OF KUTCH | BHUJ | SOMNATH VLOG");
+    
+    if (typeof saveDepthTextExplicitly === "function") {
+        await saveDepthTextExplicitly();
+    }
+    
+    const moodSelect = document.getElementById("select-music-mood");
+    const sacredChk = document.getElementById("chk-sacred-mode");
+    const duckSlider = document.getElementById("slider-ducking-depth");
+    const musicSlider = document.getElementById("slider-music-level");
+    const denoiseSlider = document.getElementById("slider-denoise-pct");
+
+    const payload = {
+        music_mood: moodSelect ? moodSelect.value : "sacred_temple",
+        sacred_mode: sacredChk ? sacredChk.checked : true,
+        ducking_depth_pct: duckSlider ? parseFloat(duckSlider.value) : 75.0,
+        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 40.0,
+        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 75.0,
+        text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) 
+            ? Object.assign({}, directorTextBehind, { text: customTitle, enabled: true })
+            : { text: customTitle, enabled: true }
+    };
+
+    try {
+        await fetch("/api/project/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        showToast(`✓ Title & Audio Settings Registered: "${customTitle}" 💾`, "success");
+    } catch (e) {
+        console.warn("Could not post audio settings:", e);
+    }
+}
+
+// Window Bindings for Inline HTML Event Handlers
+window.selectFirstNClips = selectFirstNClips;
+window.selectAllRawFiles = selectAllRawFiles;
+window.clearFileSelection = clearFileSelection;
+window.updateSelectionCountBadge = updateSelectionCountBadge;
+window.saveAudioSettingsAndTitle = saveAudioSettingsAndTitle;
+
+// ---------------- STAGE 11 EXPORT DECISION GATE ----------------
+function showStage11DecisionModal(data) {
+    const modal = document.getElementById("stage11-decision-modal");
+    if (modal) {
+        modal.style.display = "flex";
+        if (window.feather) feather.replace();
+    }
+}
+
+function closeStage11DecisionModal() {
+    const modal = document.getElementById("stage11-decision-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+async function submitStage11Decision(action) {
+    closeStage11DecisionModal();
+    if (action === "xml_srt") {
+        showToast("Generating Premiere Pro XML (.xml) & Subtitles (.srt)...", "info");
+    } else {
+        showToast("Proceeding to Stage 12: Final Master Render...", "info");
+    }
+
+    // Capture active timeline cuts if user edited them in Premiere Pro Studio NLE
+    let clipsPayload = null;
+    if (typeof window.getActiveTimelineClips === "function") {
+        const activeClips = window.getActiveTimelineClips();
+        if (activeClips && activeClips.length > 0) {
+            clipsPayload = activeClips;
+        }
+    }
+
+    try {
+        const res = await fetch("/api/pipeline/stage11-decision", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: action,
+                clips: clipsPayload
+            })
+        });
+        const result = await res.json();
+        console.log("Stage 11 decision response:", result);
+        if (result.status === "error") {
+            showToast(result.message || "Failed to process decision", "error");
+        }
+    } catch (err) {
+        console.error("Error submitting Stage 11 decision:", err);
+        showToast("Failed to submit decision: " + err.message, "error");
+    }
+}
+
+function showStage11XmlReadyModal(data) {
+    const modal = document.getElementById("stage11-xml-ready-modal");
+    if (modal) {
+        if (data.xml_filename) {
+            const xmlNameEl = document.getElementById("stage11-xml-filename");
+            if (xmlNameEl) xmlNameEl.innerText = data.xml_filename;
+            const xmlBtn = document.getElementById("stage11-xml-download-btn");
+            if (xmlBtn) {
+                xmlBtn.href = data.xml_url || `/media_final/${data.xml_filename}`;
+                xmlBtn.setAttribute("download", data.xml_filename);
+            }
+        }
+        if (data.srt_filename) {
+            const srtNameEl = document.getElementById("stage11-srt-filename");
+            if (srtNameEl) srtNameEl.innerText = data.srt_filename;
+            const srtBtn = document.getElementById("stage11-srt-download-btn");
+            if (srtBtn) {
+                srtBtn.href = data.srt_url || `/media_final/${data.srt_filename}`;
+                srtBtn.setAttribute("download", data.srt_filename);
+            }
+        }
+        modal.style.display = "flex";
+        if (window.feather) feather.replace();
+    }
+}
+
+function closeStage11XmlReadyModal() {
+    const modal = document.getElementById("stage11-xml-ready-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+window.showStage11DecisionModal = showStage11DecisionModal;
+window.closeStage11DecisionModal = closeStage11DecisionModal;
+window.submitStage11Decision = submitStage11Decision;
+window.showStage11XmlReadyModal = showStage11XmlReadyModal;
+window.closeStage11XmlReadyModal = closeStage11XmlReadyModal;
 
 
 

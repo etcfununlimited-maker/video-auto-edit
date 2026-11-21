@@ -44,7 +44,7 @@ def open_browser_when_ready():
 def main():
     print("=" * 75)
     print("            ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR")
-    print("                 Professional Windows Desktop App v3.0.0")
+    print("                 Professional Windows Desktop App v3.1.0")
     print("=" * 75)
     print()
 

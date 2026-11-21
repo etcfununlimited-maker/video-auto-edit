@@ -9,9 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Montserrat:wght@800;900&family=Bebas+Neue&family=Anton&family=Outfit:wght@800;900&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
-    <link rel="stylesheet" href="/static/style.css?v=2.8.1">
-    <link rel="stylesheet" href="/static/premiere.css?v=2.8.1">
-    <link rel="stylesheet" href="/static/director.css?v=2.8.1">
+    <link rel="stylesheet" href="/static/style.css?v=3.2.0">
+    <link rel="stylesheet" href="/static/premiere.css?v=3.2.0">
+    <link rel="stylesheet" href="/static/director.css?v=3.2.0">
 </head>
 <body>
     <!-- Top Navigation Bar -->
@@ -22,7 +22,7 @@
             </div>
             <div>
                 <h1 class="brand-title">ANIRBAN AUTOMATIONS</h1>
-                <span class="brand-subtitle">AI AUTO VIDEO EDITOR STUDIO • PRO v3.0.0</span>
+                <span class="brand-subtitle">AI AUTO VIDEO EDITOR STUDIO • PRO v3.1.0</span>
             </div>
         </div>
         
@@ -130,6 +130,16 @@
                 <input type="file" id="file-upload-input" style="display:none;" multiple accept="video/*,image/*" onchange="handleManualUpload(this)">
             </div>
 
+            <!-- Quick Batch Clip Pickers -->
+            <div class="file-batch-bar" style="display:flex; align-items:center; gap:5px; margin:4px 12px 8px; flex-wrap:wrap;">
+                <span style="font-size:10.5px; color:#94a3b8; font-weight:600;">Pick:</span>
+                <button type="button" class="btn-micro" onclick="selectFirstNClips(9)" title="Select First 9 Clips">9 Clips</button>
+                <button type="button" class="btn-micro" onclick="selectFirstNClips(12)" title="Select First 12 Clips">12 Clips</button>
+                <button type="button" class="btn-micro" onclick="selectAllRawFiles()" title="Select All Raw Clips">All</button>
+                <button type="button" class="btn-micro" onclick="clearFileSelection()" title="Clear Selection" style="color:#f87171;">Clear</button>
+                <span id="selected-count-badge" class="badge-micro" style="margin-left:auto; font-size:10.5px; background:rgba(56,189,248,0.15); color:#38bdf8; padding:2px 7px; border-radius:10px; font-weight:700;">0 selected</span>
+            </div>
+
             <!-- Scrollable File List -->
             <div class="raw-files-list" id="raw-files-list">
                 <div class="empty-state">Loading raw input folder...</div>
@@ -180,6 +190,12 @@
                     <!-- Face-Safe Kinetic Subtitle Overlay -->
                     <div class="subtitles-overlay" id="subtitles-overlay">
                         <div class="kinetic-caption-bubble" id="caption-bubble" style="display: none;"></div>
+                        <div id="hyperframe-caption-stage" class="hyperframe-caption-stage" style="position:absolute; inset:0; pointer-events:none; z-index:30;">
+                            <div id="hf-slot-bottom" class="hf-slot hf-slot-bottom"></div>
+                            <div id="hf-slot-top" class="hf-slot hf-slot-top"></div>
+                            <div id="hf-slot-left" class="hf-slot hf-slot-left"></div>
+                            <div id="hf-slot-right" class="hf-slot hf-slot-right"></div>
+                        </div>
                     </div>
 
                     <!-- 9:16 Auto-Crop Framing Guide (Visual face-tracking simulator) -->
@@ -493,6 +509,10 @@
                     <button class="btn btn-sm" id="btn-supervise-slice-sub" onclick="runSupervisionPreview()" style="width: 100%; background: linear-gradient(135deg, #065f46 0%, #047857 100%); border: 1px solid #10b981; color: #ffffff; font-weight: 700; border-radius: 6px; padding: 7px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;" title="Renders a 15-second slice in 3 seconds to supervise ducking, noise reduction and soundtrack">
                         <i data-feather="eye" style="width: 14px; height: 14px;"></i> ⚡ 15s Supervise Mix (Renders in 3s)
                     </button>
+                    <!-- Save Settings & Title Button -->
+                    <button class="btn btn-sm" id="btn-save-audio-settings" onclick="saveAudioSettingsAndTitle()" style="width: 100%; margin-top: 6px; background: #1e293b; border: 1px solid #3b82f6; color: #93c5fd; font-weight: 700; border-radius: 6px; padding: 6px 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;" title="Permanently register title changes and audio mix preferences">
+                        <i data-feather="save" style="width: 14px; height: 14px;"></i> 💾 Save Title & Audio Settings
+                    </button>
                 </div>
                 <div class="setting-toggle-row">
                     <label><input type="checkbox" id="chk-license-plate-blur" checked onchange="toggleLicensePlateBlur(this.checked)"> Auto Number Plate Privacy Blur (HSRP & Cars)</label>
@@ -576,11 +596,28 @@
 
                 <div class="premiere-master-timecode" id="p-master-timecode">00:00:00:00</div>
 
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-secondary" style="border-color:#38bdf8; color:#38bdf8;" onclick="autoPopulateInitialTimeline()">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary" style="border-color:#38bdf8; color:#38bdf8;" onclick="autoPopulateInitialTimeline()" title="Auto-populate multi-track sequence">
                         <i data-feather="refresh-cw"></i> Reset Sequence
                     </button>
-                    <button class="btn btn-primary" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); border:none;" onclick="exportTimelineSequence()">
+                    <button class="btn btn-secondary" id="btn-load-10-clips" onclick="load10ClipsMultiTrackSequence()" style="border-color:#10b981; color:#34d399; font-weight:700; display:inline-flex; align-items:center; gap:6px;" title="Load 10 clips arranged cleanly across V1, V2, V3, A1, A2">
+                        <i data-feather="layers"></i> 🎬 Multi-Track (10 Clips)
+                    </button>
+                    <div style="display:inline-flex; align-items:center; gap:4px; background:#0f172a; border:1px solid #334155; border-radius:6px; padding:2px 6px;">
+                        <span style="font-size:11px; color:#94a3b8; font-weight:600;">Quality:</span>
+                        <select id="p-export-res-select" style="background:transparent; color:#38bdf8; border:none; font-size:11.5px; font-weight:700; cursor:pointer; outline:none;">
+                            <option value="360p" selected style="background:#0f172a; color:#fff;">360p Fast Proxy (&lt;10s)</option>
+                            <option value="540p" style="background:#0f172a; color:#fff;">540p Preview</option>
+                            <option value="1080p" style="background:#0f172a; color:#fff;">1080p Full Master</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" id="btn-fast-export-10m" onclick="exportTimelineSequenceFast()" style="background:linear-gradient(135deg, #10b981, #06b6d4); border:none; font-weight:700; display:inline-flex; align-items:center; gap:6px;" title="Ultra-Fast Multi-Track Export under 10 minutes">
+                        <i data-feather="zap"></i> ⚡ Fast Export (&lt;10m)
+                    </button>
+                    <button class="btn btn-secondary" id="btn-export-premiere-xml" onclick="exportPremiereProXmlProject()" style="border-color:#a855f7; color:#c084fc; font-weight:700; display:inline-flex; align-items:center; gap:6px;" title="Export Apple FCP-XML Project for Premiere Pro 2024/2025/2026">
+                        <i data-feather="file-text"></i> 📁 Export Premiere XML
+                    </button>
+                    <button class="btn btn-primary" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); border:none;" onclick="exportTimelineSequence()" title="Export 1080p Instagram Reel">
                         <i data-feather="send"></i> Export Instagram Reel
                     </button>
                 </div>
@@ -611,13 +648,124 @@
                     </div>
 
                     <!-- Sub-view 2: Effect Controls Viewport -->
-                    <div id="p-subview-effects" class="effect-controls-body" style="display:none;">
-                        <div class="fx-group">
-                            <div class="fx-group-title"><i data-feather="move"></i> Motion (Transform & Orientation)</div>
-                            <div class="fx-row">
-                                <span>Selected Clip:</span>
-                                <span id="fx-clip-name" style="font-weight:700; color:#38bdf8;">None</span>
+                    <div id="p-subview-effects" class="effect-controls-body" style="display:none; overflow-y:auto;">
+                        <!-- Universal Selected Clip Header & Track Shifter -->
+                        <div class="fx-group" style="border-left: 3px solid #38bdf8;">
+                            <div class="fx-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span><i data-feather="layers"></i> Clip Inspector & Track Assignment</span>
+                                <span class="tab-badge" id="fx-clip-track-badge" style="background:#0284c7; color:#fff; font-size:10px;">TRACK V1</span>
                             </div>
+                            <div class="fx-row" style="margin-top:4px;">
+                                <span>Selected Clip:</span>
+                                <span id="fx-clip-name" style="font-weight:700; color:#38bdf8; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;">None</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:6px; display:flex; gap:6px;">
+                                <button class="btn btn-secondary" id="btn-fx-mute-clip" onclick="toggleSelectedClipMute()" style="font-size:11px; padding:4px 10px; display:inline-flex; align-items:center; gap:4px;">
+                                    <i data-feather="volume-x"></i> Mute Clip
+                                </button>
+                                <button class="btn btn-secondary" onclick="moveSelectedClipTrackUp()" style="font-size:11px; padding:4px 10px; display:inline-flex; align-items:center; gap:4px;" title="Move clip to track above (e.g. V1 -> V2, V2 -> V3, A2 -> A1)">
+                                    <i data-feather="arrow-up"></i> Move Up Track
+                                </button>
+                                <button class="btn btn-secondary" onclick="moveSelectedClipTrackDown()" style="font-size:11px; padding:4px 10px; display:inline-flex; align-items:center; gap:4px;" title="Move clip to track below (e.g. V3 -> V2, V2 -> V1, A1 -> A2)">
+                                    <i data-feather="arrow-down"></i> Move Down Track
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 1. Voice Audio Controls (Track A1) -->
+                        <div class="fx-group" id="fx-group-voice-audio" style="display:none; border-left: 3px solid #10b981;">
+                            <div class="fx-group-title"><i data-feather="mic"></i> Voice Dialogue Audio (Track A1)</div>
+                            <div class="fx-row">
+                                <span>Voice Volume (0%-200%):</span>
+                                <input type="range" class="fx-input-range" id="fx-voice-vol-slider" min="0" max="200" step="5" value="100" oninput="updateSelectedVoiceVolume(this.value)">
+                                <span class="fx-val-badge" id="fx-voice-vol-val">100%</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>AI Noise Suppression (0%-100%):</span>
+                                <input type="range" class="fx-input-range" id="fx-noise-slider" min="0" max="100" step="5" value="75" oninput="updateSelectedNoiseSuppression(this.value)">
+                                <span class="fx-val-badge" id="fx-noise-val" style="background:#065f46; color:#34d399;">75%</span>
+                            </div>
+                            <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Adjust volume and noise suppression for this specific dialogue clip.</div>
+                        </div>
+
+                        <!-- 2. Music Bed & Ducking Controls (Track A2) -->
+                        <div class="fx-group" id="fx-group-music-bed" style="display:none; border-left: 3px solid #8b5cf6;">
+                            <div class="fx-group-title"><i data-feather="music"></i> Background Music Bed (Track A2)</div>
+                            <div class="fx-row" style="flex-direction:column; align-items:flex-start; gap:4px; margin-bottom:8px;">
+                                <span style="font-size:11px; color:#cbd5e1; font-weight:600;">Active Music Track:</span>
+                                <div style="display:flex; width:100%; gap:6px;">
+                                    <select id="fx-music-track-select" class="control-input-text" style="flex:1; background:#0f172a; color:#fff; border:1px solid #334155; border-radius:6px; padding:4px 8px; font-size:12px;" onchange="changeSelectedMusicTrack(this.value)">
+                                    </select>
+                                    <button class="btn btn-primary" onclick="setBinTab('music')" title="Open Royalty-Free Music Library" style="background:#8b5cf6; border:none; padding:4px 10px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                        <i data-feather="music"></i> Library
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="fx-row">
+                                <span>Music Volume (0%-150%):</span>
+                                <input type="range" class="fx-input-range" id="fx-music-vol-slider" min="0" max="150" step="5" value="40" oninput="updateSelectedMusicVolume(this.value)">
+                                <span class="fx-val-badge" id="fx-music-vol-val">40%</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Dynamic Music Ducking (0%-100%):</span>
+                                <input type="range" class="fx-input-range" id="fx-ducking-slider" min="0" max="100" step="5" value="75" oninput="updateSelectedMusicDucking(this.value)">
+                                <span class="fx-val-badge" id="fx-ducking-val" style="background:#4c1d95; color:#c084fc;">75%</span>
+                            </div>
+                            <div style="display:flex; gap:8px; margin-top:10px;">
+                                <button class="btn btn-sm" onclick="extendMusicToSequenceEnd()" style="background:#334155; color:#e2e8f0; border:1px solid #475569; padding:4px 8px; font-size:11px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Extend music to end of video sequence">
+                                    <i data-feather="maximize-2"></i> Extend to Sequence End
+                                </button>
+                                <button class="btn btn-sm" onclick="addAnotherMusicClipAtPlayhead()" style="background:#1e293b; color:#38bdf8; border:1px solid #38bdf8; padding:4px 8px; font-size:11px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Add another music clip at current playhead">
+                                    <i data-feather="plus"></i> Add Clip at Playhead
+                                </button>
+                            </div>
+                            <div style="font-size:11px; color:#94a3b8; margin-top:6px;">Lowers background music automatically while speech/dialogue is active.</div>
+                        </div>
+
+                        <!-- 3. Depth Title & Typography Controls (Track V3) -->
+                        <div class="fx-group" id="fx-group-title-v3" style="display:none; border-left: 3px solid #f43f5e;">
+                            <div class="fx-group-title"><i data-feather="type"></i> Depth Typography & Title (Track V3)</div>
+                            <div class="fx-row" style="flex-direction:column; align-items:flex-start; gap:6px;">
+                                <span>Title Content:</span>
+                                <div style="display:flex; width:100%; gap:6px;">
+                                    <input type="text" id="fx-title-text-input" class="control-input-text" value="RANN OF KUTCH | BHUJ | SOMNATH VLOG" style="flex:1; font-weight:700;" oninput="updateSelectedTitleText(this.value)">
+                                    <button class="btn btn-primary" onclick="saveSelectedTitleClip()" style="background:#10b981; border:none; padding:4px 10px; font-size:11px; font-weight:700; white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">
+                                        <i data-feather="save"></i> Save Title
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Font Family:</span>
+                                <select class="control-select" id="fx-title-font-select" onchange="updateSelectedTitleFont(this.value)" style="padding:4px 8px; font-size:11.5px;">
+                                    <option value="Montserrat" selected>Montserrat (Heavy 900)</option>
+                                    <option value="Impact">Impact (Bold)</option>
+                                    <option value="Bebas Neue">Bebas Neue (Clean Cinema)</option>
+                                </select>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Neon Glow Radius:</span>
+                                <input type="range" class="fx-input-range" id="fx-title-glow-slider" min="0" max="50" value="24" oninput="updateSelectedTitleGlow(this.value)">
+                                <span class="fx-val-badge" id="fx-title-glow-val">24px</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Vertical Position (Y):</span>
+                                <input type="range" class="fx-input-range" id="fx-title-pos-slider" min="-120" max="120" value="0" oninput="updateSelectedTitlePosY(this.value)">
+                                <span class="fx-val-badge" id="fx-title-pos-val">0px</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Size (Scale):</span>
+                                <input type="range" class="fx-input-range" id="fx-title-scale-slider" min="50" max="180" value="100" oninput="updateSelectedTitleScale(this.value)">
+                                <span class="fx-val-badge" id="fx-title-scale-val">100%</span>
+                            </div>
+                            <div class="fx-row" style="margin-top:8px;">
+                                <span>Depth Layer:</span>
+                                <span style="font-size:11px; color:#38bdf8; font-weight:700;"><i data-feather="layers" style="width:12px; height:12px;"></i> Behind Speaker (Active)</span>
+                            </div>
+                        </div>
+
+                        <!-- 4. Video Motion & Transform Controls (Track V1 / V2) -->
+                        <div class="fx-group" id="fx-group-video-motion">
+                            <div class="fx-group-title"><i data-feather="move"></i> Motion (Transform & Orientation)</div>
                             <div class="fx-row">
                                 <span>Scale (Zoom):</span>
                                 <input type="range" class="fx-input-range" id="fx-scale-slider" min="50" max="250" value="100" oninput="updateSelectedClipScale(this.value)">
@@ -645,7 +793,7 @@
                             </div>
                         </div>
 
-                        <div class="fx-group">
+                        <div class="fx-group" id="fx-group-velocity">
                             <div class="fx-group-title"><i data-feather="zap"></i> Velocity Ramp (Clip Speed)</div>
                             <div class="fx-row">
                                 <span>Clip Speed:</span>
@@ -654,7 +802,7 @@
                             </div>
                         </div>
 
-                        <div class="fx-group">
+                        <div class="fx-group" id="fx-group-opacity">
                             <div class="fx-group-title"><i data-feather="eye"></i> Opacity & Blending</div>
                             <div class="fx-row">
                                 <span>Opacity:</span>
@@ -706,6 +854,23 @@
 
                     <div class="monitor-viewport-wrapper">
                         <video id="p-program-video" class="monitor-video"></video>
+                        <!-- Secondary V2 Overlay Video Track Display -->
+                        <video id="p-program-v2-overlay" class="program-v2-overlay" muted playsinline style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; pointer-events:none; z-index:11;"></video>
+                        <!-- V3 Depth Title Live Display (RANN OF KUTCH | BHUJ | SOMNATH VLOG) -->
+                        <div id="p-program-depth-overlay" class="program-depth-overlay" style="display:none;">
+                            <div id="p-program-depth-text" class="program-depth-text">RANN OF KUTCH | BHUJ | SOMNATH VLOG</div>
+                        </div>
+                        <!-- Foreground Subject Cutout (Layer 10: In Front of Depth Text) -->
+                        <canvas id="p-program-foreground-canvas" class="program-foreground-canvas" style="display:none; position:absolute; inset:0; width:100%; height:100%; object-fit:contain; pointer-events:none; z-index:10;"></canvas>
+                        <!-- Premiere Pro Program Monitor HyperFrame Captions Overlay (Layer 12) -->
+                        <div id="p-hyperframe-caption-stage" class="hyperframe-caption-stage" style="position:absolute; inset:0; pointer-events:none; z-index:12;">
+                            <div id="p-hf-slot-bottom" class="hf-slot hf-slot-bottom"></div>
+                            <div id="p-hf-slot-top" class="hf-slot hf-slot-top"></div>
+                            <div id="p-hf-slot-left" class="hf-slot hf-slot-left"></div>
+                            <div id="p-hf-slot-right" class="hf-slot hf-slot-right"></div>
+                        </div>
+                        <!-- Multi-Track Audio Music Bed Player (A2 Track) -->
+                        <audio id="p-timeline-music-player" preload="auto" style="display:none;"></audio>
                         <!-- Instagram 9:16 Phone Overlay -->
                         <div class="instagram-phone-frame active" id="p-instagram-phone-frame">
                             <div class="ig-frame-header">
@@ -761,6 +926,9 @@
                             <button class="panel-tab" id="tab-bin-director" onclick="setBinTab('director')">
                                 <i data-feather="sliders"></i> AI Director (50+ FX)
                             </button>
+                            <button class="panel-tab" id="tab-bin-music" onclick="setBinTab('music')">
+                                <i data-feather="music"></i> Music Library
+                            </button>
                         </div>
                     </div>
 
@@ -782,6 +950,17 @@
                     <div id="p-bin-director-view" class="director-bin-body" style="display:none; overflow-y:auto; padding:12px; height:calc(100% - 40px);">
                         <!-- Rendered dynamically by director.js -->
                     </div>
+
+                    <!-- Bin Sub-view 4: Music Bed Tracks -->
+                    <div id="p-bin-music-view" class="media-bin-body" style="display:none; padding:10px; overflow-y:auto; max-height:calc(100% - 40px);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:6px 10px; background:rgba(30,41,59,0.7); border-radius:8px;">
+                            <span style="font-size:12px; font-weight:700; color:#c084fc;"><i data-feather="music"></i> Royalty-Free Music Library (28 Tracks)</span>
+                            <span style="font-size:11px; color:#94a3b8;">Click to replace or add to Track A2</span>
+                        </div>
+                        <div id="p-media-bin-music" style="display:flex; flex-direction:column; gap:8px; width:100%;">
+                            <!-- Populated dynamically via premiere.js -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Bottom-Right: Multi-Track Timeline Sequence -->
@@ -794,7 +973,15 @@
                             <button class="tool-btn" data-tool="ripple" onclick="setEditorTool('ripple')" title="Ripple Edit (B)"><i data-feather="align-left"></i></button>
                             <button class="tool-btn" data-tool="text" onclick="setEditorTool('text')" title="Text Tool (T)"><i data-feather="type"></i></button>
                             <button class="tool-btn" onclick="deleteSelectedTimelineClip()" title="Delete Selected Clip (Del)"><i data-feather="trash-2"></i></button>
+                            <button class="tool-btn" onclick="clearTimeline()" title="Clear Timeline / Remove All Clips (Ctrl+A then Del)" style="color:#f87171;"><i data-feather="trash"></i></button>
                             <button class="tool-btn" onclick="rippleDeleteAllTimelineGaps()" title="Snap to 0:00 / Ripple Delete Gaps (Magnet)" style="color:#38bdf8;"><i data-feather="chevrons-left"></i></button>
+                            <div style="width:1px; height:18px; background:rgba(255,255,255,0.15); margin:0 4px;"></div>
+                            <button class="tool-btn" id="btn-timeline-undo" onclick="undoTimelineAction()" title="Undo (Ctrl+Z)"><i data-feather="rotate-ccw"></i></button>
+                            <button class="tool-btn" id="btn-timeline-redo" onclick="redoTimelineAction()" title="Redo (Ctrl+Y)"><i data-feather="rotate-cw"></i></button>
+                            <div style="width:1px; height:18px; background:rgba(255,255,255,0.15); margin:0 4px;"></div>
+                            <button class="tool-btn" onclick="loadNClipsMultiTrackSequence(9)" title="Load 9 Clips Sequence" style="font-size:11px; font-weight:700; color:#38bdf8; width:auto; padding:0 6px;">+9</button>
+                            <button class="tool-btn" onclick="loadNClipsMultiTrackSequence(12)" title="Load 12 Clips Sequence" style="font-size:11px; font-weight:700; color:#38bdf8; width:auto; padding:0 6px;">+12</button>
+                            <button class="tool-btn" onclick="loadSelectedClipsToTimeline()" title="Load Selected Media Pool Clips to Timeline" style="font-size:10.5px; font-weight:700; color:#10b981; width:auto; padding:0 6px;">+Sel</button>
                         </div>
 
                         <div style="display:flex; align-items:center; gap:10px;">
@@ -953,7 +1140,7 @@
 
                         <!-- Live Rendered Depth Text Behind Person -->
                         <div class="depth-live-text-layer" id="depth-live-text">
-                            RANN OF KUTCH | SOMNATH
+                            RANN OF KUTCH | BHUJ | SOMNATH VLOG
                         </div>
                     </div>
 
@@ -961,10 +1148,16 @@
                     <div class="depth-controls-column">
                         <!-- Text Input & Quick Suggestions -->
                         <div class="control-field-row">
-                            <label>Text Content <span>(Displays in massive bold typography)</span></label>
-                            <input type="text" class="control-input-text" id="depth-input-text" value="RANN OF KUTCH | SOMNATH" placeholder="e.g. RANN OF KUTCH | SOMNATH, TRIP TO KUTCH" oninput="onDepthTextParamChange('text', this.value)">
-                            <div class="swatches-row" style="margin-top: 4px;">
+                            <label>Text Content <span>(Displays in massive bold typography behind subject)</span></label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" class="control-input-text" id="depth-input-text" value="RANN OF KUTCH | BHUJ | SOMNATH VLOG" placeholder="e.g. RANN OF KUTCH | BHUJ | SOMNATH VLOG" oninput="onDepthTextParamChange('text', this.value)" style="flex: 1;">
+                                <button class="btn btn-primary" id="btn-save-depth-title" onclick="saveDepthTextExplicitly()" title="Click to register and permanently save title changes" style="background: #10b981; border: none; padding: 8px 14px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-size: 12px; color: #fff;">
+                                    <i data-feather="save"></i> Save Title
+                                </button>
+                            </div>
+                            <div class="swatches-row" style="margin-top: 6px;">
                                 <span style="font-size: 11px; color: #64748b; font-weight: 600;">Quick Ideas:</span>
+                                <button class="btn-micro" onclick="setDepthPresetText('RANN OF KUTCH | BHUJ | SOMNATH VLOG')">BHUJ | SOMNATH VLOG</button>
                                 <button class="btn-micro" onclick="setDepthPresetText('RANN OF KUTCH | SOMNATH')">KUTCH | SOMNATH</button>
                                 <button class="btn-micro" onclick="setDepthPresetText('RANN OF KUTCH')">RANN OF KUTCH</button>
                                 <button class="btn-micro" onclick="setDepthPresetText('TRIP TO KUTCH')">TRIP TO KUTCH</button>
@@ -972,7 +1165,6 @@
                                 <button class="btn-micro" onclick="setDepthPresetText('DAY 1')">DAY 1</button>
                                 <button class="btn-micro" onclick="setDepthPresetText('EXPLORE')">EXPLORE</button>
                                 <button class="btn-micro" onclick="setDepthPresetText('BEHIND THE SCENES')">BTS</button>
-                                <button class="btn-micro" onclick="setDepthPresetText('UNSTOPPABLE')">UNSTOPPABLE</button>
                             </div>
                         </div>
 
@@ -1288,11 +1480,117 @@
         </div>
     </div>
 
+    <!-- Stage 11 Export Decision Gate Modal (Premiere Pro XML+SRT vs Stage 12 Master Render) -->
+    <div class="completion-modal-backdrop" id="stage11-decision-modal" style="display: none; z-index: 99999;">
+        <div class="completion-modal-card" style="max-width: 720px;">
+            <div class="completion-celebrate-glow" style="background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);"></div>
+            <button class="completion-close-icon" onclick="closeStage11DecisionModal()"><i data-feather="x"></i></button>
+            <div class="completion-badge-container">
+                <div class="completion-badge-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);">
+                    <i data-feather="layers"></i>
+                </div>
+                <div class="completion-badge-pulse" style="border-color: #8b5cf6;"></div>
+            </div>
+            
+            <h2 class="completion-title" style="margin-top: 15px;">🎬 STAGE 11 COMPLETE: EXPORT DECISION</h2>
+            <p class="completion-subtitle" style="max-width: 600px; margin: 0 auto 24px auto;">
+                AI Director Storyline & Sequence Orchestration is done! Choose how you would like to finalize your project:
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px;">
+                <!-- OPTION 1: Generate XML & SRT -->
+                <div class="stage11-choice-card" onclick="submitStage11Decision('xml_srt')" style="background: rgba(30, 41, 59, 0.75); border: 2px solid rgba(99, 102, 241, 0.45); border-radius: 12px; padding: 22px; text-align: left; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(99, 102, 241, 0.2); display: flex; align-items: center; justify-content: center; color: #818cf8; flex-shrink: 0;">
+                                <i data-feather="file-text"></i>
+                            </div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Option 1: Premiere Pro XML + SRT</h3>
+                        </div>
+                        <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.5; margin-bottom: 18px;">
+                            Generate an FCP-XML (<code style="color:#a5b4fc; background: rgba(99,102,241,0.15); padding: 2px 5px; border-radius: 4px;">.xml</code>) timeline project and synchronized subtitle file (<code style="color:#a5b4fc; background: rgba(99,102,241,0.15); padding: 2px 5px; border-radius: 4px;">.srt</code>) containing all cuts, audio tracks (A1 Voice, A2 Music), and depth titles on V3 for fine-tuning inside Adobe Premiere Pro. Exits pipeline cleanly.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; justify-content: center; background: #6366f1; border-color: #6366f1;" onclick="event.stopPropagation(); submitStage11Decision('xml_srt')">
+                        <i data-feather="file-text"></i> Generate XML + SRT & Exit
+                    </button>
+                </div>
+
+                <!-- OPTION 2: Proceed to Stage 12 Render -->
+                <div class="stage11-choice-card render-card" onclick="submitStage11Decision('render')" style="background: rgba(30, 41, 59, 0.75); border: 2px solid rgba(16, 185, 129, 0.45); border-radius: 12px; padding: 22px; text-align: left; cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                            <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(16, 185, 129, 0.2); display: flex; align-items: center; justify-content: center; color: #34d399; flex-shrink: 0;">
+                                <i data-feather="film"></i>
+                            </div>
+                            <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc;">Option 2: Stage 12 Master Render</h3>
+                        </div>
+                        <p style="font-size: 12.5px; color: #94a3b8; line-height: 1.5; margin-bottom: 18px;">
+                            Move directly to Stage 12 to encode and render the complete full-length master 1080p MP4 movie with all transitions, depth neon titles, color grades, and auto-ducked soundtrack burned in.
+                        </p>
+                    </div>
+                    <button class="btn btn-success" style="width: 100%; justify-content: center; background: #10b981; border-color: #10b981;" onclick="event.stopPropagation(); submitStage11Decision('render')">
+                        <i data-feather="video"></i> Proceed to Stage 12 Render
+                    </button>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; color: #64748b; text-align: center;">
+                <i data-feather="info" style="width: 13px; height: 13px; vertical-align: middle;"></i>
+                You can import the generated XML into Adobe Premiere Pro via <em>File &gt; Import</em>.
+            </div>
+        </div>
+    </div>
+
+    <!-- Premiere Pro Project (.xml & .srt) Ready Modal -->
+    <div class="completion-modal-backdrop" id="stage11-xml-ready-modal" style="display: none; z-index: 99999;">
+        <div class="completion-modal-card" style="max-width: 620px;">
+            <div class="completion-celebrate-glow" style="background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);"></div>
+            <button class="completion-close-icon" onclick="closeStage11XmlReadyModal()"><i data-feather="x"></i></button>
+            <div class="completion-badge-container">
+                <div class="completion-badge-icon" style="background: linear-gradient(135deg, #10b981, #06b6d4); box-shadow: 0 0 25px rgba(16, 185, 129, 0.5);">
+                    <i data-feather="check"></i>
+                </div>
+                <div class="completion-badge-pulse" style="border-color: #10b981;"></div>
+            </div>
+
+            <h2 class="completion-title" style="margin-top: 15px;">📄 PREMIERE PRO PROJECT READY!</h2>
+            <p class="completion-subtitle" style="max-width: 520px; margin: 0 auto 20px auto;">
+                Your Adobe Premiere Pro XML sequence and synchronized Subtitles have been generated and saved to <code style="color:#34d399;">final_export/</code>.
+            </p>
+
+            <div class="completion-stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="file-text"></i> Sequence Timeline</span>
+                    <span class="comp-stat-val" id="stage11-xml-filename" style="font-size: 13px; word-break: break-all;">PREMIERE_PRO_PROJECT.xml</span>
+                </div>
+                <div class="comp-stat-card">
+                    <span class="comp-stat-label"><i data-feather="message-square"></i> Subtitles File</span>
+                    <span class="comp-stat-val" id="stage11-srt-filename" style="font-size: 13px; word-break: break-all;">CAPTIONS.srt</span>
+                </div>
+            </div>
+
+            <div class="completion-actions-container" style="flex-direction: column; gap: 10px;">
+                <div style="display: flex; gap: 10px; width: 100%;">
+                    <a id="stage11-xml-download-btn" href="/media_final/PREMIERE_PRO_PROJECT.xml" download="PREMIERE_PRO_PROJECT.xml" class="btn btn-primary" style="flex: 1; justify-content: center; background: #6366f1; border-color: #6366f1;">
+                        <i data-feather="download"></i> Download .XML Project
+                    </a>
+                    <a id="stage11-srt-download-btn" href="/media_final/CAPTIONS.srt" download="CAPTIONS.srt" class="btn btn-secondary" style="flex: 1; justify-content: center;">
+                        <i data-feather="download"></i> Download .SRT Subtitles
+                    </a>
+                </div>
+                <button class="btn btn-outline" style="width: 100%; justify-content: center;" onclick="openExportFolderFromPopup()">
+                    <i data-feather="folder"></i> Open Export Folder
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Master Export Completed Modal Pop-up (Prominent Notification & Action Hub) -->
     <div class="completion-modal-backdrop" id="completion-modal" style="display: none;">
         <div class="completion-modal-card">
             <div class="completion-celebrate-glow"></div>
-            <button class="completion-close-icon" onclick="closeCompletionModal()"><i data-feather="x"></i></button>
+            <button id="btn-close-completion-modal" class="completion-close-icon" onclick="closeCompletionModal()"><i data-feather="x"></i></button>
             <div class="completion-badge-container">
                 <div class="completion-badge-icon">
                     <i data-feather="check-circle"></i>
@@ -1343,9 +1641,9 @@
         </div>
     </div>
 
-    <script src="/static/app.js?v=2.8.1"></script>
-    <script src="/static/premiere.js?v=2.8.1"></script>
-    <script src="/static/director.js?v=2.8.1"></script>
+    <script src="/static/app.js?v=3.3.0"></script>
+    <script src="/static/premiere.js?v=3.3.0"></script>
+    <script src="/static/director.js?v=3.3.0"></script>
     <script>
         feather.replace();
     </script>

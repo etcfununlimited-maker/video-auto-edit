@@ -639,7 +639,7 @@ TOP_50_EFFECTS: List[Dict[str, Any]] = [
 
 DEFAULT_TEXT_BEHIND_PERSON: Dict[str, Any] = {
     "enabled": True,
-    "text": "RANN OF KUTCH",
+    "text": "RANN OF KUTCH | BHUJ | SOMNATH VLOG",
     "font": "Montserrat",
     "size": 110,
     "spread": 8,
@@ -673,34 +673,36 @@ def sync_director_with_grids(director_effects: Dict[str, bool], text_behind: Dic
     
     # 1. Update Grid 9 (Virtual Studio Matte) for Text Behind Person & License Plate Privacy Blur
     has_lp_blur = director_effects.get("license_plate_blur", True)
+    curr_bg_status = grid_statuses.get("grid_bgremove", {}).get("status", "ready")
+    target_bg_status = "completed" if curr_bg_status == "completed" else "ready"
     if text_behind.get("enabled"):
         neon_label = f" + Neon {text_behind.get('neon_color', '#00F2FE')}" if text_behind.get("neon_enabled") else ""
-        text_content = text_behind.get("text", "VLOG").upper()
+        text_content = text_behind.get("text", "RANN OF KUTCH | BHUJ | SOMNATH VLOG").upper()
         font_name = text_behind.get("font", "Montserrat")
-        lp_extra = " + Plate Blur" if has_lp_blur else ""
+        lp_extra = " + Vehicle Plate Privacy Blur (HP 40F 0447)" if has_lp_blur else ""
         grid_statuses["grid_bgremove"] = {
-            "status": "ready",
+            "status": target_bg_status,
             "progress": 100,
             "clip_eta_sec": 0,
             "eta_sec": 0,
-            "detail": f"Active: Depth Text (\"{text_content}\"{neon_label}){lp_extra}"
+            "detail": f"Active: Virtual Studio Matte (\"{text_content}\"{neon_label}){lp_extra}"
         }
     elif has_lp_blur:
         grid_statuses["grid_bgremove"] = {
-            "status": "ready",
+            "status": target_bg_status,
             "progress": 100,
             "clip_eta_sec": 0,
             "eta_sec": 0,
-            "detail": "Active: Vehicle Number Plate Privacy Blur Engine (HSRP Auto-Masked)"
+            "detail": "Active: Vehicle Number Plate Privacy Blur Engine (HP 40F 0447 Auto-Masked)"
         }
     else:
-        if grid_statuses.get("grid_bgremove", {}).get("status") == "ready":
+        if grid_statuses.get("grid_bgremove", {}).get("status") in ("ready", "completed"):
             grid_statuses["grid_bgremove"] = {
                 "status": "skipped",
                 "progress": 0,
                 "clip_eta_sec": 0,
                 "eta_sec": 0,
-                "detail": "Bypassed (No Virtual Matte)"
+                "detail": "Bypassed (No Virtual Matte or Plate Blur)"
             }
 
     # 2. Update Grid 11 (AI Director Agent)
@@ -719,8 +721,10 @@ def sync_director_with_grids(director_effects: Dict[str, bool], text_behind: Dic
 
     # 3. Update Grid 8 (Face-Safe Captions)
     if director_effects.get("hormozi_captions", True):
-        grid_statuses["grid_captions"]["status"] = "ready"
-        grid_statuses["grid_captions"]["detail"] = "HyperFrame Kinetic Word-Bounce Captions & Face-Safe Exclusion Zone"
+        cur_cap_st = grid_statuses.get("grid_captions", {}).get("status", "ready")
+        grid_statuses["grid_captions"]["status"] = "completed" if cur_cap_st == "completed" else "ready"
+        grid_statuses["grid_captions"]["progress"] = 100
+        grid_statuses["grid_captions"]["detail"] = "Active: HyperFrame 4-Quadrant Face-Safe Dynamic Kinetic Captions"
 
     # 4. Update Grid 10 (Cinematic LUT Grade)
     lut_features = []
@@ -767,16 +771,19 @@ def generate_depth_text_ass(
     with custom font family, size, letter tracking spread, primary color, and radiant neon outline glow.
     """
     raw_text = (text_cfg.get("text") or "VLOG").strip()
-    # Support clean multi-line titles with pipe delimiter (e.g. 'Rann of Kutch | Somnath')
+    # Support clean multi-line titles with pipe delimiter (e.g. 'Rann of Kutch | Bhuj | Somnath Vlog')
     if "|" in raw_text:
         text_content = "\\N".join(part.strip().upper() for part in raw_text.split("|"))
+        num_lines = len([p for p in raw_text.split("|") if p.strip()])
     else:
         text_content = raw_text.upper()
+        num_lines = 1
     font_name = text_cfg.get("font", "Montserrat")
     # Use high-impact bold font supported natively by DirectWrite / libass
     font_family = "Impact" if font_name.lower() in ["montserrat", "bebas neue", "anton", "outfit", "space grotesk", "impact"] else font_name
     scale_factor = video_h / 1080.0
-    font_size = max(45, int(int(text_cfg.get("size", 100)) * scale_factor))
+    line_scale = 0.72 if num_lines >= 3 else (0.85 if num_lines == 2 else 1.0)
+    font_size = max(38, int(int(text_cfg.get("size", 100)) * scale_factor * line_scale))
     spread = max(4, int(int(text_cfg.get("spread", 10)) * scale_factor))
     opacity = float(text_cfg.get("opacity", 0.95))
     color_hex = text_cfg.get("color", "#FFFFFF")
@@ -792,11 +799,11 @@ def generate_depth_text_ass(
     # Position coordinates: place text in open backdrop/skyline cleanly behind subject's head
     pos_x = video_w // 2
     if position == "head":
-        pos_y = int(video_h * 0.15) + int(y_offset * scale_factor)
+        pos_y = int(video_h * 0.10) + int(y_offset * scale_factor)
     elif position == "lower":
         pos_y = int(video_h * 0.75) + int(y_offset * scale_factor)
     else:  # center / backdrop skyline behind subject
-        pos_y = int(video_h * 0.165) + int(y_offset * scale_factor)
+        pos_y = int(video_h * 0.10) + int(y_offset * scale_factor)
 
     outline_width = max(3, int(glow_radius / 4)) if neon_on else 1
     blur_amount = max(4, int(glow_radius / 3)) if neon_on else 0

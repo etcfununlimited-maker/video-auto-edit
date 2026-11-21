@@ -1,8 +1,35 @@
-# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.0.0)
+# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.1.0)
 
 An AI-powered automated video editing studio designed for high-retention content creation, viral social media reframing, intelligent scene preservation, and code-driven motion graphics.
 
 Built specifically to process **standard MP4s, iPhone 16 HEVC / Apple ProRes / HDR footage, Android, and DSLR media** with a unified 12-Grid progress tracking dashboard.
+
+---
+
+## 🚀 Major Release Milestone: What's New in v3.1.0
+
+1. **Premiere Pro & Instagram Multi-Track NLE Studio (V1–V4, A1–A2)**
+   - Per-track and per-clip interactive editing: Track V1 (10 Master Video Clips), Track V2 (Title Overlay Graphic), Track V3 (Hormozi Kinetic Dynamic Animated Overlay), Track V4 (Native Editable Title Generator), Track A1 (Voice Dialogue with Denoise & Level Filters), Track A2 (Music Bed with Auto-Ducking Envelopes).
+   - Per-clip volume control, mute toggles, noise suppression sliders (0–100%), and interactive track movement.
+
+2. **Automated 1-Click Premiere Pro 2024 / 2025 / 2026 Import Automation**
+   - Native Windows automation script (`scripts/import_to_premiere.py`) that focuses running Premiere Pro and executes 1-click import for `PREMIERE_PRO_PROJECT.xml` and `CAPTIONS.srt`.
+   - Broadcast-compliant Apple FCP XML (xmeml v4) architecture with strictly monotonic keyframes, stereo output mapping, and frame-accurate timecodes.
+
+3. **Frame-Accurate Hormozi Kinetic Animated Overlay for Premiere Pro**
+   - Renders 32-bit transparent QuickTime animation (`PREMIERE_HORMUZI_CAPTIONS.mov`) with alpha channel transparency.
+   - Word-by-word bounce pop scaling (135% -> 100%), Electric Yellow active word highlights (`#FFE500`), thick black outline, and face-safe positioning. Composites natively over video in Premiere Pro.
+
+4. **Sequence-Aware Multi-Clip Caption Stitcher**
+   - `get_sequence_aligned_words` dynamically pulls exact transcripts for all 10 sequence clips from `.transcript_cache_*.json`.
+   - Offsets word timestamps by exact head positions on the timeline, generating frame-accurate `CAPTIONS.srt` matching Clip 1 to Clip 10 with zero drift.
+
+5. **Curated 13-Track Active Royalty-Free Music Library**
+   - Active library curated to 13 high-energy tracks: Airport Lounge, B-Roll, Big Rock, Carefree, Cool Rock, Daily Beetle, Funkorama, Life of Riley, Pamgaea, Protofunk, Somewhere Sunny, Upbeat Forever, and Werq.
+   - 16 secondary tracks safely archived to `raw_input/MUSIC/library`.
+
+6. **Fast 360p / 260p Proxy Multi-Track Render (<10 mins)**
+   - Multi-track timeline preview and fast proxy exports with Clarendon / Instagram color grading.
 
 ---
 

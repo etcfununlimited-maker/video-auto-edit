@@ -10,13 +10,24 @@ import cv2
 from pathlib import Path
 from backend.config import FFMPEG_PATH, UPLOADS_DIR
 
+_PROBE_CACHE = {}
+
 def probe_media(file_path: str) -> dict:
     """
     Extracts deep metadata from media files using FFmpeg / OpenCV.
+    Uses in-memory cache to guarantee instantaneous performance on large directories.
     """
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Media file not found: {file_path}")
+
+    try:
+        mtime = path.stat().st_mtime
+        cache_key = (str(path.resolve()), mtime)
+        if cache_key in _PROBE_CACHE:
+            return dict(_PROBE_CACHE[cache_key])
+    except Exception:
+        cache_key = None
 
     meta = {
         "filename": path.name,
@@ -91,6 +102,9 @@ def probe_media(file_path: str) -> dict:
 
     except Exception as e:
         print(f"FFmpeg probe error: {e}")
+
+    if cache_key:
+        _PROBE_CACHE[cache_key] = dict(meta)
 
     return meta
 
