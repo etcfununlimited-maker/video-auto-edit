@@ -94,24 +94,42 @@ def get_editor_media_pool() -> dict:
                     pass
 
     raws = []
+    photo_exts = {".jpg", ".jpeg", ".png", ".heic", ".webp"}
     if RAW_INPUT_DIR.exists():
         for f in sorted(RAW_INPUT_DIR.iterdir()):
-            if f.is_file() and f.suffix.lower() in exts:
-                try:
-                    meta = probe_media(str(f))
-                    raws.append({
-                        "name": f.name,
-                        "type": "raw_clip",
-                        "path": str(f),
-                        "url": f"/media_raw/{f.name}",
-                        "duration": round(meta.get("duration", 0), 2),
-                        "width": meta.get("width", 1920),
-                        "height": meta.get("height", 1080),
-                        "fps": meta.get("fps", 30.0),
-                        "size_mb": round(f.stat().st_size / (1024 * 1024), 2)
-                    })
-                except Exception:
-                    pass
+            if f.is_file():
+                ext = f.suffix.lower()
+                if ext in exts:
+                    try:
+                        meta = probe_media(str(f))
+                        raws.append({
+                            "name": f.name,
+                            "type": "raw_clip",
+                            "path": str(f),
+                            "url": f"/media_raw/{f.name}",
+                            "duration": round(meta.get("duration", 0), 2),
+                            "width": meta.get("width", 1920),
+                            "height": meta.get("height", 1080),
+                            "fps": meta.get("fps", 30.0),
+                            "size_mb": round(f.stat().st_size / (1024 * 1024), 2)
+                        })
+                    except Exception:
+                        pass
+                elif ext in photo_exts:
+                    try:
+                        raws.append({
+                            "name": f.name,
+                            "type": "photo_clip",
+                            "path": str(f),
+                            "url": f"/media_raw/{f.name}",
+                            "duration": 4.0,
+                            "width": 1920,
+                            "height": 1080,
+                            "fps": 30.0,
+                            "size_mb": round(f.stat().st_size / (1024 * 1024), 2)
+                        })
+                    except Exception:
+                        pass
 
     # Music Library Scan from raw_input/MUSIC
     music_tracks = []

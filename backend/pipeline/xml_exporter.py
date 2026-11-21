@@ -246,6 +246,11 @@ def render_hormuzi_overlay_mov(
     total_sec = sum(float(c.get("duration", 4.0)) for c in clips)
     total_sec = max(2.0, total_sec)
 
+    if total_sec > 300.0:
+        # Long sequence: avoid generating 150,000+ blank alpha frames; CAPTIONS.srt provides full subtitles natively
+        print(f"[render_hormuzi_overlay_mov] Sequence is {total_sec:.1f}s (>300s). Subtitles fully provided via synchronized CAPTIONS.srt.")
+        return ""
+
     ass_path = FINAL_EXPORT_DIR / "PREMIERE_HORMUZI_CAPTIONS.ass"
     generate_ass_subtitles(
         words=words,
@@ -320,14 +325,17 @@ def export_premiere_fcp_xml(
         ])
         for f in raw_vids:
             if f.name not in existing_names:
+                m_vid = probe_media(str(f))
+                v_dur = float(m_vid.get("duration", 0.0)) if m_vid else 0.0
+                actual_v_dur = v_dur if v_dur > 0.1 else 4.0
                 v1_clips.append({
                     "id": f"v1_clip_{len(v1_clips)+1}",
                     "path": str(f),
                     "name": f.name,
                     "track": "V1",
                     "in_point": 0.0,
-                    "duration": 4.0,
-                    "out_point": 4.0,
+                    "duration": actual_v_dur,
+                    "out_point": actual_v_dur,
                     "volume": 100,
                     "noise_suppression": 75,
                     "muted": False
@@ -335,6 +343,39 @@ def export_premiere_fcp_xml(
                 existing_names.add(f.name)
                 if len(v1_clips) >= ensure_min_clips:
                     break
+
+    # Strictly enforce:
+    # 1. Every video clip imports at its 100% full, uncut camera duration.
+    # 2. Photos receive a standard 4.0-second hold.
+    sanitized_v1 = []
+    for c in v1_clips:
+        c_item = dict(c)
+        c_path = c_item.get("path", "")
+        p_obj = Path(c_path)
+        if not p_obj.exists():
+            if (RAW_INPUT_DIR / p_obj.name).exists():
+                p_obj = RAW_INPUT_DIR / p_obj.name
+                c_item["path"] = str(p_obj)
+            elif (FINAL_EXPORT_DIR / p_obj.name).exists():
+                p_obj = FINAL_EXPORT_DIR / p_obj.name
+                c_item["path"] = str(p_obj)
+
+        ext = p_obj.suffix.lower()
+        is_photo = ext in {".jpg", ".jpeg", ".png", ".heic", ".webp"}
+        meta = probe_media(str(p_obj)) if p_obj.exists() else {}
+        raw_dur = float(meta.get("duration", 0.0)) if meta else 0.0
+
+        if is_photo:
+            c_item["duration"] = 4.0
+            c_item["in_point"] = 0.0
+            c_item["out_point"] = 4.0
+        else:
+            actual_dur = raw_dur if raw_dur > 0.1 else float(c_item.get("duration", 4.0))
+            c_item["duration"] = actual_dur
+            c_item["in_point"] = 0.0
+            c_item["out_point"] = actual_dur
+        sanitized_v1.append(c_item)
+    v1_clips = sanitized_v1
 
     # Calculate total duration in frames
     total_frames = 0
@@ -395,11 +436,13 @@ def export_premiere_fcp_xml(
                 p_obj = FINAL_EXPORT_DIR / p_obj.name
 
         meta = probe_media(str(p_obj)) if p_obj.exists() else {}
-        file_dur = float(meta.get("duration", 10.0))
+        ext = p_obj.suffix.lower()
+        is_photo = ext in {".jpg", ".jpeg", ".png", ".heic", ".webp"}
+        dur_sec = float(c.get("duration", 4.0 if is_photo else 10.0))
+        file_dur = dur_sec
         file_frames = max(1, int(round(file_dur * fps)))
 
         in_sec = float(c.get("in_point", 0.0))
-        dur_sec = float(c.get("duration", 4.0))
         out_sec = in_sec + dur_sec
 
         in_frame = int(round(in_sec * fps))

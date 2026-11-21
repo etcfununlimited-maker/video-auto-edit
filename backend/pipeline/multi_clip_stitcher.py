@@ -259,9 +259,9 @@ def render_photo_collage_segment(photo_paths: list[str], output_path: str, durat
     update_live_render_frame_snapshot(output_path, is_photo=False)
     return output_path
 
-def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 3.5, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
+def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
     """
-    Renders an individual photo with smooth Ken Burns zoom (3.5s duration)
+    Renders an individual photo with smooth Ken Burns zoom (4.0s duration)
     and clean silent audio for 100% stable timeline concatenation.
     """
     frames = int(duration * 30)
@@ -497,7 +497,7 @@ def build_multi_clip_movie_pipeline(
 
             if n_photos == 1:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_single_photo.mp4"
-                render_single_photo_segment(photos[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
+                render_single_photo_segment(photos[0], str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
@@ -518,7 +518,7 @@ def build_multi_clip_movie_pipeline(
 
             elif n_photos == 4:
                 out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_grid_2x2_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=5.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
+                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
@@ -556,7 +556,7 @@ def build_multi_clip_movie_pipeline(
                     if len(chunk) >= 2:
                         render_photo_collage_segment(chunk, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                     else:
-                        render_single_photo_segment(chunk[0], str(out_seg), duration=3.5, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
+                        render_single_photo_segment(chunk[0], str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                     temp_processed_segments.append(str(out_seg))
                     concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                     seg_counter += 1

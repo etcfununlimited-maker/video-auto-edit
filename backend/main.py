@@ -765,21 +765,22 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             
             # Prepare clips list
             xml_clips = []
-            if current_project.get("timeline_clips"):
-                xml_clips = current_project["timeline_clips"]
-            else:
-                for f_path in valid_files:
-                    m = probe_media(f_path)
-                    ext = Path(f_path).suffix.lower()
-                    is_img = ext in [".jpg", ".jpeg", ".png", ".heic", ".webp"]
-                    raw_dur = float(m.get("duration", 0.0)) if m else 0.0
-                    clip_dur = 4.0 if (is_img or raw_dur <= 0.1) else raw_dur
-                    xml_clips.append({
-                        "path": f_path,
-                        "in_point": 0.0,
-                        "duration": clip_dur,
-                        "track": "V1"
-                    })
+            source_candidates = current_project.get("timeline_clips") if (current_project.get("timeline_clips") and len(current_project["timeline_clips"]) == len(valid_files)) else [{"path": f} for f in valid_files]
+            for c_info in source_candidates:
+                f_path = c_info.get("path") if isinstance(c_info, dict) else str(c_info)
+                if not f_path:
+                    continue
+                m = probe_media(f_path)
+                ext = Path(f_path).suffix.lower()
+                is_img = ext in [".jpg", ".jpeg", ".png", ".heic", ".webp"]
+                raw_dur = float(m.get("duration", 0.0)) if m else 0.0
+                clip_dur = 4.0 if (is_img or raw_dur <= 0.1) else raw_dur
+                xml_clips.append({
+                    "path": f_path,
+                    "in_point": 0.0,
+                    "duration": clip_dur,
+                    "track": "V1"
+                })
 
             eff_aspect_xml = "9:16" if settings.get("aspect_ratio") == "9:16" else "16:9"
             text_behind_cfg_xml = current_project.get("settings", {}).get("text_behind_person") or {}
@@ -2217,14 +2218,17 @@ async def export_editor_xml_endpoint(payload: Optional[ExportXmlPayload] = None)
         raw_vids = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
         for f in raw_vids:
             if f.name not in existing_names:
+                m_vid = probe_media(str(f))
+                vid_dur = float(m_vid.get("duration", 0.0)) if m_vid else 0.0
+                actual_dur = vid_dur if vid_dur > 0.1 else 4.0
                 clips_data.append({
                     "id": f"v1_clip_{len(clips_data)+1}",
                     "path": str(f),
                     "name": f.name,
                     "track": "V1",
                     "in_point": 0.0,
-                    "duration": 4.0,
-                    "out_point": 4.0,
+                    "duration": actual_dur,
+                    "out_point": actual_dur,
                     "volume": 100,
                     "noise_suppression": 75,
                     "muted": False
