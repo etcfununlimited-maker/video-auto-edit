@@ -323,7 +323,8 @@ def build_multi_clip_movie_pipeline(
     target_duration: float = None,
     text_behind: dict = None,
     director_effects: dict = None,
-    render_mode: str = "fast_preview"
+    render_mode: str = "fast_preview",
+    audio_settings: dict = None
 ) -> str:
     """
     Assembles all authentic raw clips into the master movie:
@@ -361,6 +362,14 @@ def build_multi_clip_movie_pipeline(
     if director_effects and isinstance(director_effects, dict):
         if not director_effects.get("license_plate_blur", True):
             has_lp_blur = False
+
+    # Audio & Soundtrack mood settings
+    audio_settings = audio_settings or {}
+    music_mood = audio_settings.get("music_mood", "sacred_temple")
+    sacred_mode = audio_settings.get("sacred_mode", True)
+    ducking_pct = float(audio_settings.get("ducking_depth_pct", 75.0))
+    music_lvl = float(audio_settings.get("music_level_pct", 40.0))
+    denoise_pct = float(audio_settings.get("denoise_pct", 75.0))
 
     def notify_progress(pct_val, msg_val, cur_step=0, tot_steps=0):
         if not progress_callback:
@@ -652,10 +661,17 @@ def build_multi_clip_movie_pipeline(
             fade_dur = min(0.030, dur / 4.0)
             fade_out_st = max(0.0, dur - fade_dur)
             
-            # Grid 6: Studio Audio Denoise & Cabin Fan / Air Suppression (20% Deeper Zero-Latency Clean Denoise)
+            # Grid 6: Studio Audio Denoise & Cabin Fan / Air Suppression (Dynamic Denoise Slider Scaled)
             enable_grid_audio = enabled_grids.get("grid_audio", True) if enabled_grids else True
             if enable_grid_audio:
-                dsp_audio = "highpass=f=115:poles=2,lowpass=f=11000:poles=2,equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,"
+                nr_val = int(12 + (denoise_pct / 100.0) * 20)
+                nf_val = int(-35 - (denoise_pct / 100.0) * 15)
+                hp_f = int(95 + (denoise_pct / 100.0) * 25)
+                dsp_audio = (
+                    f"highpass=f={hp_f}:poles=2,lowpass=f=11000:poles=2,afftdn=nr={nr_val}:nf={nf_val}:tn=1,"
+                    f"equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
+                    f"compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,"
+                )
             else:
                 dsp_audio = ""
 
@@ -780,8 +796,8 @@ def build_multi_clip_movie_pipeline(
                     except Exception:
                         pass
 
-                    print(f"Building cinematic multi-track soundtrack bed across {len(soundtracks)} available music themes for {movie_dur/60:.1f} mins...")
-                    soundtrack_bed_path = build_movie_soundtrack_bed(target_duration=movie_dur)
+                    print(f"Building cinematic multi-track soundtrack bed across {len(soundtracks)} available music themes for {movie_dur/60:.1f} mins (Mood: {music_mood}, Sacred Mode: {sacred_mode})...")
+                    soundtrack_bed_path = build_movie_soundtrack_bed(target_duration=movie_dur, mood=music_mood, sacred_mode=sacred_mode)
                     music_source = soundtrack_bed_path if soundtrack_bed_path and Path(soundtrack_bed_path).exists() else str(soundtracks[0])
 
                     ducked_wav = UPLOADS_DIR / f".tmp_ducked_mix_{os.getpid()}.wav"
@@ -789,8 +805,8 @@ def build_multi_clip_movie_pipeline(
                         speech_audio_path=str(final_path),
                         music_path=music_source,
                         output_path=str(ducked_wav),
-                        music_volume=0.40,
-                        speech_boost=1.45
+                        ducking_depth_pct=ducking_pct,
+                        music_level_pct=music_lvl
                     )
                     if ducked_wav.exists() and ducked_wav.stat().st_size > 0:
                         temp_ducked_movie = final_path.with_name(f".tmp_duck_{os.getpid()}_{final_path.name}")

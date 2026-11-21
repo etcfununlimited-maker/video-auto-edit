@@ -7,7 +7,7 @@ let directorCatalog = [];
 let directorActiveEffects = {};
 let directorTextBehind = {
     enabled: true,
-    text: "RANN OF KUTCH",
+    text: "RANN OF KUTCH | SOMNATH",
     font: "Montserrat",
     size: 110,
     spread: 8,
@@ -38,7 +38,7 @@ async function initDirectorStudio() {
                 const localTb = localStorage.getItem("anirban_text_behind");
                 if (localTb) {
                     const parsedTb = JSON.parse(localTb);
-                    if (parsedTb && parsedTb.text) {
+                    if (parsedTb && parsedTb.text && !parsedTb.text.toUpperCase().includes("EHSAAS")) {
                         directorTextBehind = Object.assign({}, directorTextBehind, parsedTb);
                     }
                 }
@@ -124,8 +124,14 @@ function updateLiveDepthTextPreview() {
     }
     previewText.style.display = "block";
 
-    const content = (directorTextBehind.text || "VLOG").toUpperCase();
-    previewText.innerText = content;
+    const rawContent = (directorTextBehind.text || "VLOG").trim();
+    if (rawContent.includes("|")) {
+        previewText.innerHTML = rawContent.split("|").map(s => s.trim().toUpperCase()).join("<br>");
+        previewText.style.lineHeight = "1.15";
+    } else {
+        previewText.innerText = rawContent.toUpperCase();
+        previewText.style.lineHeight = "normal";
+    }
     previewText.style.fontFamily = `'${directorTextBehind.font}', sans-serif`;
     previewText.style.fontSize = `${directorTextBehind.size}px`;
     previewText.style.letterSpacing = `${directorTextBehind.spread}px`;

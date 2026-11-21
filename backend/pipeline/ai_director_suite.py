@@ -766,7 +766,12 @@ def generate_depth_text_ass(
     Generates a stylized ASS subtitle file for Bold Depth Typography (Text Behind Person)
     with custom font family, size, letter tracking spread, primary color, and radiant neon outline glow.
     """
-    text_content = (text_cfg.get("text") or "VLOG").upper()
+    raw_text = (text_cfg.get("text") or "VLOG").strip()
+    # Support clean multi-line titles with pipe delimiter (e.g. 'Rann of Kutch | Somnath')
+    if "|" in raw_text:
+        text_content = "\\N".join(part.strip().upper() for part in raw_text.split("|"))
+    else:
+        text_content = raw_text.upper()
     font_name = text_cfg.get("font", "Montserrat")
     # Use high-impact bold font supported natively by DirectWrite / libass
     font_family = "Impact" if font_name.lower() in ["montserrat", "bebas neue", "anton", "outfit", "space grotesk", "impact"] else font_name

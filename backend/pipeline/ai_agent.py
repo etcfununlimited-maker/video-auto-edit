@@ -106,7 +106,17 @@ def parse_agent_prompt(prompt: str) -> dict:
         actions["audio_enhance"] = True
         actions["summary"].append("Clean background hiss, hum & normalize vocal loudness to -14 LUFS")
 
-    # 7. Scenic Protection (Always on by default)
+    # 7. Title / Text Behind Person Detection
+    title_match = re.search(r'(?:title|text|headline)\s*[:=]\s*["\']?([^"\'\n\r]+)["\']?', prompt, re.IGNORECASE)
+    if title_match:
+        custom_title = title_match.group(1).strip()
+        actions["text_behind_person"] = {"text": custom_title, "enabled": True}
+        actions["summary"].append(f"Set Bold Depth Title to '{custom_title}'")
+    elif "|" in prompt and len(prompt) < 100:
+        actions["text_behind_person"] = {"text": prompt.strip(), "enabled": True}
+        actions["summary"].append(f"Set Bold Depth Title to '{prompt.strip()}'")
+
+    # 8. Scenic Protection (Always on by default)
     actions["summary"].append("Protect scenic B-roll (mountains, roads, sea, nature) from silence cuts")
 
     # 8. Face Safe Guarantee

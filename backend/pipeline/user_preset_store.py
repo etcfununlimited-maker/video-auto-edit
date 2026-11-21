@@ -83,7 +83,7 @@ DEFAULT_ANIRBAN_EFFECTS = {
 
 DEFAULT_ANIRBAN_TEXT_BEHIND = {
     "enabled": True,
-    "text": "RANN OF KUTCH",
+    "text": "RANN OF KUTCH | SOMNATH",
     "font": "Montserrat",
     "size": 110,
     "spread": 8,

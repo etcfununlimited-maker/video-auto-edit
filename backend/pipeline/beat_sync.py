@@ -74,6 +74,33 @@ def snap_timeline_to_beats(cut_timestamps: list[float], beat_timestamps: list[fl
             snapped.append(cut)
     return sorted(list(set(snapped)))
 
+ROCK_AND_HEAVY_BEAT_TRACKS = {
+    "Big_Rock", "Cool_Rock", "Funkorama", "Protofunk", "Werq", "Poppers_and_Prosecco"
+}
+
+MOOD_TRACK_PREFERENCES = {
+    "sacred_temple": [
+        # Spiritual, serene, peaceful ambient, acoustic, sublime reverent tones
+        'Truth_of_the_Legend', 'Clean_Soul', 'Mining_by_Moonlight', 'Overcast',
+        'Airport_Lounge', 'Wallpaper', 'Somewhere_Sunny', 'Dispersion_Relation',
+        'Bossa_Antigua', 'District_Four'
+    ],
+    "calm_travel": [
+        'Somewhere_Sunny', 'Life_of_Riley', 'Clean_Soul', 'Carefree', 'Carpe_Diem',
+        'Daily_Beetle', 'Bossa_Antigua', 'Airport_Lounge', 'Mining_by_Moonlight', 'Overcast'
+    ],
+    "scenic_drive": [
+        'Call_to_Adventure', 'Daily_Beetle', 'Somewhere_Sunny', 'Clean_Soul',
+        'District_Four', 'Airport_Lounge', 'Mining_by_Moonlight', 'Overcast'
+    ],
+    "energetic_vlog": [
+        'Carefree', 'Somewhere_Sunny', 'Life_of_Riley', 'Upbeat_Forever', 'Carpe_Diem',
+        'Call_to_Adventure', 'Daily_Beetle', 'Clean_Soul', 'Cool_Rock', 'Big_Rock',
+        'Groove_Grove', 'Funkorama', 'Poppers_and_Prosecco', 'Protofunk', 'Feelin_Good', 'Werq',
+        'Bossa_Antigua', 'Airport_Lounge', 'District_Four', 'Mining_by_Moonlight', 'Overcast'
+    ]
+}
+
 def get_available_soundtracks() -> list[Path]:
     """Returns all available royalty-free background music tracks from raw_input/MUSIC."""
     from backend.config import RAW_INPUT_DIR, SAMPLE_MEDIA_DIR
@@ -85,25 +112,53 @@ def get_available_soundtracks() -> list[Path]:
         tracks = sorted(list(SAMPLE_MEDIA_DIR.glob("*.mp3")) + list(SAMPLE_MEDIA_DIR.glob("*.wav")))
     return tracks
 
-def build_movie_soundtrack_bed(target_duration: float, output_path: str = None) -> str:
+def build_movie_soundtrack_bed(
+    target_duration: float,
+    output_path: str = None,
+    mood: str = "sacred_temple",
+    sacred_mode: bool = True
+) -> str:
     """
     Builds a continuous background music bed matching target_duration by sequencing
     at least 10 (or up to 20+) curated soundtrack tracks with smooth 2.5-second crossfades.
-    Organizes tracks into a narrative emotional arc:
-      1. Morning & Travel Intro (Upbeat, Acoustic, Optimistic)
-      2. Highway Driving & Journey (Adventure, Driving Rock, Rhythm)
-      3. Town Exploration & Roadside Stops (Groovy, Fun, Playful)
-      4. Sunset & Scenic Reflections (Atmospheric Lounge, Ambient, Chill)
+    Supports context-aware mood selection and strict Sacred Mode filtering:
+      - 'sacred_temple': Spiritual & temple serenity (Strictly excludes rock/heavy beats)
+      - 'calm_travel': Acoustic, gentle, warm travel tones
+      - 'scenic_drive': Balanced open highway & landscape exploration
+      - 'energetic_vlog': High tempo & beat sync
     """
     tracks = get_available_soundtracks()
     if not tracks:
         return None
+
+    # Filter out rock and heavy beat tracks if sacred_mode is active or sacred_temple mood selected
+    if sacred_mode or mood == "sacred_temple":
+        filtered_tracks = [t for t in tracks if t.stem not in ROCK_AND_HEAVY_BEAT_TRACKS]
+        if filtered_tracks:
+            tracks = filtered_tracks
+
     if not output_path:
         output_path = str(EXPORTS_DIR / f"soundtrack_bed_{int(target_duration)}s.wav")
 
-    # If single track or short video (< 90 seconds), loop single track
-    if len(tracks) == 1 or target_duration <= 90:
-        sel_track = tracks[0]
+    by_stem = {t.stem: t for t in tracks}
+    preferred_order = MOOD_TRACK_PREFERENCES.get(mood, MOOD_TRACK_PREFERENCES["sacred_temple"])
+    ordered_tracks = []
+
+    # 1. Add matching curated tracks for chosen mood
+    for name in preferred_order:
+        if name in by_stem and (not sacred_mode or name not in ROCK_AND_HEAVY_BEAT_TRACKS):
+            ordered_tracks.append(by_stem[name])
+    # 2. Add remaining royalty-free tracks
+    for t in tracks:
+        if t not in ordered_tracks and (not sacred_mode or t.stem not in ROCK_AND_HEAVY_BEAT_TRACKS):
+            ordered_tracks.append(t)
+
+    if not ordered_tracks:
+        ordered_tracks = tracks
+
+    # If single track or short video (< 90 seconds), loop primary mood track
+    if len(ordered_tracks) == 1 or target_duration <= 90:
+        sel_track = ordered_tracks[0]
         cmd = [
             FFMPEG_PATH, "-y",
             "-stream_loop", "-1",
@@ -115,29 +170,6 @@ def build_movie_soundtrack_bed(target_duration: float, output_path: str = None) 
         ]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         return str(output_path)
-
-    # Narrative arc mapping for travel feature movies
-    act_order = [
-        # Act 1: Upbeat travel intro
-        'Carefree', 'Somewhere_Sunny', 'Life_of_Riley', 'Upbeat_Forever', 'Carpe_Diem',
-        # Act 2: Highway driving & adventure
-        'Call_to_Adventure', 'Daily_Beetle', 'Clean_Soul', 'Cool_Rock', 'Big_Rock',
-        # Act 3: Exploration & fun stops
-        'Groove_Grove', 'Funkorama', 'Poppers_and_Prosecco', 'Protofunk', 'Feelin_Good', 'Werq',
-        # Act 4: Scenic vistas & sunset chill
-        'Bossa_Antigua', 'Airport_Lounge', 'District_Four', 'Mining_by_Moonlight', 'Overcast', 'Dispersion_Relation', 'Wallpaper'
-    ]
-
-    by_stem = {t.stem: t for t in tracks}
-    ordered_tracks = []
-    # 1. Add matching curated tracks
-    for name in act_order:
-        if name in by_stem:
-            ordered_tracks.append(by_stem[name])
-    # 2. Add any other tracks in raw_input/MUSIC (e.g. user-added MP3s)
-    for t in tracks:
-        if t not in ordered_tracks:
-            ordered_tracks.append(t)
 
     # Probe duration of tracks and pick enough tracks to cover target_duration
     selected_tracks = []
@@ -160,7 +192,7 @@ def build_movie_soundtrack_bed(target_duration: float, output_path: str = None) 
             break
 
     # If long feature movie (>= 30 mins) ensure at least 10 tracks are represented
-    if target_duration >= 1800 and len(selected_tracks) < 10 and len(tracks) >= 10:
+    if target_duration >= 1800 and len(selected_tracks) < 10 and len(ordered_tracks) >= 10:
         for t in ordered_tracks:
             if t not in selected_tracks and len(selected_tracks) < 10:
                 selected_tracks.append(t)
@@ -199,30 +231,43 @@ def mix_with_auto_ducking(
     music_path: str,
     output_path: str = None,
     duck_level_db: float = -14.0,
-    music_volume: float = 0.40,
-    speech_boost: float = 1.45
+    music_volume: float = None,
+    speech_boost: float = None,
+    ducking_depth_pct: float = 75.0,
+    music_level_pct: float = 40.0
 ) -> str:
     """
     Uses FFmpeg sidechain compression to automatically duck background music
     whenever voice dialogue is detected, with smooth attack and release curves.
     When dialogue stops (driving pauses, scenic B-roll), music smoothly swells up!
+    Supports interactive ducking depth percentage and background music volume sliders.
     """
     sp_p = Path(speech_audio_path)
     if not output_path:
         output_path = str(EXPORTS_DIR / f"ducked_mix_{sp_p.stem}.wav")
 
+    # Scaled parameters from user sliders:
+    if music_volume is None:
+        music_volume = max(0.05, min(1.0, float(music_level_pct) / 100.0))
+    if speech_boost is None:
+        speech_boost = 1.25 + (float(ducking_depth_pct) / 100.0) * 0.35
+
+    threshold = max(0.015, 0.050 - (float(ducking_depth_pct) / 100.0) * 0.030)
+    ratio = 2.0 + (float(ducking_depth_pct) / 100.0) * 8.0
+    release_ms = int(350 + (float(ducking_depth_pct) / 100.0) * 300)
+
     # Dynamic Breathing Sidechain Compressor:
-    # 1. Baseline music volume scaled to pleasant ambient level (0.36).
+    # 1. Baseline music volume scaled to user-selected level.
     # 2. Sidechain compressor monitors human vocal frequencies via boosted highpassed key [sp_trigger].
-    #    When speech is detected (threshold=0.030), music decisively ducks by 12-14dB (ratio=6.0, attack=15ms).
-    #    When speech pauses (driving, scenic B-roll), music smoothly swells back up over 550ms.
-    # 3. Clean speech is boosted prominently forward [speech_boost = 1.45] and mixed with normalize=0!
+    #    When speech is detected, music decisively ducks according to user ratio & threshold.
+    #    When speech pauses, music smoothly swells back up over release_ms.
+    # 3. Clean speech is boosted prominently forward and mixed with normalize=0!
     filtergraph = (
-        f"[1:a]volume={music_volume}[bgm];"
+        f"[1:a]volume={music_volume:.2f}[bgm];"
         f"[0:a]asplit=2[sp_raw][sp_key];"
         f"[sp_key]highpass=f=120,volume=2.5[sp_trigger];"
-        f"[bgm][sp_trigger]sidechaincompress=threshold=0.030:ratio=6.0:attack=15:release=550[ducked_bgm];"
-        f"[sp_raw]volume={speech_boost}[sp];"
+        f"[bgm][sp_trigger]sidechaincompress=threshold={threshold:.3f}:ratio={ratio:.1f}:attack=15:release={release_ms}[ducked_bgm];"
+        f"[sp_raw]volume={speech_boost:.2f}[sp];"
         f"[sp][ducked_bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
     )
 

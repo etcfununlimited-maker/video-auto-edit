@@ -10,11 +10,12 @@ import subprocess
 from pathlib import Path
 from backend.config import FFMPEG_PATH, EXPORTS_DIR
 
-def apply_vocal_isolation_and_denoise(input_path: str, output_path: str = None) -> str:
+def apply_vocal_isolation_and_denoise(input_path: str, output_path: str = None, denoise_pct: float = 75.0) -> str:
     """
     Applies cutting-edge Non-Stationary Spectral Noise Reduction (noisereduce)
     to eliminate passing highway trucks, room fans, and car AC blower roar,
     followed by speech forwarding EQ (+5dB) and broadcast normalization.
+    Scales reduction proportion based on user denoise slider percentage.
     """
     src = Path(input_path)
     if not output_path:
@@ -39,7 +40,8 @@ def apply_vocal_isolation_and_denoise(input_path: str, output_path: str = None) 
         sr, data = wavfile.read(str(tmp_in_wav))
         is_stereo = (data.ndim == 2)
         c_in = data.T.astype(np.float32) if is_stereo else data.astype(np.float32)
-        c_clean = nr.reduce_noise(y=c_in, sr=sr, stationary=False, prop_decrease=0.92, n_fft=2048, win_length=2048)
+        prop_decrease = min(1.0, max(0.1, (float(denoise_pct) / 100.0) * 1.05))
+        c_clean = nr.reduce_noise(y=c_in, sr=sr, stationary=False, prop_decrease=prop_decrease, n_fft=2048, win_length=2048)
         c_clean_t = c_clean.T if is_stereo else c_clean
         out_int16 = np.clip(c_clean_t, -32767, 32767).astype(np.int16)
         tmp_nr_wav = EXPORTS_DIR / f".tmp_nr_{src.stem}.wav"
@@ -50,11 +52,13 @@ def apply_vocal_isolation_and_denoise(input_path: str, output_path: str = None) 
         dsp_source = str(tmp_in_wav)
 
     # Step 3: Vocal Forwarding EQ (+5dB @ 3.4kHz) & Studio Downward Gate
+    hp_f = int(90 + (float(denoise_pct) / 100.0) * 30)
+    gate_thresh = 0.020 + (float(denoise_pct) / 100.0) * 0.025
     af = (
-        "highpass=f=95:poles=2,"
+        f"highpass=f={hp_f}:poles=2,"
         "equalizer=f=1800:t=q:w=1.2:g=2.5,"
         "equalizer=f=3400:t=q:w=1.4:g=5.0,"
-        "agate=threshold=0.035:range=0.05:attack=10:release=220,"
+        f"agate=threshold={gate_thresh:.3f}:range=0.05:attack=10:release=220,"
         "loudnorm=I=-14:TP=-1.0:LRA=10,"
         "aformat=sample_rates=48000:channel_layouts=stereo"
     )
@@ -76,29 +80,36 @@ def apply_vocal_isolation_and_denoise(input_path: str, output_path: str = None) 
 
     return str(output_path)
 
-def enhance_audio_track(input_path: str, output_path: str = None, target_lufs: float = -14.0) -> str:
+def enhance_audio_track(input_path: str, output_path: str = None, target_lufs: float = -14.0, denoise_pct: float = 75.0) -> str:
     """
     Applies multi-stage studio audio DSP processing using FFmpeg audio filtergraph.
+    Dynamically scales noise suppression according to user slider percentage.
     """
     src = Path(input_path)
     if not output_path:
         output_path = str(EXPORTS_DIR / f"enhanced_{src.stem}.wav")
 
+    # Scaled DSP parameters
+    nr_val = int(12 + (float(denoise_pct) / 100.0) * 20)      # 12dB to 32dB noise attenuation
+    nf_val = int(-35 - (float(denoise_pct) / 100.0) * 15)     # -35dB to -50dB floor
+    hp_f = int(95 + (float(denoise_pct) / 100.0) * 25)        # 95Hz to 120Hz sub-bass filter
+    gate_thresh = 0.020 + (float(denoise_pct) / 100.0) * 0.020
+
     # Audio Filtergraph (Pro Vehicle Cabin & Fan Denoise):
-    # 1. highpass=f=110: cuts sub-bass rumble, tire drone, chassis vibration
+    # 1. highpass: cuts sub-bass rumble, tire drone, chassis vibration
     # 2. lowpass=f=12000: cuts ultrasonic hiss
     # 3. equalizer=f=220: cuts heavy car AC blower drone & cabin resonance
-    # 4. afftdn=nr=24:nf=-40:tn=1: fast adaptive FFT tracking noise reduction for steady hum/fan/wind noise
+    # 4. afftdn: fast adaptive FFT tracking noise reduction scaled by user denoise_pct
     # 5. equalizer=f=3400: vocal presence & articulation boost (Adobe Enhance style)
     # 6. agate: gentle noise gating in dead-air pauses to silence cabin ambient hum
     # 7. loudnorm: EBU R128 standard -14 LUFS normalization for podcasts and video
     audio_filters = (
-        "highpass=f=110:poles=2,"
+        f"highpass=f={hp_f}:poles=2,"
         "lowpass=f=12000,"
         "equalizer=f=220:t=q:w=1.2:g=-11,"
-        "afftdn=nr=24:nf=-40:tn=1,"
+        f"afftdn=nr={nr_val}:nf={nf_val}:tn=1,"
         "equalizer=f=3400:t=q:w=1.4:g=4.0,"
-        "agate=threshold=0.035:range=0.05:attack=12:release=250,"
+        f"agate=threshold={gate_thresh:.3f}:range=0.05:attack=12:release=250,"
         f"loudnorm=I={target_lufs}:TP=-1.0:LRA=11"
     )
 

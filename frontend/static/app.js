@@ -1977,8 +1977,23 @@ async function executePipelineDirect(customSettings = null) {
             : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
+        music_mood: document.getElementById("select-music-mood") ? document.getElementById("select-music-mood").value : "sacred_temple",
+        sacred_mode: document.getElementById("chk-sacred-mode") ? document.getElementById("chk-sacred-mode").checked : true,
+        ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
+        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
+        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
         license_plate_blur: false,
-        enabled_grids: { ...gridEnabledState, grid_bgremove: false }
+        enabled_grids: { ...gridEnabledState, grid_bgremove: false },
+        text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
+            text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
+                ? document.getElementById("depth-input-text").value.trim() 
+                : (directorTextBehind.text || "RANN OF KUTCH | SOMNATH")
+        }) : {
+            enabled: true,
+            text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
+                ? document.getElementById("depth-input-text").value.trim() 
+                : "RANN OF KUTCH | SOMNATH"
+        }
     };
 
     const settings = Object.assign({}, baseSettings, customSettings || {});
@@ -2073,8 +2088,23 @@ async function restartPipelineProcess() {
             : (activeCaptionStyle || (document.getElementById("caption-style-select") ? document.getElementById("caption-style-select").value : "hyperframe_kinetic")),
         audio_enhance: document.getElementById("chk-audio-enhance") ? document.getElementById("chk-audio-enhance").checked : true,
         auto_duck: document.getElementById("chk-auto-duck") ? document.getElementById("chk-auto-duck").checked : true,
+        music_mood: document.getElementById("select-music-mood") ? document.getElementById("select-music-mood").value : "sacred_temple",
+        sacred_mode: document.getElementById("chk-sacred-mode") ? document.getElementById("chk-sacred-mode").checked : true,
+        ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
+        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
+        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
         license_plate_blur: false,
-        enabled_grids: { ...gridEnabledState, grid_bgremove: false }
+        enabled_grids: { ...gridEnabledState, grid_bgremove: false },
+        text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
+            text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
+                ? document.getElementById("depth-input-text").value.trim() 
+                : (directorTextBehind.text || "RANN OF KUTCH | SOMNATH")
+        }) : {
+            enabled: true,
+            text: (document.getElementById("depth-input-text") && document.getElementById("depth-input-text").value.trim()) 
+                ? document.getElementById("depth-input-text").value.trim() 
+                : "RANN OF KUTCH | SOMNATH"
+        }
     };
 
     // Ensure all 304 files are selected for full movie
@@ -2476,6 +2506,115 @@ async function burnHyperframeToVideo() {
         showToast("Error burning HyperFrame into video", "error");
     }
 }
+
+// ----------------- AUDIO & SOUNDTRACK SUPERVISION -----------------
+
+let audioParamDebounceTimer = null;
+function onAudioParamChange(key, value) {
+    if (key === 'ducking_depth_pct') {
+        const lbl = document.getElementById('val-ducking-depth');
+        if (lbl) lbl.innerText = `${value}% (-${Math.round(8 + (value/100)*8)}dB Vocals)`;
+    } else if (key === 'music_level_pct') {
+        const lbl = document.getElementById('val-music-level');
+        if (lbl) lbl.innerText = `${value}% (${value < 25 ? 'Quiet Background' : (value < 55 ? 'Balanced Bed' : 'Prominent Music')})`;
+    } else if (key === 'denoise_pct') {
+        const lbl = document.getElementById('val-denoise-pct');
+        if (lbl) lbl.innerText = `${value}% (${value >= 70 ? 'Studio Clean' : 'Gentle Denoise'})`;
+    }
+
+    clearTimeout(audioParamDebounceTimer);
+    audioParamDebounceTimer = setTimeout(async () => {
+        try {
+            const payload = {};
+            payload[key] = value;
+            await fetch('/api/project/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {
+            console.error('Failed to auto-save audio setting:', e);
+        }
+    }, 300);
+}
+
+async function runSupervisionPreview() {
+    const btnNav = document.getElementById("btn-supervise-mix");
+    const btnSub = document.getElementById("btn-supervise-slice-sub");
+    const origNavHtml = btnNav ? btnNav.innerHTML : "";
+    const origSubHtml = btnSub ? btnSub.innerHTML : "";
+
+    const setLoading = (loading) => {
+        if (btnNav) {
+            btnNav.disabled = loading;
+            btnNav.innerHTML = loading 
+                ? '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #34d399;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:4px;"></span> Generating 15s Mix...' 
+                : origNavHtml;
+        }
+        if (btnSub) {
+            btnSub.disabled = loading;
+            btnSub.innerHTML = loading 
+                ? '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;margin-right:4px;"></span> Rendering Preview (3s)...' 
+                : origSubHtml;
+        }
+    };
+
+    setLoading(true);
+    showToast("Supervising Mix... Rendering 15s preview (renders in ~3s) 👁️", "info");
+
+    const depthTextInput = document.getElementById("depth-input-text");
+    const customTitle = (depthTextInput && depthTextInput.value.trim()) ? depthTextInput.value.trim() : "RANN OF KUTCH | SOMNATH";
+    const moodSelect = document.getElementById("select-music-mood");
+    const sacredChk = document.getElementById("chk-sacred-mode");
+    const duckSlider = document.getElementById("slider-ducking-depth");
+    const musicSlider = document.getElementById("slider-music-level");
+    const denoiseSlider = document.getElementById("slider-denoise-pct");
+
+    const payload = {
+        duration: 15.0,
+        music_mood: moodSelect ? moodSelect.value : "sacred_temple",
+        sacred_mode: sacredChk ? sacredChk.checked : true,
+        ducking_depth_pct: duckSlider ? parseFloat(duckSlider.value) : 75.0,
+        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 40.0,
+        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 75.0,
+        text_behind: (typeof directorTextBehind !== "undefined" && directorTextBehind) 
+            ? Object.assign({}, directorTextBehind, { text: customTitle, enabled: true })
+            : { text: customTitle, enabled: true, font: "Montserrat", size: 110, spread: 8, color: "#FFFFFF", neon_enabled: true, neon_color: "#00F2FE", glow_radius: 24 }
+    };
+
+    try {
+        const res = await fetch("/api/project/supervise-preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        setLoading(false);
+
+        if (data.status === "success") {
+            showToast(`15s Supervision Mix Ready! Title: "${data.title}" • Music: "${data.track_name}" (${data.music_mood})`, "success");
+            loadVideoIntoPlayer(data.url, true, data.filename);
+            
+            // Highlight player badge
+            const badge = document.getElementById("master-status-badge");
+            if (badge) {
+                badge.innerText = "SUPERVISION PREVIEW (15s SLICE)";
+                badge.className = "stat-badge completed";
+                badge.style.background = "#064e3b";
+                badge.style.borderColor = "#10b981";
+                badge.style.color = "#6ee7b7";
+            }
+        } else {
+            showToast("Failed to render supervision preview: " + (data.detail || data.message || "Error"), "error");
+        }
+    } catch (err) {
+        setLoading(false);
+        console.error("Supervision preview error:", err);
+        showToast("Error rendering supervision preview", "error");
+    }
+}
+
 
 
 

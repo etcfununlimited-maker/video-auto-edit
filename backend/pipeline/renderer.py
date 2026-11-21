@@ -48,7 +48,10 @@ def render_final_master(
     output_filename: str = None,
     director_effects: dict = None,
     text_behind: dict = None,
-    enabled_grids: dict = None
+    enabled_grids: dict = None,
+    ducking_depth_pct: float = 75.0,
+    music_level_pct: float = 40.0,
+    denoise_pct: float = 75.0
 ) -> str:
     """
     Executes the comprehensive FFmpeg render pipeline and deposits output in final_export/.
@@ -175,11 +178,14 @@ def render_final_master(
     filter_complex.append(f"[{current_v}]format=yuv420p[v_universal];")
     current_v = "v_universal"
 
-    # Audio enhancement & resample to standard 48kHz (Zero-Latency Professional Clarity)
+    # Audio enhancement & resample to standard 48kHz (Dynamic Denoise Slider Scaled)
     if enable_audio_enhance:
+        nr_val = int(12 + (float(denoise_pct) / 100.0) * 20)
+        nf_val = int(-35 - (float(denoise_pct) / 100.0) * 15)
+        hp_f = int(95 + (float(denoise_pct) / 100.0) * 25)
         audio_dsp = (
-            f"[{current_a}]highpass=f=115:poles=2,lowpass=f=11000:poles=2,equalizer=f=220:t=q:w=1.4:g=-11.0,"
-            f"equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
+            f"[{current_a}]highpass=f={hp_f}:poles=2,lowpass=f=11000:poles=2,afftdn=nr={nr_val}:nf={nf_val}:tn=1,"
+            f"equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
             f"compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,aformat=sample_rates=48000:channel_layouts=stereo,aresample=async=1000[a_enhanced];"
         )
         filter_complex.append(audio_dsp)
@@ -188,15 +194,20 @@ def render_final_master(
         filter_complex.append(f"[{current_a}]aformat=sample_rates=48000:channel_layouts=stereo,aresample=async=1000[a_resampled];")
         current_a = "a_resampled"
 
-    # Grid 7: Dynamic Background Music Auto-Ducking (Lively Bed with normalize=0)
+    # Grid 7: Dynamic Background Music Auto-Ducking (Scaled by User Sliders)
     has_music = bool(background_music_path and os.path.exists(background_music_path))
     if has_music:
+        bgm_vol = max(0.05, min(1.0, float(music_level_pct) / 100.0))
+        ratio = 2.0 + (float(ducking_depth_pct) / 100.0) * 8.0
+        thresh = max(0.015, 0.050 - (float(ducking_depth_pct) / 100.0) * 0.030)
+        release_ms = int(350 + (float(ducking_depth_pct) / 100.0) * 300)
+        sp_gain = 1.25 + (float(ducking_depth_pct) / 100.0) * 0.35
         filter_complex.append(
-            f"[1:a]volume=0.40[bgm];"
+            f"[1:a]volume={bgm_vol:.2f}[bgm];"
             f"[{current_a}]asplit=2[sp_raw][sp_key];"
             f"[sp_key]highpass=f=120,volume=2.5[sp_trigger];"
-            f"[bgm][sp_trigger]sidechaincompress=threshold=0.030:ratio=6.0:attack=15:release=550[ducked_bgm];"
-            f"[sp_raw]volume=1.45[sp];"
+            f"[bgm][sp_trigger]sidechaincompress=threshold={thresh:.3f}:ratio={ratio:.1f}:attack=15:release={release_ms}[ducked_bgm];"
+            f"[sp_raw]volume={sp_gain:.2f}[sp];"
             f"[sp][ducked_bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a_ducked];"
         )
         current_a = "a_ducked"

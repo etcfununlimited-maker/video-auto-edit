@@ -139,6 +139,11 @@ current_project = {
         "auto_duck": True,
         "bg_mode": "none",
         "license_plate_blur": True,
+        "music_mood": "sacred_temple",
+        "sacred_mode": True,
+        "ducking_depth_pct": 75,
+        "music_level_pct": 40,
+        "denoise_pct": 75,
         "ai_director_effects": get_initial_active_effects(),
         "text_behind_person": copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON),
         "enabled_grids": {
@@ -761,6 +766,14 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 except Exception:
                     pass
 
+            audio_settings = {
+                "music_mood": current_project.get("settings", {}).get("music_mood", "sacred_temple"),
+                "sacred_mode": current_project.get("settings", {}).get("sacred_mode", True),
+                "ducking_depth_pct": float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0)),
+                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 40.0)),
+                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 75.0))
+            }
+
             master_out = await asyncio.to_thread(
                 build_multi_clip_movie_pipeline,
                 valid_files,
@@ -773,10 +786,18 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 target_duration=target_dur,
                 text_behind=text_behind_cfg,
                 director_effects=director_fx_cfg,
-                render_mode=current_project.get("settings", {}).get("render_mode", "fast_preview")
+                render_mode=current_project.get("settings", {}).get("render_mode", "fast_preview"),
+                audio_settings=audio_settings
             )
         else:
             # Single clip master render with universal compatibility
+            audio_settings = {
+                "music_mood": current_project.get("settings", {}).get("music_mood", "sacred_temple"),
+                "sacred_mode": current_project.get("settings", {}).get("sacred_mode", True),
+                "ducking_depth_pct": float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0)),
+                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 40.0)),
+                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 75.0))
+            }
             clip_full_dur = current_project.get("metadata", {}).get("duration", 64.8) or 64.8
             eff_dur = min(clip_full_dur, target_dur) if target_dur else clip_full_dur
             dur_label = f"_{int(target_dur)}S" if target_dur else ""
@@ -788,7 +809,11 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             if enabled_grids.get("grid_beatsync", True):
                 try:
                     from backend.pipeline.beat_sync import build_movie_soundtrack_bed
-                    bgm_track = build_movie_soundtrack_bed(target_duration=eff_dur)
+                    bgm_track = build_movie_soundtrack_bed(
+                        target_duration=eff_dur,
+                        mood=audio_settings["music_mood"],
+                        sacred_mode=audio_settings["sacred_mode"]
+                    )
                 except Exception:
                     pass
 
@@ -805,7 +830,10 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 output_filename=single_out_name,
                 director_effects=director_fx_cfg,
                 text_behind=text_behind_cfg,
-                enabled_grids=enabled_grids
+                enabled_grids=enabled_grids,
+                ducking_depth_pct=audio_settings["ducking_depth_pct"],
+                music_level_pct=audio_settings["music_level_pct"],
+                denoise_pct=audio_settings["denoise_pct"]
             )
 
         current_project["master_output_path"] = master_out
@@ -1621,7 +1649,14 @@ async def render_full_movie_endpoint():
     dfx = current_project.get("settings", {}).get("ai_director_effects")
     loop = asyncio.get_event_loop()
     from functools import partial
-    out_path = await loop.run_in_executor(None, partial(build_multi_clip_movie_pipeline, clip_files, color_grade=cg, caption_style=cap, text_behind=tb, director_effects=dfx))
+    audio_settings = {
+        "music_mood": current_project.get("settings", {}).get("music_mood", "sacred_temple"),
+        "sacred_mode": current_project.get("settings", {}).get("sacred_mode", True),
+        "ducking_depth_pct": float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0)),
+        "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 40.0)),
+        "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 75.0))
+    }
+    out_path = await loop.run_in_executor(None, partial(build_multi_clip_movie_pipeline, clip_files, color_grade=cg, caption_style=cap, text_behind=tb, director_effects=dfx, audio_settings=audio_settings))
     filename = Path(out_path).name
     return {
         "status": "success",
@@ -1629,6 +1664,191 @@ async def render_full_movie_endpoint():
         "url": f"/media_final/{filename}",
         "color_grade": cg,
         "caption_style": cap
+    }
+
+class SupervisePreviewPayload(BaseModel):
+    clip_filename: Optional[str] = None
+    duration: Optional[float] = 15.0
+    start_sec: Optional[float] = 0.0
+    music_mood: Optional[str] = None
+    sacred_mode: Optional[bool] = None
+    ducking_depth_pct: Optional[float] = None
+    music_level_pct: Optional[float] = None
+    denoise_pct: Optional[float] = None
+    text_behind: Optional[dict] = None
+
+@app.post("/api/project/supervise-preview")
+async def supervise_preview_endpoint(payload: Optional[SupervisePreviewPayload] = None):
+    """
+    Renders an ultra-fast 15-second supervision slice on talking dialogue footage
+    allowing the user to inspect:
+      1. Bold Depth Typography ('RANN OF KUTCH | SOMNATH')
+      2. Soundtrack Mood (Sacred Temple serenity vs upbeat) & Rock Blacklist
+      3. Dynamic Auto-Ducking slider balance
+      4. AI Noise Suppression clarity
+    Renders in only ~3 seconds so user does not have to wait 1 hour for full movie export!
+    """
+    if payload is None:
+        payload = SupervisePreviewPayload()
+
+    # 1. Resolve Audio and Sacred Settings
+    settings = current_project.get("settings", {})
+    music_mood = payload.music_mood or settings.get("music_mood", "sacred_temple")
+    sacred_mode = payload.sacred_mode if payload.sacred_mode is not None else settings.get("sacred_mode", True)
+    ducking_depth_pct = float(payload.ducking_depth_pct if payload.ducking_depth_pct is not None else settings.get("ducking_depth_pct", 75.0))
+    music_level_pct = float(payload.music_level_pct if payload.music_level_pct is not None else settings.get("music_level_pct", 40.0))
+    denoise_pct = float(payload.denoise_pct if payload.denoise_pct is not None else settings.get("denoise_pct", 75.0))
+
+    # Persist updated values into project settings
+    settings["music_mood"] = music_mood
+    settings["sacred_mode"] = sacred_mode
+    settings["ducking_depth_pct"] = ducking_depth_pct
+    settings["music_level_pct"] = music_level_pct
+    settings["denoise_pct"] = denoise_pct
+
+    # 2. Resolve Text Behind Person
+    tb_cfg = payload.text_behind or settings.get("text_behind_person", copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON))
+    if not tb_cfg.get("text") or "EHSAAS" in str(tb_cfg.get("text")).upper():
+        tb_cfg["text"] = "RANN OF KUTCH | SOMNATH"
+    tb_cfg["enabled"] = True
+    settings["text_behind_person"] = tb_cfg
+    save_user_settings(settings)
+
+    # 3. Find candidate dialogue clip
+    clip_path = None
+    if payload.clip_filename:
+        cand = RAW_INPUT_DIR / payload.clip_filename
+        if cand.exists():
+            clip_path = cand
+    if not clip_path:
+        primary_dialogue = RAW_INPUT_DIR / "20261031_085614.mp4"
+        if primary_dialogue.exists():
+            clip_path = primary_dialogue
+        else:
+            vids = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
+            if vids:
+                clip_path = vids[0]
+            else:
+                sample_vids = sorted([f for f in SAMPLE_MEDIA_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
+                if sample_vids:
+                    clip_path = sample_vids[0]
+
+    if not clip_path or not clip_path.exists():
+        raise HTTPException(status_code=400, detail="No video media found for supervision preview")
+
+    # 4. Resolve Music Track based on Mood and Sacred Mode
+    from backend.pipeline.beat_sync import get_available_soundtracks, MOOD_TRACK_PREFERENCES, ROCK_AND_HEAVY_BEAT_TRACKS
+    tracks = get_available_soundtracks()
+    if sacred_mode or music_mood == "sacred_temple":
+        filtered_tracks = [t for t in tracks if t.stem not in ROCK_AND_HEAVY_BEAT_TRACKS]
+        if filtered_tracks:
+            tracks = filtered_tracks
+
+    by_stem = {t.stem: t for t in tracks}
+    preferred = MOOD_TRACK_PREFERENCES.get(music_mood, MOOD_TRACK_PREFERENCES["sacred_temple"])
+    sel_track = None
+    for name in preferred:
+        if name in by_stem and (not sacred_mode or name not in ROCK_AND_HEAVY_BEAT_TRACKS):
+            sel_track = by_stem[name]
+            break
+    if not sel_track and tracks:
+        sel_track = tracks[0]
+
+    # 5. Generate Depth Text ASS Subtitle
+    from backend.pipeline.ai_director_suite import generate_depth_text_ass
+    ass_path = str(EXPORTS_DIR / "supervision_preview_title.ass")
+    preview_dur = float(payload.duration or 15.0)
+    generate_depth_text_ass(tb_cfg, duration=preview_dur, output_path=ass_path)
+    escaped_ass = ass_path.replace("\\", "/").replace(":", "\\:")
+
+    # 6. Render 15-second supervision slice
+    out_filename = "SUPERVISION_PREVIEW.mp4"
+    out_path = FINAL_EXPORT_DIR / out_filename
+
+    # Audio DSP & Auto-Ducking calculations
+    bgm_vol = max(0.05, min(1.0, music_level_pct / 100.0))
+    ratio = 2.0 + (ducking_depth_pct / 100.0) * 8.0
+    thresh = max(0.015, 0.050 - (ducking_depth_pct / 100.0) * 0.030)
+    release_ms = int(350 + (ducking_depth_pct / 100.0) * 300)
+    sp_gain = 1.25 + (ducking_depth_pct / 100.0) * 0.35
+
+    nr_val = int(12 + (denoise_pct / 100.0) * 20)
+    nf_val = int(-35 - (denoise_pct / 100.0) * 15)
+    hp_f = int(95 + (denoise_pct / 100.0) * 25)
+
+    if sel_track and Path(sel_track).exists():
+        fc = (
+            f"[0:v]subtitles='{escaped_ass}',format=yuv420p[vout];"
+            f"[0:a]highpass=f={hp_f}:poles=2,lowpass=f=11000:poles=2,afftdn=nr={nr_val}:nf={nf_val}:tn=1,"
+            f"equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
+            f"compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,aformat=sample_rates=48000:channel_layouts=stereo[sp_clean];"
+            f"[1:a]volume={bgm_vol:.2f}[bgm];"
+            f"[sp_clean]asplit=2[sp_raw][sp_key];"
+            f"[sp_key]highpass=f=120,volume=2.5[sp_trigger];"
+            f"[bgm][sp_trigger]sidechaincompress=threshold={thresh:.3f}:ratio={ratio:.1f}:attack=15:release={release_ms}[ducked_bgm];"
+            f"[sp_raw]volume={sp_gain:.2f}[sp];"
+            f"[sp][ducked_bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]"
+        )
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-ss", f"{payload.start_sec or 0.0:.2f}",
+            "-i", str(clip_path),
+            "-stream_loop", "-1",
+            "-i", str(sel_track),
+            "-filter_complex", fc,
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-t", f"{preview_dur:.2f}",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "22",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-movflags", "+faststart",
+            str(out_path)
+        ]
+    else:
+        fc = (
+            f"[0:v]subtitles='{escaped_ass}',format=yuv420p[vout];"
+            f"[0:a]highpass=f={hp_f}:poles=2,lowpass=f=11000:poles=2,afftdn=nr={nr_val}:nf={nf_val}:tn=1,"
+            f"equalizer=f=220:t=q:w=1.4:g=-11.0,equalizer=f=440:t=q:w=1.5:g=-6.0,equalizer=f=3200:t=q:w=1.4:g=4.5,"
+            f"compand=attacks=0.015:decays=0.10:points=-80/-95|-50/-60|-36/-36|-18/-12|0/0,aformat=sample_rates=48000:channel_layouts=stereo[aout]"
+        )
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-ss", f"{payload.start_sec or 0.0:.2f}",
+            "-i", str(clip_path),
+            "-filter_complex", fc,
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-t", f"{preview_dur:.2f}",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "22",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-movflags", "+faststart",
+            str(out_path)
+        ]
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True))
+
+    current_project["preview_url"] = f"/media_final/{out_filename}"
+
+    return {
+        "status": "success",
+        "url": f"/media_final/{out_filename}",
+        "filename": out_filename,
+        "duration": preview_dur,
+        "clip_source": clip_path.name,
+        "track_name": sel_track.stem if sel_track else "None",
+        "music_mood": music_mood,
+        "sacred_mode": sacred_mode,
+        "ducking_depth_pct": ducking_depth_pct,
+        "music_level_pct": music_level_pct,
+        "denoise_pct": denoise_pct,
+        "title": tb_cfg.get("text", "RANN OF KUTCH | SOMNATH")
     }
 
 # ----------------- PREMIERE PRO & INSTAGRAM STUDIO NLE -----------------
@@ -1765,6 +1985,9 @@ def execute_agent_command(payload: AgentPromptPayload):
         current_project["settings"]["edit_mode"] = "viral_short"
     if result["actions"].get("target_duration"):
         current_project["settings"]["target_duration"] = result["actions"]["target_duration"]
+    if result["actions"].get("text_behind_person"):
+        current_project["settings"].setdefault("text_behind_person", copy.deepcopy(DEFAULT_TEXT_BEHIND_PERSON)).update(result["actions"]["text_behind_person"])
+        save_user_settings(current_project["settings"])
     return result
 
 # ----------------- AI DIRECTOR FX SUITE & TOP 50 TRANSITIONS -----------------
@@ -1960,6 +2183,12 @@ class ProjectSettingsPayload(BaseModel):
     model_tier: Optional[str] = None
     license_plate_blur: Optional[bool] = None
     enabled_grids: Optional[dict] = None
+    music_mood: Optional[str] = None
+    sacred_mode: Optional[bool] = None
+    ducking_depth_pct: Optional[float] = None
+    music_level_pct: Optional[float] = None
+    denoise_pct: Optional[float] = None
+    text_behind_person: Optional[dict] = None
 
 class LicensePlateBlurPayload(BaseModel):
     filename: Optional[str] = None
