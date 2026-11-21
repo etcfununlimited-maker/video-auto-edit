@@ -475,7 +475,15 @@ async function applyDirectorPreset(presetName) {
         updateDirectorStatBadge();
         renderMiniDirectorBin();
 
-        const label = presetName === "anirban" ? "⭐ Anirban Preset (Custom Saved 50 Effects + RANN OF KUTCH Depth Title)" :
+        // Synchronize audio mix parameters if returned (e.g. Anirban preset)
+        if (data.audio_settings && typeof syncAudioSettingsFromBackend === "function") {
+            syncAudioSettingsFromBackend(data.audio_settings);
+            try {
+                localStorage.setItem("anirban_audio_settings", JSON.stringify(data.audio_settings));
+            } catch (e) {}
+        }
+
+        const label = presetName === "anirban" ? "⭐ Anirban Preset (Custom Saved 50 Effects + RANN OF KUTCH Depth Title + 60% Sacred Mix)" :
                       presetName === "vlog" ? "Viral Vlog Creator (TikTok / Shorts)" :
                       presetName === "cinematic" ? "Cinematic Movie (Anamorphic / Halation)" : "All Effects Bypassed";
         showToast(`✨ Preset Applied: ${label} (${data.active_count} active)`, "success");
@@ -494,6 +502,9 @@ async function saveCurrentAsAnirbanPreset() {
         try {
             localStorage.setItem("anirban_active_effects", JSON.stringify(directorActiveEffects));
             localStorage.setItem("anirban_text_behind", JSON.stringify(directorTextBehind));
+            if (data.preset && data.preset.audio_settings) {
+                localStorage.setItem("anirban_audio_settings", JSON.stringify(data.preset.audio_settings));
+            }
         } catch (e) {}
         showToast("⭐ Anirban Preset Saved Permanently! Survives all browser refreshes & server restarts.", "success");
     } catch (e) {

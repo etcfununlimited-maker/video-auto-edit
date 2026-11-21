@@ -52,6 +52,7 @@ const reframingGuide = document.getElementById("reframing-guide");
 window.addEventListener("DOMContentLoaded", async () => {
     initGridCards();
     initWebSocket();
+    await loadPersistedSettings();
     await fetchColorPresets();
     await fetchRawFiles();
     await fetchExportFiles();
@@ -2080,8 +2081,8 @@ async function executePipelineDirect(customSettings = null) {
         music_mood: document.getElementById("select-music-mood") ? document.getElementById("select-music-mood").value : "sacred_temple",
         sacred_mode: document.getElementById("chk-sacred-mode") ? document.getElementById("chk-sacred-mode").checked : true,
         ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
-        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
-        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
+        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 60.0,
+        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 90.0,
         license_plate_blur: true,
         enabled_grids: { ...gridEnabledState, grid_bgremove: true },
         text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
@@ -2196,8 +2197,8 @@ async function restartPipelineProcess() {
         music_mood: document.getElementById("select-music-mood") ? document.getElementById("select-music-mood").value : "sacred_temple",
         sacred_mode: document.getElementById("chk-sacred-mode") ? document.getElementById("chk-sacred-mode").checked : true,
         ducking_depth_pct: document.getElementById("slider-ducking-depth") ? parseFloat(document.getElementById("slider-ducking-depth").value) : 75.0,
-        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 40.0,
-        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 75.0,
+        music_level_pct: document.getElementById("slider-music-level") ? parseFloat(document.getElementById("slider-music-level").value) : 60.0,
+        denoise_pct: document.getElementById("slider-denoise-pct") ? parseFloat(document.getElementById("slider-denoise-pct").value) : 90.0,
         license_plate_blur: true,
         enabled_grids: { ...gridEnabledState, grid_bgremove: true },
         text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) ? Object.assign({}, directorTextBehind, {
@@ -2619,6 +2620,62 @@ async function burnHyperframeToVideo() {
 
 // ----------------- AUDIO & SOUNDTRACK SUPERVISION -----------------
 
+function syncAudioSettingsFromBackend(settings) {
+    if (!settings) return;
+    if (settings.music_mood !== undefined) {
+        const sel = document.getElementById("select-music-mood");
+        if (sel) sel.value = settings.music_mood;
+    }
+    if (settings.sacred_mode !== undefined) {
+        const chk = document.getElementById("chk-sacred-mode");
+        if (chk) chk.checked = !!settings.sacred_mode;
+    }
+    if (settings.ducking_depth_pct !== undefined) {
+        const slider = document.getElementById("slider-ducking-depth");
+        const val = parseFloat(settings.ducking_depth_pct);
+        if (slider) slider.value = val;
+        const lbl = document.getElementById("val-ducking-depth");
+        if (lbl) lbl.innerText = `${val}% (-${Math.round(8 + (val/100)*8)}dB Vocals)`;
+    }
+    if (settings.music_level_pct !== undefined) {
+        const slider = document.getElementById("slider-music-level");
+        const val = parseFloat(settings.music_level_pct);
+        if (slider) slider.value = val;
+        const lbl = document.getElementById("val-music-level");
+        if (lbl) lbl.innerText = `${val}% (${val < 25 ? 'Quiet Background' : (val < 55 ? 'Balanced Bed' : 'Prominent Music')})`;
+    }
+    if (settings.denoise_pct !== undefined) {
+        const slider = document.getElementById("slider-denoise-pct");
+        const val = parseFloat(settings.denoise_pct);
+        if (slider) slider.value = val;
+        const lbl = document.getElementById("val-denoise-pct");
+        if (lbl) lbl.innerText = `${val}% (${val >= 70 ? 'Studio Clean' : 'Gentle Denoise'})`;
+    }
+}
+window.syncAudioSettingsFromBackend = syncAudioSettingsFromBackend;
+
+async function loadPersistedSettings() {
+    try {
+        const cached = localStorage.getItem("anirban_audio_settings");
+        if (cached) {
+            syncAudioSettingsFromBackend(JSON.parse(cached));
+        }
+    } catch (e) {}
+
+    try {
+        const res = await fetch("/api/project/settings");
+        if (res.ok) {
+            const data = await res.json();
+            if (data.settings) {
+                syncAudioSettingsFromBackend(data.settings);
+            }
+        }
+    } catch (e) {
+        console.warn("Could not fetch project settings:", e);
+    }
+}
+window.loadPersistedSettings = loadPersistedSettings;
+
 let audioParamDebounceTimer = null;
 function onAudioParamChange(key, value) {
     if (key === 'ducking_depth_pct') {
@@ -2631,6 +2688,13 @@ function onAudioParamChange(key, value) {
         const lbl = document.getElementById('val-denoise-pct');
         if (lbl) lbl.innerText = `${value}% (${value >= 70 ? 'Studio Clean' : 'Gentle Denoise'})`;
     }
+
+    // Cache locally in localStorage
+    try {
+        const currentAudio = JSON.parse(localStorage.getItem("anirban_audio_settings") || "{}");
+        currentAudio[key] = value;
+        localStorage.setItem("anirban_audio_settings", JSON.stringify(currentAudio));
+    } catch (e) {}
 
     clearTimeout(audioParamDebounceTimer);
     audioParamDebounceTimer = setTimeout(async () => {
@@ -2687,8 +2751,8 @@ async function runSupervisionPreview() {
         music_mood: moodSelect ? moodSelect.value : "sacred_temple",
         sacred_mode: sacredChk ? sacredChk.checked : true,
         ducking_depth_pct: duckSlider ? parseFloat(duckSlider.value) : 75.0,
-        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 40.0,
-        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 75.0,
+        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 60.0,
+        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 90.0,
         text_behind: (typeof directorTextBehind !== "undefined" && directorTextBehind) 
             ? Object.assign({}, directorTextBehind, { text: customTitle, enabled: true })
             : { text: customTitle, enabled: true, font: "Montserrat", size: 110, spread: 8, color: "#FFFFFF", neon_enabled: true, neon_color: "#00F2FE", glow_radius: 24 }
@@ -2743,12 +2807,21 @@ async function saveAudioSettingsAndTitle() {
     const musicSlider = document.getElementById("slider-music-level");
     const denoiseSlider = document.getElementById("slider-denoise-pct");
 
-    const payload = {
+    const audioSettings = {
         music_mood: moodSelect ? moodSelect.value : "sacred_temple",
         sacred_mode: sacredChk ? sacredChk.checked : true,
         ducking_depth_pct: duckSlider ? parseFloat(duckSlider.value) : 75.0,
-        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 40.0,
-        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 75.0,
+        music_level_pct: musicSlider ? parseFloat(musicSlider.value) : 60.0,
+        denoise_pct: denoiseSlider ? parseFloat(denoiseSlider.value) : 90.0
+    };
+
+    // Store in localStorage for instant access across reloads
+    try {
+        localStorage.setItem("anirban_audio_settings", JSON.stringify(audioSettings));
+    } catch (e) {}
+
+    const payload = {
+        ...audioSettings,
         text_behind_person: (typeof directorTextBehind !== "undefined" && directorTextBehind) 
             ? Object.assign({}, directorTextBehind, { text: customTitle, enabled: true })
             : { text: customTitle, enabled: true }
@@ -2760,9 +2833,17 @@ async function saveAudioSettingsAndTitle() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
-        showToast(`✓ Title & Audio Settings Registered: "${customTitle}" 💾`, "success");
+
+        // Also persist as Anirban Preset on disk
+        await fetch("/api/ai-director/save-anirban-preset", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+        });
+
+        showToast(`✓ Title & Audio Preset Saved Permanently: "${customTitle}" 💾`, "success");
     } catch (e) {
         console.warn("Could not post audio settings:", e);
+        showToast("Error saving audio preset", "error");
     }
 }
 

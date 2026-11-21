@@ -181,6 +181,8 @@ if _anirban_preset.get("active_effects"):
     current_project["settings"]["ai_director_effects"].update(_anirban_preset["active_effects"])
 if _anirban_preset.get("text_behind_person"):
     current_project["settings"]["text_behind_person"].update(_anirban_preset["text_behind_person"])
+if _anirban_preset.get("audio_settings"):
+    current_project["settings"].update(_anirban_preset["audio_settings"])
 
 _persisted_settings = load_user_settings()
 if _persisted_settings:
@@ -2413,6 +2415,8 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
         director_effects["license_plate_blur"] = True
         if "text_behind_person" in p_data:
             text_behind.update(p_data["text_behind_person"])
+        if "audio_settings" in p_data:
+            current_project["settings"].update(p_data["audio_settings"])
         save_user_settings(current_project["settings"])
 
     elif payload.preset == "vlog":
@@ -2458,24 +2462,40 @@ async def apply_director_preset_endpoint(payload: DirectorPresetPayload):
         "grid_statuses": current_project["grid_statuses"]
     })
 
+    audio_data = {
+        "music_mood": current_project["settings"].get("music_mood", "sacred_temple"),
+        "sacred_mode": current_project["settings"].get("sacred_mode", True),
+        "ducking_depth_pct": current_project["settings"].get("ducking_depth_pct", 75.0),
+        "music_level_pct": current_project["settings"].get("music_level_pct", 60.0),
+        "denoise_pct": current_project["settings"].get("denoise_pct", 90.0)
+    }
+
     return {
         "status": "applied",
         "preset": payload.preset,
         "active_count": sum(1 for v in director_effects.values() if v),
         "active_effects": director_effects,
-        "text_behind_person": text_behind
+        "text_behind_person": text_behind,
+        "audio_settings": audio_data
     }
 
 @app.post("/api/ai-director/save-anirban-preset")
 async def save_anirban_preset_endpoint():
-    """Saves currently active 50 effects and text-behind settings permanently as Anirban Preset."""
+    """Saves currently active 50 effects, depth text, and audio mix permanently as Anirban Preset."""
     fx = current_project["settings"].get("ai_director_effects", {})
     tb = current_project["settings"].get("text_behind_person", {})
-    res = save_anirban_preset(fx, tb)
+    audio = {
+        "music_mood": current_project["settings"].get("music_mood", "sacred_temple"),
+        "sacred_mode": current_project["settings"].get("sacred_mode", True),
+        "ducking_depth_pct": current_project["settings"].get("ducking_depth_pct", 75.0),
+        "music_level_pct": current_project["settings"].get("music_level_pct", 60.0),
+        "denoise_pct": current_project["settings"].get("denoise_pct", 90.0)
+    }
+    res = save_anirban_preset(fx, tb, audio)
     save_user_settings(current_project["settings"])
     return {
         "status": "saved",
-        "message": "Current 50 effects and depth text saved permanently as Anirban Preset",
+        "message": "Current 50 effects, depth text, and audio mix saved permanently as Anirban Preset",
         "preset": res
     }
 
@@ -2614,11 +2634,28 @@ async def update_project_settings_endpoint(payload: ProjectSettingsPayload):
             "all_statuses": current_project["grid_statuses"]
         })
     save_user_settings(current_project["settings"])
+    audio_for_preset = {
+        "music_mood": current_project["settings"].get("music_mood", "sacred_temple"),
+        "sacred_mode": current_project["settings"].get("sacred_mode", True),
+        "ducking_depth_pct": current_project["settings"].get("ducking_depth_pct", 75.0),
+        "music_level_pct": current_project["settings"].get("music_level_pct", 60.0),
+        "denoise_pct": current_project["settings"].get("denoise_pct", 90.0)
+    }
     save_anirban_preset(
         current_project["settings"].get("ai_director_effects", {}),
-        current_project["settings"].get("text_behind_person", {})
+        current_project["settings"].get("text_behind_person", {}),
+        audio_for_preset
     )
     return {"status": "success", "settings": current_project["settings"]}
+
+@app.get("/api/project/settings")
+async def get_project_settings_endpoint():
+    """Returns active project settings and saved Anirban preset."""
+    return {
+        "status": "success",
+        "settings": current_project["settings"],
+        "anirban_preset": load_anirban_preset()
+    }
 
 # ----------------- WEBSOCKET REAL-TIME PROGRESS -----------------
 

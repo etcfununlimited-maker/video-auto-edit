@@ -1,7 +1,7 @@
 {
   "color_grade": "none",
   "caption_style": "hyperframe_kinetic",
-  "aspect_ratio": "original",
+  "aspect_ratio": "16:9",
   "ai_director_effects": {
     "whip_pan": true,
     "punch_in": true,
@@ -57,17 +57,17 @@
   },
   "text_behind_person": {
     "enabled": true,
-    "text": "DAY 1 DELHI TO ABU ROAD",
+    "text": "RANN OF KUTCH | BHUJ | SOMNATH VLOG",
     "font": "Montserrat",
-    "size": 40,
-    "spread": 4,
+    "size": 110,
+    "spread": 8,
     "color": "#FFFFFF",
     "neon_enabled": true,
     "neon_color": "#00F2FE",
     "glow_radius": 24,
     "glow_intensity": 1.2,
-    "position": "head",
-    "y_offset": 0,
+    "position": "center",
+    "y_offset": -20,
     "opacity": 0.95
   },
   "enabled_grids": {
@@ -84,8 +84,13 @@
     "grid_agent": true,
     "grid_render": true
   },
-  "edit_mode": "single",
+  "edit_mode": "full_movie",
   "render_mode": "full",
   "language": "hinglish",
-  "script_mode": "roman"
+  "script_mode": "roman",
+  "music_mood": "sacred_temple",
+  "sacred_mode": true,
+  "ducking_depth_pct": 75.0,
+  "music_level_pct": 60.0,
+  "denoise_pct": 90.0
 }

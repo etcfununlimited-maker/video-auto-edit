@@ -97,12 +97,22 @@ DEFAULT_ANIRBAN_TEXT_BEHIND = {
     "opacity": 0.95
 }
 
+DEFAULT_ANIRBAN_AUDIO = {
+    "music_mood": "sacred_temple",
+    "sacred_mode": True,
+    "ducking_depth_pct": 75.0,
+    "music_level_pct": 60.0,
+    "denoise_pct": 90.0
+}
+
 def load_anirban_preset() -> Dict[str, Any]:
-    """Loads saved Anirban Preset or creates default with 'RANN OF KUTCH'."""
+    """Loads saved Anirban Preset or creates default with 'RANN OF KUTCH' and audio mix."""
     if ANIRBAN_PRESET_FILE.exists():
         try:
             with open(ANIRBAN_PRESET_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                if "audio_settings" not in data:
+                    data["audio_settings"] = DEFAULT_ANIRBAN_AUDIO
                 return data
         except Exception:
             pass
@@ -110,17 +120,19 @@ def load_anirban_preset() -> Dict[str, Any]:
     default_data = {
         "name": "Anirban Preset",
         "active_effects": DEFAULT_ANIRBAN_EFFECTS,
-        "text_behind_person": DEFAULT_ANIRBAN_TEXT_BEHIND
+        "text_behind_person": DEFAULT_ANIRBAN_TEXT_BEHIND,
+        "audio_settings": DEFAULT_ANIRBAN_AUDIO
     }
-    save_anirban_preset(default_data["active_effects"], default_data["text_behind_person"])
+    save_anirban_preset(default_data["active_effects"], default_data["text_behind_person"], default_data["audio_settings"])
     return default_data
 
-def save_anirban_preset(active_effects: Dict[str, bool], text_behind: Dict[str, Any]) -> Dict[str, Any]:
-    """Saves the current effects and text-behind settings permanently as Anirban Preset."""
+def save_anirban_preset(active_effects: Dict[str, bool], text_behind: Dict[str, Any], audio_settings: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Saves the current effects, text-behind, and audio mix settings permanently as Anirban Preset."""
     data = {
         "name": "Anirban Preset",
         "active_effects": active_effects,
-        "text_behind_person": text_behind
+        "text_behind_person": text_behind,
+        "audio_settings": audio_settings if audio_settings is not None else DEFAULT_ANIRBAN_AUDIO
     }
     try:
         with open(ANIRBAN_PRESET_FILE, "w", encoding="utf-8") as f:
@@ -144,7 +156,12 @@ def save_user_settings(settings: Dict[str, Any]) -> None:
     try:
         # Create a clean serializable copy
         data_to_save = {}
-        for k in ["color_grade", "caption_style", "aspect_ratio", "ai_director_effects", "text_behind_person", "enabled_grids", "edit_mode", "render_mode", "language", "script_mode"]:
+        for k in [
+            "color_grade", "caption_style", "aspect_ratio",
+            "ai_director_effects", "text_behind_person", "enabled_grids",
+            "edit_mode", "render_mode", "language", "script_mode",
+            "music_mood", "sacred_mode", "ducking_depth_pct", "music_level_pct", "denoise_pct"
+        ]:
             if k in settings:
                 data_to_save[k] = settings[k]
 
