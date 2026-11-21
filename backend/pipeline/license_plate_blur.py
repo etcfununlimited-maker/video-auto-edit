@@ -443,6 +443,22 @@ def clip_has_license_plates(clip_path: str, sample_frames: int = 20) -> bool:
     cap.release()
     return False
 
+def is_video_valid(path) -> bool:
+    """Verifies that a video file exists, is non-empty, and can be decoded by FFmpeg without corruption."""
+    p = Path(path)
+    if not p.exists() or p.stat().st_size < 1024:
+        return False
+    try:
+        res = subprocess.run(
+            [FFMPEG_PATH, "-v", "error", "-i", str(p), "-t", "0.5", "-f", "null", "-"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=10
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
 def process_image_plate_blur(
     input_path: str,
     output_path: str = None,
@@ -546,7 +562,8 @@ def process_video_plate_blur(
         cap.release()
         writer.release()
 
-    # Mux losslessly with FFmpeg
+    # Mux losslessly with FFmpeg using atomic temporary destination
+    temp_mux_out = out_p.parent / f".tmp_mux_{os.getpid()}_{out_p.name}"
     mux_cmd = [
         FFMPEG_PATH, "-y",
         "-i", str(temp_raw_avi),
@@ -557,12 +574,28 @@ def process_video_plate_blur(
         "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
-        str(out_p)
+        str(temp_mux_out)
     ]
-    subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-
-    if temp_raw_avi.exists():
-        temp_raw_avi.unlink()
+    try:
+        subprocess.run(mux_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        if temp_mux_out.exists():
+            if out_p.exists():
+                try:
+                    out_p.unlink()
+                except Exception:
+                    pass
+            temp_mux_out.replace(out_p)
+    finally:
+        if temp_mux_out.exists():
+            try:
+                temp_mux_out.unlink()
+            except Exception:
+                pass
+        if temp_raw_avi.exists():
+            try:
+                temp_raw_avi.unlink()
+            except Exception:
+                pass
 
     return {
         "status": "success",

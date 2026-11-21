@@ -63,6 +63,7 @@ def render_final_master(
 
     final_path = FINAL_EXPORT_DIR / output_filename
 
+    original_src = src
     # Automatic License Plate Privacy Blurring (Bypassed if Grid 9 or license_plate_blur is toggled OFF)
     has_lp_blur = True
     if enabled_grids and not enabled_grids.get("grid_bgremove", True):
@@ -75,12 +76,19 @@ def render_final_master(
 
     if has_lp_blur:
         try:
-            from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+            from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur, is_video_valid
+            from backend.config import UPLOADS_DIR
             if clip_has_license_plates(str(src)):
-                blurred_src = src.parent / f".tmp_plate_blur_{src.stem}.mp4"
-                if not blurred_src.exists() or blurred_src.stat().st_size == 0:
+                blurred_src = UPLOADS_DIR / f".tmp_plate_blur_{src.stem}.mp4"
+                if not is_video_valid(blurred_src):
+                    if blurred_src.exists():
+                        try:
+                            blurred_src.unlink()
+                        except Exception:
+                            pass
                     process_video_plate_blur(str(src), str(blurred_src), method="gaussian")
-                src = blurred_src
+                if is_video_valid(blurred_src):
+                    src = blurred_src
         except Exception as e:
             print(f"License plate blur notice: {e}")
 
@@ -260,10 +268,11 @@ def render_final_master(
     except subprocess.CalledProcessError as e:
         print(f"Direct render warning: {e.stderr.decode('utf-8', errors='replace')}")
         # Robust fallback render with universal compatibility
+        src_for_fallback = src if is_video_valid(src) else original_src
         cmd_fallback = [
             FFMPEG_PATH,
             "-y",
-            "-i", str(src),
+            "-i", str(src_for_fallback),
             "-vf", "format=yuv420p",
             "-c:v", "libx264",
             "-profile:v", "high",

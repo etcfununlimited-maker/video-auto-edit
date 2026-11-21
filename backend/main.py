@@ -889,8 +889,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 "music_mood": current_project.get("settings", {}).get("music_mood", "sacred_temple"),
                 "sacred_mode": current_project.get("settings", {}).get("sacred_mode", True),
                 "ducking_depth_pct": float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0)),
-                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 40.0)),
-                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 75.0))
+                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 60.0)),
+                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 90.0))
             }
 
             master_out = await asyncio.to_thread(
@@ -914,8 +914,8 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
                 "music_mood": current_project.get("settings", {}).get("music_mood", "sacred_temple"),
                 "sacred_mode": current_project.get("settings", {}).get("sacred_mode", True),
                 "ducking_depth_pct": float(current_project.get("settings", {}).get("ducking_depth_pct", 75.0)),
-                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 40.0)),
-                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 75.0))
+                "music_level_pct": float(current_project.get("settings", {}).get("music_level_pct", 60.0)),
+                "denoise_pct": float(current_project.get("settings", {}).get("denoise_pct", 90.0))
             }
             clip_full_dur = current_project.get("metadata", {}).get("duration", 64.8) or 64.8
             eff_dur = min(clip_full_dur, target_dur) if target_dur else clip_full_dur
@@ -1173,6 +1173,7 @@ class Stage11DecisionPayload(BaseModel):
     music_track: Optional[str] = None
 
 @app.post("/api/pipeline/stage11-decision")
+@app.post("/api/project/stage11-decision")
 async def stage11_decision_endpoint(payload: Stage11DecisionPayload):
     """
     Submits user decision when paused after Stage 11:

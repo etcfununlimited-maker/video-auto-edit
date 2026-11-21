@@ -574,13 +574,18 @@ def build_multi_clip_movie_pipeline(
             # Automatic Vehicle License Plate Privacy Blurring
             if has_lp_blur:
                 try:
-                    from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur
+                    from backend.pipeline.license_plate_blur import clip_has_license_plates, process_video_plate_blur, is_video_valid
                     if clip_has_license_plates(str(c_p)):
                         blurred_take = UPLOADS_DIR / f".tmp_plate_blur_{c_p.stem}.mp4"
-                        if not blurred_take.exists() or blurred_take.stat().st_size == 0:
+                        if not is_video_valid(blurred_take):
+                            if blurred_take.exists():
+                                try:
+                                    blurred_take.unlink()
+                                except Exception:
+                                    pass
                             print(f"Applying License Plate Privacy Blur to video take: {c_p.name}...")
                             process_video_plate_blur(str(c_p), str(blurred_take), method="gaussian")
-                        if blurred_take.exists() and blurred_take.stat().st_size > 0:
+                        if is_video_valid(blurred_take):
                             c_p = blurred_take
                 except Exception as ex_lp:
                     print(f"Video license plate blur notice for {c_p.name}: {ex_lp}")
