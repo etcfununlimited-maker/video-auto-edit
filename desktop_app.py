@@ -1,6 +1,6 @@
 """
 ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR
-Windows Native Desktop Application Suite (v3.1.0)
+Windows Native Desktop Application Suite (v3.2.0)
 
 Features:
 - Native Windows Desktop Window (Powered by Edge Chromium WebView2 / pywebview)
@@ -83,7 +83,7 @@ def launch_native_window():
 
 def main():
     print("=" * 65)
-    print("      ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR (PRO v3.1.0)")
+    print("      ANIRBAN AUTOMATIONS - AI AUTO VIDEO EDITOR (PRO v3.2.0)")
     print("=" * 65)
 
     success = launch_native_window()

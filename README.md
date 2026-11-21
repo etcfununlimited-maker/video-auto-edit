@@ -1,4 +1,4 @@
-# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.1.0)
+# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.2.0)
 
 An AI-powered automated video editing studio designed for high-retention content creation, viral social media reframing, intelligent scene preservation, and code-driven motion graphics.
 
@@ -6,7 +6,7 @@ Built specifically to process **standard MP4s, iPhone 16 HEVC / Apple ProRes / H
 
 ---
 
-## 🚀 Major Release Milestone: What's New in v3.1.0
+## 🚀 Major Release Milestone: What's New in v3.2.0
 
 1. **Premiere Pro & Instagram Multi-Track NLE Studio (V1–V4, A1–A2)**
    - Per-track and per-clip interactive editing: Track V1 (10 Master Video Clips), Track V2 (Title Overlay Graphic), Track V3 (Hormozi Kinetic Dynamic Animated Overlay), Track V4 (Native Editable Title Generator), Track A1 (Voice Dialogue with Denoise & Level Filters), Track A2 (Music Bed with Auto-Ducking Envelopes).

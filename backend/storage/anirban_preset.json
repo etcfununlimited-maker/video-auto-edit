@@ -15,7 +15,7 @@
     "freeze_frame": false,
     "reverse_ramp": false,
     "flash_frame": false,
-    "dialogue_jump_cut": true,
+    "dialogue_jump_cut": false,
     "morph_cut": false,
     "stop_motion_12fps": false,
     "slow_shutter": false,
@@ -50,7 +50,7 @@
     "hormozi_captions": true,
     "tracked_3d_title": false,
     "paper_tear": false,
-    "lower_third_slide": true,
+    "lower_third_slide": false,
     "license_plate_blur": true
   },
   "text_behind_person": {
