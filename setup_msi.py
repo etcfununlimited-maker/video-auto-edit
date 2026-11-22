@@ -20,6 +20,7 @@ executables = [
 include_files = [
     ("backend", "backend"),
     ("frontend", "frontend"),
+    ("scripts", "scripts"),
     ("app_icon.ico", "app_icon.ico")
 ]
 
@@ -32,7 +33,9 @@ build_exe_options = {
         "cv2",
         "numpy",
         "webview",
-        "imageio_ffmpeg"
+        "imageio_ffmpeg",
+        "PIL",
+        "scipy"
     ],
     "include_files": include_files,
     "excludes": ["tkinter", "unittest", "test", "pydoc"]
