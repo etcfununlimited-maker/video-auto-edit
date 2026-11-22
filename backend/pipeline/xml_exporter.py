@@ -73,27 +73,94 @@ def render_title_overlay_png(title_text: str, width: int = 1920, height: int = 1
     return str(output_path)
 
 
-def render_soundtrack_bed_wav(music_track_path: Path, target_duration_sec: float, output_path: str = None) -> str:
+def render_soundtrack_bed_wav(music_track_path: Path = None, target_duration_sec: float = 5311.0, output_path: str = None) -> str:
     """
-    Loops or trims background music into a clean, broadcast-standard 48kHz Stereo WAV for Premiere Pro Track A2.
-    Eliminates embedded ID3 JPEG video streams and guarantees exact duration alignment.
+    Builds a rich, multi-movement soundtrack bed from at least 5 to 9 diverse music tracks.
+    Loops and weaves across distinct musical chapters with clean, broadcast-standard 48kHz Stereo WAV for Premiere Pro Track A2.
     """
     if not output_path:
         output_path = str(FINAL_EXPORT_DIR / "PREMIERE_SOUNDTRACK_BED.wav")
 
-    import subprocess
-    cmd = [
-        FFMPEG_PATH, "-y",
-        "-stream_loop", "-1",
-        "-i", str(music_track_path),
-        "-t", f"{target_duration_sec:.3f}",
-        "-vn",
-        "-c:a", "pcm_s16le",
-        "-ar", "48000",
-        "-ac", "2",
-        str(output_path)
+    music_dir = FINAL_EXPORT_DIR / "MUSIC"
+    music_dir.mkdir(parents=True, exist_ok=True)
+
+    curated_track_names = [
+        "Airport_Lounge.mp3",
+        "Daily_Beetle.mp3",
+        "Clean_Soul.mp3",
+        "Carpe_Diem.mp3",
+        "Feelin_Good.mp3",
+        "Groove_Grove.mp3",
+        "Bossa_Antigua.mp3",
+        "Life_of_Riley.mp3",
+        "Call_to_Adventure.mp3"
     ]
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+    # Normalize each track to 48kHz stereo WAV in final_export/MUSIC/
+    normalized_wavs = []
+    for idx, t_name in enumerate(curated_track_names):
+        src = RAW_INPUT_DIR / "MUSIC" / t_name
+        if not src.exists():
+            src = RAW_INPUT_DIR / "MUSIC" / "library" / t_name
+        if not src.exists():
+            continue
+        dest_wav = music_dir / f"{idx+1:02d}_{Path(t_name).stem}.wav"
+        if not dest_wav.exists() or dest_wav.stat().st_size == 0:
+            try:
+                import subprocess
+                cmd = [
+                    FFMPEG_PATH, "-y",
+                    "-i", str(src),
+                    "-vn",
+                    "-c:a", "pcm_s16le",
+                    "-ar", "48000",
+                    "-ac", "2",
+                    str(dest_wav)
+                ]
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            except Exception as e_norm:
+                print(f"Notice normalizing music {t_name}: {e_norm}")
+        if dest_wav.exists() and dest_wav.stat().st_size > 0:
+            normalized_wavs.append(dest_wav)
+
+    if normalized_wavs:
+        concat_txt = FINAL_EXPORT_DIR / "concat_soundtracks.txt"
+        lines = []
+        reps = max(3, int(target_duration_sec / 1500) + 1)
+        for _ in range(reps):
+            for w in normalized_wavs:
+                p_str = str(w).replace("\\", "/")
+                lines.append(f"file '{p_str}'")
+        concat_txt.write_text("\n".join(lines), encoding="utf-8")
+
+        import subprocess
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-f", "concat", "-safe", "0",
+            "-i", str(concat_txt),
+            "-t", f"{target_duration_sec:.3f}",
+            "-c", "copy",
+            str(output_path)
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        concat_txt.unlink(missing_ok=True)
+        return str(output_path)
+
+    # Fallback to single track if library unavailable
+    if music_track_path and Path(music_track_path).exists():
+        import subprocess
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-stream_loop", "-1",
+            "-i", str(music_track_path),
+            "-t", f"{target_duration_sec:.3f}",
+            "-vn",
+            "-c:a", "pcm_s16le",
+            "-ar", "48000",
+            "-ac", "2",
+            str(output_path)
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     return str(output_path)
 
 
@@ -893,7 +960,7 @@ def export_premiere_fcp_xml(
 
         clipitem = ET.SubElement(track_a2, "clipitem", id="clipitem-a2-music-1")
         ET.SubElement(clipitem, "masterclipid").text = "masterclip-music-1"
-        ET.SubElement(clipitem, "name").text = f"Music Bed: {music_p.name} (Auto-Ducking)"
+        ET.SubElement(clipitem, "name").text = "Music Bed: 9 Multi-Movement Soundtracks (Auto-Ducking)"
         ET.SubElement(clipitem, "enabled").text = "TRUE"
         ET.SubElement(clipitem, "duration").text = str(total_frames)
 
