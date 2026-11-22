@@ -7,7 +7,10 @@ import sys
 from pathlib import Path
 
 # Base Paths
-BASE_DIR = Path(__file__).resolve().parent.parent
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = BASE_DIR / "backend"
 FRONTEND_DIR = BASE_DIR / "frontend"
 STATIC_DIR = FRONTEND_DIR / "static"
@@ -16,10 +19,23 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 EXPORTS_DIR = BASE_DIR / "exports"
 SAMPLE_MEDIA_DIR = BASE_DIR / "sample_media"
 RAW_INPUT_DIR = BASE_DIR / "raw_input"
+MUSIC_DIR = RAW_INPUT_DIR / "MUSIC"
 FINAL_EXPORT_DIR = BASE_DIR / "final_export"
 
-# Ensure runtime directories exist
-for p in [UPLOADS_DIR, EXPORTS_DIR, SAMPLE_MEDIA_DIR, RAW_INPUT_DIR, FINAL_EXPORT_DIR]:
+# Ensure all runtime and export directories exist automatically on startup
+for p in [
+    UPLOADS_DIR,
+    EXPORTS_DIR,
+    SAMPLE_MEDIA_DIR,
+    RAW_INPUT_DIR,
+    MUSIC_DIR,
+    FINAL_EXPORT_DIR,
+    FINAL_EXPORT_DIR / "MUSIC",
+    FINAL_EXPORT_DIR / "COLLAGES",
+    FINAL_EXPORT_DIR / "VERTICAL_FILL",
+    FINAL_EXPORT_DIR / "PHOTOS",
+    FINAL_EXPORT_DIR / "PHOTO_PROXIES"
+]:
     p.mkdir(parents=True, exist_ok=True)
 
 # Resolve FFmpeg and FFprobe binaries

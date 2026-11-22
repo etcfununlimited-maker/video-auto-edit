@@ -5,10 +5,14 @@ across browser refreshes and server restarts.
 """
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Any
 
-STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
+if getattr(sys, "frozen", False):
+    STORAGE_DIR = Path(sys.executable).resolve().parent / "backend" / "storage"
+else:
+    STORAGE_DIR = Path(__file__).resolve().parent.parent / "storage"
 STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 ANIRBAN_PRESET_FILE = STORAGE_DIR / "anirban_preset.json"

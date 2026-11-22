@@ -18,10 +18,11 @@ executables = [
 
 # Files and folders to include
 include_files = [
-    ("backend", "backend"),
-    ("frontend", "frontend"),
-    ("scripts", "scripts"),
-    ("app_icon.ico", "app_icon.ico")
+    (str(BASE_DIR / "backend"), "backend"),
+    (str(BASE_DIR / "frontend"), "frontend"),
+    (str(BASE_DIR / "scripts"), "scripts"),
+    (str(BASE_DIR / "raw_input" / "MUSIC"), "raw_input/MUSIC"),
+    (str(BASE_DIR / "app_icon.ico"), "app_icon.ico")
 ]
 
 build_exe_options = {

@@ -18,7 +18,10 @@ import threading
 import webbrowser
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False):
+    PROJECT_DIR = Path(sys.executable).resolve().parent
+else:
+    PROJECT_DIR = Path(__file__).resolve().parent
 os.chdir(PROJECT_DIR)
 
 PORT = 8000

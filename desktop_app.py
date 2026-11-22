@@ -19,8 +19,15 @@ import subprocess
 import webbrowser
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+# When frozen via cx_Freeze / PyInstaller, __file__ is inside library.zip
+# Use sys.executable directory as the true application base directory
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+
 os.chdir(BASE_DIR)
+sys.path.insert(0, str(BASE_DIR))
 
 PORT = 8000
 URL = f"http://127.0.0.1:{PORT}"

@@ -211,7 +211,10 @@ def main():
     if len(sys.argv) > 1:
         files = [Path(arg).resolve() for arg in sys.argv[1:]]
     else:
-        base_dir = Path(__file__).resolve().parent.parent / "final_export"
+        if getattr(sys, "frozen", False):
+            base_dir = Path(sys.executable).resolve().parent / "final_export"
+        else:
+            base_dir = Path(__file__).resolve().parent.parent / "final_export"
         files = [
             base_dir / "PREMIERE_PRO_PROJECT.xml",
             base_dir / "CAPTIONS.srt"

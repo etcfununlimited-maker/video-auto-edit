@@ -11,7 +11,11 @@ Comprehensive REST & WebSocket APIs for:
 """
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+if getattr(sys, "frozen", False):
+    sys.path.insert(0, str(Path(sys.executable).resolve().parent))
+else:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import os
 import json
