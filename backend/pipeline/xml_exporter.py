@@ -292,7 +292,8 @@ def pre_render_xml_collages(
     v1_clips: list[dict],
     width: int = 1920,
     height: int = 1080,
-    fps: int = 30
+    fps: int = 30,
+    force_rerender: bool = False
 ) -> list[dict]:
     """
     Groups contiguous photo clips into clusters and pre-renders them into 1080p MP4
@@ -388,7 +389,7 @@ def pre_render_xml_collages(
 
     def render_one_task(task):
         c_paths, out_p, s_id = task
-        if out_p.exists() and out_p.stat().st_size > 50000:
+        if not force_rerender and out_p.exists() and out_p.stat().st_size > 50000:
             return str(out_p)
         try:
             render_collage_segment(c_paths, str(out_p), duration=4.0, style_id=s_id, is_fast=False)
@@ -397,7 +398,7 @@ def pre_render_xml_collages(
         return str(out_p)
 
     print(f"[pre_render_xml_collages] Ensuring {len(tasks)} collage MP4 videos in {collages_dir.name}...")
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=8) as ex:
         list(ex.map(render_one_task, tasks))
 
     return new_v1_clips
@@ -419,6 +420,15 @@ def render_hormuzi_overlay_mov(
     """
     if not output_path:
         output_path = str(FINAL_EXPORT_DIR / "PREMIERE_HORMUZI_CAPTIONS.mov")
+
+    out_p_obj = Path(output_path)
+    if out_p_obj.exists() and out_p_obj.stat().st_size > 100_000_000:
+        meta_exist = probe_media(str(output_path))
+        exist_dur = float(meta_exist.get("duration", 0.0))
+        total_sec_check = sum(float(c.get("duration", 4.0)) for c in clips)
+        if exist_dur > 100.0 and abs(exist_dur - total_sec_check) < 10.0:
+            print(f"[render_hormuzi_overlay_mov] Reusing verified full-duration captions MOV: {output_path} ({exist_dur:.1f}s)")
+            return str(output_path)
 
     from backend.pipeline.hyperframe_captions import generate_ass_subtitles
     import subprocess
@@ -621,7 +631,8 @@ def export_premiere_fcp_xml(
     title_text: str = "",
     music_track_name: str = "Airport_Lounge.mp3",
     ducking_depth_pct: float = 75.0,
-    ensure_min_clips: int = 10
+    ensure_min_clips: int = 10,
+    force_rerender_collages: bool = False
 ) -> str:
     """
     Generates a full, 100% broadcast-compliant Apple Final Cut Pro XML (xmeml version 4/5)
@@ -745,7 +756,7 @@ def export_premiere_fcp_xml(
 
     # Pre-render photo clusters into 1080p MP4 collages cycling through the 20 approved styles
     # Replaces raw still photos on Track V1 with motion video collages (strict 4.0s hold each)
-    v1_clips = pre_render_xml_collages(v1_clips, width=width, height=height, fps=fps)
+    v1_clips = pre_render_xml_collages(v1_clips, width=width, height=height, fps=fps, force_rerender=force_rerender_collages)
 
     # Calculate total duration in frames
     total_frames = 0
@@ -952,6 +963,9 @@ def export_premiere_fcp_xml(
     ET.SubElement(clipitem_v2, "end").text = str(title_dur_frames)
     ET.SubElement(clipitem_v2, "in").text = "0"
     ET.SubElement(clipitem_v2, "out").text = str(title_dur_frames)
+    ET.SubElement(clipitem_v2, "alphatype").text = "straight"
+    comp_v2 = ET.SubElement(clipitem_v2, "compositecharacteristic")
+    ET.SubElement(comp_v2, "composite").text = "normal"
 
     file_v2 = ET.SubElement(clipitem_v2, "file", id="file-title-1")
     ET.SubElement(file_v2, "name").text = Path(title_png_path).name
@@ -981,6 +995,8 @@ def export_premiere_fcp_xml(
     ET.SubElement(f_sc_v2, "anamorphic").text = "FALSE"
     ET.SubElement(f_sc_v2, "pixelaspectratio").text = "square"
     ET.SubElement(f_sc_v2, "fielddominance").text = "none"
+    ET.SubElement(f_sc_v2, "colordepth").text = "32"
+    ET.SubElement(f_vid_v2, "alphatype").text = "straight"
 
     st_v2 = ET.SubElement(clipitem_v2, "sourcetrack")
     ET.SubElement(st_v2, "mediatype").text = "video"
@@ -1010,6 +1026,9 @@ def export_premiere_fcp_xml(
         ET.SubElement(clipitem_v3, "end").text = str(total_frames)
         ET.SubElement(clipitem_v3, "in").text = "0"
         ET.SubElement(clipitem_v3, "out").text = str(total_frames)
+        ET.SubElement(clipitem_v3, "alphatype").text = "black"
+        comp_v3 = ET.SubElement(clipitem_v3, "compositecharacteristic")
+        ET.SubElement(comp_v3, "composite").text = "normal"
 
         file_v3 = ET.SubElement(clipitem_v3, "file", id="file-captions-1")
         ET.SubElement(file_v3, "name").text = Path(hormuzi_mov_path).name
@@ -1039,6 +1058,8 @@ def export_premiere_fcp_xml(
         ET.SubElement(f_sc_v3, "anamorphic").text = "FALSE"
         ET.SubElement(f_sc_v3, "pixelaspectratio").text = "square"
         ET.SubElement(f_sc_v3, "fielddominance").text = "none"
+        ET.SubElement(f_sc_v3, "colordepth").text = "32"
+        ET.SubElement(f_vid_v3, "alphatype").text = "black"
 
         st_v3 = ET.SubElement(clipitem_v3, "sourcetrack")
         ET.SubElement(st_v3, "mediatype").text = "video"

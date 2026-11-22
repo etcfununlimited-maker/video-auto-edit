@@ -67,25 +67,35 @@ def get_photo_saliency_center(photo_path: str) -> tuple[float, float]:
     """
     Computer Vision Saliency & Human Center Detection.
     Uses YCrCb skin probability + Sobel edge gradient to find where the subject is.
-    Guarantees crop is centered directly on the person, never on empty sky.
+    Guarantees crop is centered directly on the person's face/upper torso, never on empty sky or ground.
     """
     try:
         import cv2
         import numpy as np
-        img = cv2.imread(str(photo_path))
-        if img is None and Path(photo_path).suffix.lower() in (".heic", ".heif", ".webp", ".png", ".jpg", ".jpeg"):
-            try:
-                cmd = [FFMPEG_PATH, "-i", str(photo_path), "-frames:v", "1", "-f", "image2", "-c:v", "mjpeg", "-"]
-                p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                if p.stdout:
-                    nparr = np.frombuffer(p.stdout, np.uint8)
-                    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            except Exception:
-                pass
+        from PIL import Image, ImageOps, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+        with Image.open(str(photo_path)) as pil_img:
+            pil_upright = ImageOps.exif_transpose(pil_img)
+            pil_upright.thumbnail((640, 640))
+            img_rgb = np.array(pil_upright.convert("RGB"))
+            img = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+
         if img is not None:
             h, w = img.shape[:2]
             ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
             skin_mask = cv2.inRange(ycrcb, np.array([0, 133, 77]), np.array([255, 173, 127]))
+            
+            y_indices, x_indices = np.where(skin_mask > 0)
+            if len(y_indices) > 50:
+                min_y, max_y = np.min(y_indices), np.max(y_indices)
+                min_x, max_x = np.min(x_indices), np.max(x_indices)
+                face_y = min_y + (max_y - min_y) * 0.28
+                face_x = (min_x + max_x) / 2.0
+                cx = face_x / float(w)
+                cy = face_y / float(h)
+                return (max(0.15, min(0.85, cx)), max(0.20, min(0.70, cy)))
+
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             sobel = cv2.Sobel(gray, cv2.CV_32F, 1, 1)
             grad_mag = np.abs(sobel)
@@ -95,7 +105,7 @@ def get_photo_saliency_center(photo_path: str) -> tuple[float, float]:
             if M["m00"] > 0:
                 cx = (M["m10"] / M["m00"]) / float(w)
                 cy = (M["m01"] / M["m00"]) / float(h)
-                return (max(0.15, min(0.85, cx)), max(0.20, min(0.80, cy)))
+                return (max(0.15, min(0.85, cx)), max(0.25, min(0.65, cy)))
     except Exception:
         pass
     return (0.50, 0.45)
