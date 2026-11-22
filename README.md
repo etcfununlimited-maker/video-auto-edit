@@ -1,8 +1,47 @@
-# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.2.0)
+# 🎬 AUTO VIDEO EDITOR — ANIRBAN AUTOMATIONS (PRO v3.3.0)
 
 An AI-powered automated video editing studio designed for high-retention content creation, viral social media reframing, intelligent scene preservation, and code-driven motion graphics.
 
 Built specifically to process **standard MP4s, iPhone 16 HEVC / Apple ProRes / HDR footage, Android, and DSLR media** with a unified 12-Grid progress tracking dashboard.
+
+---
+
+## 🚀 Major Release Milestone: What's New in v3.3.0
+
+1. **Option A: Single Master Track V1 with Dynamic Ambient Blurred Wings (Zero Black Bars)**
+   - Pre-renders all vertical mobile clips dynamically into broadcast-ready 1080p widescreen MP4s in `final_export/VERTICAL_FILL/`.
+   - Smooth, darkened ambient blur wings (`boxblur=15:2`, `eq=brightness=-0.15`) that move with the camera motion while preserving 100% sharp original vertical footage centered without cropping.
+   - Stream-copied lossless audio with 320 kbps AAC fallback.
+   - Consolidates Track V1 into 100% 1080p Widescreen footage (landscape takes, motion collages, and ambient fills), completely eliminating black bars and playback GPU stutter.
+
+2. **Strict Chronological Timeline Ordering Across Multi-Device Media**
+   - High-precision ingestion and XML sorting engine (`deduplicate_and_sort_clips` & `extract_clip_timestamp`).
+   - Deep inspection across EXIF Sub-IFD (`DateTimeOriginal`), binary Apple HEIC metadata, QuickTime container creation timestamps (preserving local IST offset without double-offsetting), and filename patterns.
+   - Strictly orders all mixed-device media (iPhone MOV, Android MP4, DSLR, HEIC, JPG) monotonically by true capture time.
+
+3. **Standardized Upright EXIF Orientation & 20 Distinct Motion Collage Styles**
+   - Integrated `ImageOps.exif_transpose` across all photo processing pipelines, ensuring zero upside-down or sideways images in collages.
+   - 20 unique high-aesthetic multi-photo motion collage layouts with 4.0s hold, smart face-centering computer vision, white polaroid framing, and subtle dynamic pan/zoom motion.
+
+4. **Full-Length 32-Bit Transparent ProRes 4444 Dynamic Captions (Track V3)**
+   - Word-by-word animated Hormozi captions rendered into a single 32-bit ProRes 4444 QuickTime MOV (`PREMIERE_HORMUZI_CAPTIONS.mov`) with embedded alpha transparency.
+   - Fully enabled by default on Track V3 with proper `<alphamin>` and `<alphamax>` XML tags for instantaneous transparent compositing in Premiere Pro.
+
+5. **9-Movement 48kHz Stereo Soundtrack Suite & Dynamic Auto-Ducking (Track A2)**
+   - Curated 9-movement musical suite spanning the entire movie timeline without repetitive loops.
+   - Broadcast-standard 48kHz Stereo WAV (`PREMIERE_SOUNDTRACK_BED.wav`) with automated volume-ducking envelopes under spoken dialogue.
+
+6. **Clean Track Architecture with Free Track V4**
+   - **V1:** 100% 1080p Widescreen Master Footage (Zero black bars).
+   - **V2:** Title Overlay Graphic (`PREMIERE_TITLE_OVERLAY.png`).
+   - **V3:** Dynamic Hormozi Animated Captions MOV (`PREMIERE_HORMUZI_CAPTIONS.mov`).
+   - **V4:** Clean, empty track reserved for editor B-roll and trims.
+   - **A1:** Dialogue audio linked 1:1 with Track V1 video takes.
+   - **A2:** 9-Movement auto-ducking soundtrack bed.
+
+7. **Stage 11 Live Progress Modal & Real-Time Export Dashboard**
+   - Live export checklist with active status indicators for photos/video ingest, collage synthesis, captions rendering, soundtrack weaving, and XML assembly.
+   - Live elapsed time counter and dynamic ETA calculation.
 
 ---
 
