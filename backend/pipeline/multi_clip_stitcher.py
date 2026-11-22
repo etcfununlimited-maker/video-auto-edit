@@ -170,94 +170,23 @@ def update_live_render_frame_snapshot(source_path: str, is_photo: bool = False):
     except Exception:
         pass
 
-def render_photo_collage_segment(photo_paths: list[str], output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
+def render_photo_collage_segment(photo_paths: list[str], output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None, style_id: int = None) -> str:
     """
-    Composites 2, 3, or 4 photos into a dynamic multi-grid collage with Computer Vision smart crop,
-    CFR 30.0 fps, 4.0s - 5.0s comfortable viewing duration, and continuous 48kHz stereo AAC audio.
+    Renders any of the 20 distinct collage layout styles using the Advanced Collage Engine with
+    CV saliency centering, 4.0-second hold duration, 30.0 fps CFR, and continuous 48kHz stereo silent AAC audio.
     """
-    k = len(photo_paths)
-    inputs = []
-    for p in photo_paths:
-        inputs.extend(["-i", str(p)])
-
-    # Resolution settings: 960x540 for fast preview proxy, 1920x1080 for full
-    t_h = 538 if is_fast else 1076
-    p_h = 540 if is_fast else 1080
-
-    filter_tiles = []
-    if k == 2:
-        t_w = 478 if is_fast else 956
-        p_w = 480 if is_fast else 960
-        for idx, p in enumerate(photo_paths):
-            cx, cy = get_photo_saliency_center(p)
-            crop_x = f"min(max(0\\,iw*{cx:.3f}-{t_w//2})\\,iw-{t_w})"
-            crop_y = f"min(max(0\\,ih*{cy:.3f}-{t_h//2})\\,ih-{t_h})"
-            filter_tiles.append(f"[{idx}:v]scale={t_w}:{t_h}:force_original_aspect_ratio=increase,crop={t_w}:{t_h}:{crop_x}:{crop_y},pad={p_w}:{p_h}:1:1:color=black[v{idx}]")
-        grid_vf = f"{';'.join(filter_tiles)};[v0][v1]hstack=inputs=2,format=yuv420p[vout]"
-
-    elif k == 3:
-        t_w = 318 if is_fast else 636
-        p_w = 320 if is_fast else 640
-        for idx, p in enumerate(photo_paths):
-            cx, cy = get_photo_saliency_center(p)
-            crop_x = f"min(max(0\\,iw*{cx:.3f}-{t_w//2})\\,iw-{t_w})"
-            crop_y = f"min(max(0\\,ih*{cy:.3f}-{t_h//2})\\,ih-{t_h})"
-            filter_tiles.append(f"[{idx}:v]scale={t_w}:{t_h}:force_original_aspect_ratio=increase,crop={t_w}:{t_h}:{crop_x}:{crop_y},pad={p_w}:{p_h}:1:1:color=black[v{idx}]")
-        grid_vf = f"{';'.join(filter_tiles)};[v0][v1][v2]hstack=inputs=3,format=yuv420p[vout]"
-
-    elif k == 4:
-        t_w = 478 if is_fast else 956
-        p_w = 480 if is_fast else 960
-        q_h = 268 if is_fast else 536
-        qp_h = 270 if is_fast else 540
-        for idx, p in enumerate(photo_paths):
-            cx, cy = get_photo_saliency_center(p)
-            crop_x = f"min(max(0\\,iw*{cx:.3f}-{t_w//2})\\,iw-{t_w})"
-            crop_y = f"min(max(0\\,ih*{cy:.3f}-{q_h//2})\\,ih-{q_h})"
-            filter_tiles.append(f"[{idx}:v]scale={t_w}:{q_h}:force_original_aspect_ratio=increase,crop={t_w}:{q_h}:{crop_x}:{crop_y},pad={p_w}:{qp_h}:1:1:color=black[v{idx}]")
-        grid_vf = f"{';'.join(filter_tiles)};[v0][v1]hstack=inputs=2[top];[v2][v3]hstack=inputs=2[bottom];[top][bottom]vstack=inputs=2,format=yuv420p[vout]"
-    else:
-        raise ValueError(f"Unsupported collage count: {k}")
-
-    if color_grade and color_grade != "none":
-        cg = get_color_grade_filter(color_grade)
-        if cg:
-            grid_vf = f"{grid_vf.replace('[vout]', '[vpre]')};[vpre]{cg}[vout]"
-
-    if text_behind and text_behind.get("enabled") and (text_behind.get("text") or "").strip():
-        try:
-            from backend.pipeline.ai_director_suite import generate_depth_text_ass
-            ass_dp = output_path.replace(".mp4", "_depth.ass")
-            w = 960 if is_fast else 1920
-            h = 540 if is_fast else 1080
-            generate_depth_text_ass(text_behind, duration=duration, output_path=ass_dp, video_w=w, video_h=h)
-            escaped_dp = ass_dp.replace("\\", "/").replace(":", "\\:")
-            grid_vf = f"{grid_vf.replace('[vout]', '[vpredepth]')};[vpredepth]subtitles='{escaped_dp}'[vout]"
-        except Exception as e_dp:
-            print(f"Collage depth title notice: {e_dp}")
-
-    fc = f"{grid_vf};anullsrc=r=48000:cl=stereo[aout]"
-    enc_preset = "ultrafast" if is_fast else "faster"
-    enc_crf = "23" if is_fast else "18"
-
-    cmd = [
-        FFMPEG_PATH, "-y",
-        "-threads", "0"
-    ] + inputs + [
-        "-filter_complex", fc,
-        "-map", "[vout]", "-map", "[aout]",
-        "-t", f"{duration:.2f}",
-        "-r", "30", "-fps_mode", "cfr",
-        "-c:v", "libx264", "-preset", enc_preset, "-crf", enc_crf,
-        "-pix_fmt", "yuv420p", "-video_track_timescale", "30000",
-        "-g", "30", "-keyint_min", "30",
-        "-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "192k",
-        "-shortest",
-        output_path
-    ]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    from backend.pipeline.collage_engine import render_collage_segment
+    res = render_collage_segment(
+        photo_paths=photo_paths,
+        output_path=output_path,
+        duration=duration,
+        style_id=style_id,
+        is_fast=is_fast,
+        color_grade=color_grade,
+        text_behind=text_behind
+    )
     update_live_render_frame_snapshot(output_path, is_photo=False)
-    return output_path
+    return res
 
 def render_single_photo_segment(photo_path: str, output_path: str, duration: float = 4.0, is_fast: bool = True, color_grade: str = "none", text_behind: dict = None) -> str:
     """
@@ -502,57 +431,18 @@ def build_multi_clip_movie_pipeline(
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
                 seg_counter += 1
 
-            elif n_photos == 2:
-                out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_dual_collage.mp4"
+            elif n_photos in (2, 3, 4, 5, 6):
+                out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_{n_photos}photo_collage.mp4"
                 render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                 temp_processed_segments.append(str(out_seg))
                 concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-            elif n_photos == 3:
-                out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_3split_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg))
-                concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-            elif n_photos == 4:
-                out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_grid_2x2_collage.mp4"
-                render_photo_collage_segment(photos, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg))
-                concat_lines.append(f"file '{str(out_seg).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-            elif n_photos == 5:
-                out_seg1 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_5photo_part1.mp4"
-                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg1))
-                concat_lines.append(f"file '{str(out_seg1).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-                out_seg2 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_5photo_part2.mp4"
-                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg2))
-                concat_lines.append(f"file '{str(out_seg2).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-            elif n_photos == 6:
-                out_seg1 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_6photo_part1.mp4"
-                render_photo_collage_segment(photos[:3], str(out_seg1), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg1))
-                concat_lines.append(f"file '{str(out_seg1).replace(chr(92), '/')}'")
-                seg_counter += 1
-
-                out_seg2 = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_6photo_part2.mp4"
-                render_photo_collage_segment(photos[3:], str(out_seg2), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
-                temp_processed_segments.append(str(out_seg2))
-                concat_lines.append(f"file '{str(out_seg2).replace(chr(92), '/')}'")
                 seg_counter += 1
 
             else:
-                for chunk_idx in range(0, n_photos, 3):
-                    chunk = photos[chunk_idx:chunk_idx+3]
-                    out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_chunk_{chunk_idx}.mp4"
+                chunk_size = 4
+                for chunk_idx in range(0, n_photos, chunk_size):
+                    chunk = photos[chunk_idx:chunk_idx+chunk_size]
+                    out_seg = UPLOADS_DIR / f"full_movie_seg_{seg_counter:03d}_burst_chunk_{chunk_idx}.mp4"
                     if len(chunk) >= 2:
                         render_photo_collage_segment(chunk, str(out_seg), duration=4.0, is_fast=is_fast, color_grade=color_grade, text_behind=get_depth_tb_for_next())
                     else:

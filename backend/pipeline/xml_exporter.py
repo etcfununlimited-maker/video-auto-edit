@@ -410,21 +410,34 @@ def export_premiere_fcp_xml(
         ext = p_obj.suffix.lower()
         is_photo = ext in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
 
-        # Auto-convert HEIC / HEIF / WEBP to native high-res JPG for Adobe Premiere Pro Windows
-        if is_photo and ext in {".heic", ".heif", ".webp"}:
-            jpg_target = photos_dir / f"{p_obj.stem}.jpg"
-            if not jpg_target.exists() or jpg_target.stat().st_size == 0:
-                try:
-                    import subprocess
-                    cmd = [FFMPEG_PATH, "-y", "-i", str(p_obj), "-q:v", "2", str(jpg_target)]
-                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                except Exception as ex_conv:
-                    print(f"Notice converting {p_obj.name} to JPG: {ex_conv}")
-            if jpg_target.exists() and jpg_target.stat().st_size > 0:
-                p_obj = jpg_target
-                c_item["path"] = str(jpg_target)
-                c_item["name"] = jpg_target.name
-                ext = ".jpg"
+        # Consolidate all photos into final_export/PHOTOS/ for a 100% self-contained export
+        if is_photo:
+            if ext in {".heic", ".heif", ".webp"}:
+                jpg_target = photos_dir / f"{p_obj.stem}.jpg"
+                if not jpg_target.exists() or jpg_target.stat().st_size == 0:
+                    try:
+                        import subprocess
+                        cmd = [FFMPEG_PATH, "-y", "-i", str(p_obj), "-q:v", "2", str(jpg_target)]
+                        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                    except Exception as ex_conv:
+                        print(f"Notice converting {p_obj.name} to JPG: {ex_conv}")
+                if jpg_target.exists() and jpg_target.stat().st_size > 0:
+                    p_obj = jpg_target
+                    c_item["path"] = str(jpg_target)
+                    c_item["name"] = jpg_target.name
+                    ext = ".jpg"
+            else:
+                target_photo = photos_dir / p_obj.name
+                if not target_photo.exists() or target_photo.stat().st_size == 0:
+                    try:
+                        import shutil
+                        shutil.copy2(str(p_obj), str(target_photo))
+                    except Exception as ex_cp:
+                        print(f"Notice copying {p_obj.name} to PHOTOS: {ex_cp}")
+                if target_photo.exists() and target_photo.stat().st_size > 0:
+                    p_obj = target_photo
+                    c_item["path"] = str(target_photo)
+                    c_item["name"] = target_photo.name
 
         meta = probe_media(str(p_obj)) if p_obj.exists() else {}
         raw_dur = float(meta.get("duration", 0.0)) if meta else 0.0
