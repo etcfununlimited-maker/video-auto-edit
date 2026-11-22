@@ -1542,6 +1542,56 @@
         </div>
     </div>
 
+    <!-- Stage 11 XML Exporting Live Progress Modal with Prominent Progress Bar & Timer -->
+    <div class="completion-modal-backdrop" id="stage11-xml-exporting-modal" style="display: none; z-index: 99999;">
+        <div class="completion-modal-card" style="max-width: 620px; text-align: center;">
+            <div class="completion-celebrate-glow" style="background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);"></div>
+            <div class="completion-badge-container">
+                <div class="completion-badge-icon" style="background: linear-gradient(135deg, #6366f1, #3b82f6); box-shadow: 0 0 30px rgba(99, 102, 241, 0.6);">
+                    <i data-feather="cpu" style="animation: pulse 1.5s infinite;"></i>
+                </div>
+                <div class="completion-badge-pulse" style="border-color: #6366f1;"></div>
+            </div>
+
+            <h2 class="completion-title" style="margin-top: 15px; font-size: 21px; letter-spacing: 0.5px;">⚡ GENERATING PREMIERE PRO EXPORT</h2>
+            <p class="completion-subtitle" id="stage11-export-status-text" style="max-width: 520px; margin: 0 auto 18px auto; font-size: 13.5px; color: #cbd5e1; line-height: 1.5;">
+                Packaging broadcast timeline, upright collages, and 32-bit transparent captions...
+            </p>
+
+            <!-- Prominent Live Timer and Remaining Countdown -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 22px;">
+                <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid rgba(99, 102, 241, 0.35); border-radius: 12px; padding: 12px 18px; text-align: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">⏱️ Elapsed Time</div>
+                    <div id="stage11-export-timer" style="font-size: 24px; font-weight: 800; color: #38bdf8; font-family: 'JetBrains Mono', monospace; text-shadow: 0 0 12px rgba(56, 189, 248, 0.5);">00:00</div>
+                </div>
+                <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid rgba(139, 92, 246, 0.35); border-radius: 12px; padding: 12px 18px; text-align: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; letter-spacing: 0.8px; margin-bottom: 4px;">⏳ Estimated Remaining</div>
+                    <div id="stage11-export-eta" style="font-size: 24px; font-weight: 800; color: #a78bfa; font-family: 'JetBrains Mono', monospace; text-shadow: 0 0 12px rgba(167, 139, 250, 0.5);">~25s</div>
+                </div>
+            </div>
+
+            <!-- Prominent Glowing Progress Bar -->
+            <div style="width: 100%; margin-bottom: 12px; background: rgba(15, 23, 42, 0.8); border: 1.5px solid rgba(99, 102, 241, 0.4); border-radius: 14px; padding: 14px; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 8px; color: #cbd5e1; font-weight: 600;">
+                    <span id="stage11-export-step-label">Step 1 of 5: Ingesting & Normalizing Media</span>
+                    <span id="stage11-export-pct-label" style="color: #38bdf8; font-weight: 800; font-size: 14px; font-family: monospace;">20%</span>
+                </div>
+                <div style="height: 16px; background: rgba(3, 7, 18, 0.85); border-radius: 8px; overflow: hidden; position: relative;">
+                    <div id="stage11-export-progress-bar" style="height: 100%; width: 20%; background: linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #10b981); border-radius: 8px; transition: width 0.4s ease; box-shadow: 0 0 20px rgba(56, 189, 248, 0.8);"></div>
+                </div>
+            </div>
+
+            <!-- Live Step-by-Step Task Checklist -->
+            <div id="stage11-export-checklist" style="text-align: left; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px 18px; margin-top: 16px; font-size: 12.5px; color: #94a3b8; display: flex; flex-direction: column; gap: 8px;">
+                <div id="stage11-step-1" style="display: flex; align-items: center; gap: 9px; color: #38bdf8; font-weight: 600;"><i data-feather="loader" style="width: 14px; height: 14px; animation: spin 1s linear infinite;"></i> 1. Photos & Video Ingest (100% Uncut Durations & Upright EXIF)</div>
+                <div id="stage11-step-2" style="display: flex; align-items: center; gap: 9px; color: #64748b;"><i data-feather="circle" style="width: 14px; height: 14px;"></i> 2. 20-Style 1080p MP4 Collages (4.0s hold + Face-Centering CV)</div>
+                <div id="stage11-step-3" style="display: flex; align-items: center; gap: 9px; color: #64748b;"><i data-feather="circle" style="width: 14px; height: 14px;"></i> 3. 32-Bit Transparent Hormozi Kinetic Captions Overlay (V3)</div>
+                <div id="stage11-step-4" style="display: flex; align-items: center; gap: 9px; color: #64748b;"><i data-feather="circle" style="width: 14px; height: 14px;"></i> 4. 9-Movement Soundtrack Bed & Dynamic Auto-Ducking Envelopes (A2)</div>
+                <div id="stage11-step-5" style="display: flex; align-items: center; gap: 9px; color: #64748b;"><i data-feather="circle" style="width: 14px; height: 14px;"></i> 5. Final Assembly: PREMIERE_PRO_PROJECT.xml & CAPTIONS.srt</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Premiere Pro Project (.xml & .srt) Ready Modal -->
     <div class="completion-modal-backdrop" id="stage11-xml-ready-modal" style="display: none; z-index: 99999;">
         <div class="completion-modal-card" style="max-width: 620px;">

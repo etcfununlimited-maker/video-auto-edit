@@ -191,9 +191,15 @@ function handleProgressUpdate(data) {
         return;
     }
 
+    if (data.type === "stage11_export_progress") {
+        updateStage11ExportProgress(data);
+        return;
+    }
+
     if (data.type === "stage11_xml_ready") {
         console.log("Premiere Pro XML + SRT generated successfully", data);
         closeStage11DecisionModal();
+        closeStage11ExportingModal();
         showStage11XmlReadyModal(data);
         showToast("Premiere Pro XML & SRT Generated! Ready for download", "success");
         fetchExportFiles();
@@ -2870,10 +2876,110 @@ function closeStage11DecisionModal() {
     }
 }
 
+// Live Elapsed Timer & Stage 11 Export Progress Modal
+let stage11ExportTimerInterval = null;
+let stage11ExportStartTime = null;
+
+function startStage11ExportTimer() {
+    stopStage11ExportTimer();
+    stage11ExportStartTime = Date.now();
+    const timerEl = document.getElementById("stage11-export-timer");
+    if (timerEl) timerEl.innerText = "00:00";
+    
+    stage11ExportTimerInterval = setInterval(() => {
+        const elapsedSec = Math.floor((Date.now() - stage11ExportStartTime) / 1000);
+        const m = Math.floor(elapsedSec / 60);
+        const s = elapsedSec % 60;
+        const str = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        if (timerEl) timerEl.innerText = str;
+    }, 1000);
+}
+
+function stopStage11ExportTimer() {
+    if (stage11ExportTimerInterval) {
+        clearInterval(stage11ExportTimerInterval);
+        stage11ExportTimerInterval = null;
+    }
+}
+
+function showStage11ExportingModal() {
+    const modal = document.getElementById("stage11-xml-exporting-modal");
+    if (modal) {
+        modal.style.display = "flex";
+        if (window.feather) feather.replace();
+        startStage11ExportTimer();
+        updateStage11ExportProgress({
+            step: 1,
+            total_steps: 5,
+            percent: 20,
+            message: "Scanning media, normalizing photos, and verifying 100% uncut video durations...",
+            eta_sec: 25
+        });
+    }
+}
+
+function closeStage11ExportingModal() {
+    stopStage11ExportTimer();
+    const modal = document.getElementById("stage11-xml-exporting-modal");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+function updateStage11ExportProgress(data) {
+    const modal = document.getElementById("stage11-xml-exporting-modal");
+    if (!modal || modal.style.display === "none") {
+        if (modal) {
+            modal.style.display = "flex";
+            startStage11ExportTimer();
+        }
+    }
+
+    const bar = document.getElementById("stage11-export-progress-bar");
+    const pctLabel = document.getElementById("stage11-export-pct-label");
+    const stepLabel = document.getElementById("stage11-export-step-label");
+    const statusText = document.getElementById("stage11-export-status-text");
+    const etaText = document.getElementById("stage11-export-eta");
+
+    const pct = Math.min(100, Math.max(5, data.percent || 20));
+    if (bar) bar.style.width = pct + "%";
+    if (pctLabel) pctLabel.innerText = pct + "%";
+    if (data.message && statusText) statusText.innerText = data.message;
+    if (data.eta_sec !== undefined && etaText) {
+        etaText.innerText = data.eta_sec > 0 ? `~${data.eta_sec}s` : "Wrapping up";
+    }
+    if (data.step && stepLabel) {
+        stepLabel.innerText = `Step ${data.step} of ${data.total_steps || 5}: ${data.message || ""}`;
+    }
+
+    // Update checklist icons dynamically
+    const currStep = data.step || 1;
+    for (let i = 1; i <= 5; i++) {
+        const stepEl = document.getElementById(`stage11-step-${i}`);
+        if (!stepEl) continue;
+        const textContent = stepEl.innerText.replace(/^.*?\d\.\s*/, `${i}. `);
+        if (i < currStep) {
+            stepEl.style.color = "#34d399";
+            stepEl.style.fontWeight = "600";
+            stepEl.innerHTML = `<i data-feather="check-circle" style="width: 14px; height: 14px; color: #34d399;"></i> ${textContent}`;
+        } else if (i === currStep) {
+            stepEl.style.color = "#38bdf8";
+            stepEl.style.fontWeight = "700";
+            stepEl.innerHTML = `<i data-feather="loader" style="width: 14px; height: 14px; color: #38bdf8; animation: spin 1s linear infinite;"></i> ${textContent}`;
+        } else {
+            stepEl.style.color = "#64748b";
+            stepEl.style.fontWeight = "400";
+            stepEl.innerHTML = `<i data-feather="circle" style="width: 14px; height: 14px; color: #64748b;"></i> ${textContent}`;
+        }
+    }
+    if (window.feather) feather.replace();
+}
+
 async function submitStage11Decision(action) {
     closeStage11DecisionModal();
     if (action === "xml_srt") {
         showToast("Generating Premiere Pro XML (.xml) & Subtitles (.srt)...", "info");
+        showStage11ExportingModal();
     } else {
         showToast("Proceeding to Stage 12: Final Master Render...", "info");
     }
@@ -2943,6 +3049,9 @@ function closeStage11XmlReadyModal() {
 window.showStage11DecisionModal = showStage11DecisionModal;
 window.closeStage11DecisionModal = closeStage11DecisionModal;
 window.submitStage11Decision = submitStage11Decision;
+window.showStage11ExportingModal = showStage11ExportingModal;
+window.closeStage11ExportingModal = closeStage11ExportingModal;
+window.updateStage11ExportProgress = updateStage11ExportProgress;
 window.showStage11XmlReadyModal = showStage11XmlReadyModal;
 window.closeStage11XmlReadyModal = closeStage11XmlReadyModal;
 
