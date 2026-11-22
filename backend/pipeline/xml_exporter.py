@@ -390,7 +390,11 @@ def export_premiere_fcp_xml(
     # Strictly enforce:
     # 1. Every video clip imports at its 100% full, uncut camera duration.
     # 2. Photos receive a standard 4.0-second hold.
+    # 3. Apple HEIC photos are auto-converted to high-res JPGs for 100% Premiere Pro Windows compatibility.
     sanitized_v1 = []
+    photos_dir = FINAL_EXPORT_DIR / "PHOTOS"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+
     for c in v1_clips:
         c_item = dict(c)
         c_path = c_item.get("path", "")
@@ -404,7 +408,24 @@ def export_premiere_fcp_xml(
                 c_item["path"] = str(p_obj)
 
         ext = p_obj.suffix.lower()
-        is_photo = ext in {".jpg", ".jpeg", ".png", ".heic", ".webp"}
+        is_photo = ext in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+
+        # Auto-convert HEIC / HEIF / WEBP to native high-res JPG for Adobe Premiere Pro Windows
+        if is_photo and ext in {".heic", ".heif", ".webp"}:
+            jpg_target = photos_dir / f"{p_obj.stem}.jpg"
+            if not jpg_target.exists() or jpg_target.stat().st_size == 0:
+                try:
+                    import subprocess
+                    cmd = [FFMPEG_PATH, "-y", "-i", str(p_obj), "-q:v", "2", str(jpg_target)]
+                    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                except Exception as ex_conv:
+                    print(f"Notice converting {p_obj.name} to JPG: {ex_conv}")
+            if jpg_target.exists() and jpg_target.stat().st_size > 0:
+                p_obj = jpg_target
+                c_item["path"] = str(jpg_target)
+                c_item["name"] = jpg_target.name
+                ext = ".jpg"
+
         meta = probe_media(str(p_obj)) if p_obj.exists() else {}
         raw_dur = float(meta.get("duration", 0.0)) if meta else 0.0
 
@@ -521,7 +542,8 @@ def export_premiere_fcp_xml(
             "file_frames": file_frames,
             "muted": is_muted,
             "volume": vol_pct,
-            "noise_suppression": denoise_pct
+            "noise_suppression": denoise_pct,
+            "is_photo": is_photo
         })
 
         clipitem = ET.SubElement(track_v1, "clipitem", id=clip_id_v)
@@ -549,13 +571,14 @@ def export_premiere_fcp_xml(
         ET.SubElement(f_rate, "ntsc").text = "FALSE"
         ET.SubElement(file_el, "duration").text = str(file_frames)
 
-        f_tc = ET.SubElement(file_el, "timecode")
-        f_tc_rate = ET.SubElement(f_tc, "rate")
-        ET.SubElement(f_tc_rate, "timebase").text = str(fps)
-        ET.SubElement(f_tc_rate, "ntsc").text = "FALSE"
-        ET.SubElement(f_tc, "string").text = "00:00:00:00"
-        ET.SubElement(f_tc, "frame").text = "0"
-        ET.SubElement(f_tc, "displayformat").text = "NDF"
+        if not is_photo:
+            f_tc = ET.SubElement(file_el, "timecode")
+            f_tc_rate = ET.SubElement(f_tc, "rate")
+            ET.SubElement(f_tc_rate, "timebase").text = str(fps)
+            ET.SubElement(f_tc_rate, "ntsc").text = "FALSE"
+            ET.SubElement(f_tc, "string").text = "00:00:00:00"
+            ET.SubElement(f_tc, "frame").text = "0"
+            ET.SubElement(f_tc, "displayformat").text = "NDF"
 
         f_media = ET.SubElement(file_el, "media")
         
@@ -571,30 +594,34 @@ def export_premiere_fcp_xml(
         ET.SubElement(f_sc, "pixelaspectratio").text = "square"
         ET.SubElement(f_sc, "fielddominance").text = "none"
 
-        # Audio stream in file
-        f_audio = ET.SubElement(f_media, "audio")
-        f_a_sc = ET.SubElement(f_audio, "samplecharacteristics")
-        ET.SubElement(f_a_sc, "depth").text = "16"
-        ET.SubElement(f_a_sc, "samplerate").text = "48000"
-        ET.SubElement(f_audio, "channelcount").text = "2"
+        if is_photo:
+            ET.SubElement(f_video, "stillframe").text = "TRUE"
+        else:
+            # Audio stream in file (Videos only - prevents Premiere offline audio conforming errors on photos)
+            f_audio = ET.SubElement(f_media, "audio")
+            f_a_sc = ET.SubElement(f_audio, "samplecharacteristics")
+            ET.SubElement(f_a_sc, "depth").text = "16"
+            ET.SubElement(f_a_sc, "samplerate").text = "48000"
+            ET.SubElement(f_audio, "channelcount").text = "2"
 
         # Sourcetrack on V1
         st = ET.SubElement(clipitem, "sourcetrack")
         ET.SubElement(st, "mediatype").text = "video"
 
-        # Links (Video clip linked to Voice Audio clip)
+        # Links (Video clip linked to Voice Audio clip - Videos only)
         l_v = ET.SubElement(clipitem, "link")
         ET.SubElement(l_v, "linkclipref").text = clip_id_v
         ET.SubElement(l_v, "mediatype").text = "video"
         ET.SubElement(l_v, "trackindex").text = "1"
         ET.SubElement(l_v, "clipindex").text = str(idx + 1)
 
-        l_a = ET.SubElement(clipitem, "link")
-        ET.SubElement(l_a, "linkclipref").text = clip_id_a
-        ET.SubElement(l_a, "mediatype").text = "audio"
-        ET.SubElement(l_a, "trackindex").text = "1"
-        ET.SubElement(l_a, "clipindex").text = str(idx + 1)
-        ET.SubElement(l_a, "groupindex").text = "1"
+        if not is_photo:
+            l_a = ET.SubElement(clipitem, "link")
+            ET.SubElement(l_a, "linkclipref").text = clip_id_a
+            ET.SubElement(l_a, "mediatype").text = "audio"
+            ET.SubElement(l_a, "trackindex").text = "1"
+            ET.SubElement(l_a, "clipindex").text = str(idx + 1)
+            ET.SubElement(l_a, "groupindex").text = "1"
 
     # --- TRACK 2 (V2 Title & Text Behind Person Overlay as Graphic clipitem) ---
     clean_title = (title_text or "RANN OF KUTCH | BHUJ | SOMNATH VLOG").strip()
@@ -768,6 +795,9 @@ def export_premiere_fcp_xml(
     ET.SubElement(track_a1, "locked").text = "FALSE"
 
     for rec in clip_records:
+        if rec.get("is_photo"):
+            continue  # Still images have NO voice audio streams; skip Track A1 clipitem
+
         clipitem = ET.SubElement(track_a1, "clipitem", id=rec["clip_id_a"])
         ET.SubElement(clipitem, "masterclipid").text = rec["master_id"]
         ET.SubElement(clipitem, "name").text = f"Voice: {rec['p_obj'].name}"
