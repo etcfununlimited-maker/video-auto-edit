@@ -211,6 +211,8 @@ def _render_polaroid_canvas(photo_paths: list[str], output_img: str, width: int 
     for p_idx, p_path in enumerate(photo_paths[:len(centers)]):
         try:
             with Image.open(str(p_path)) as im:
+                from PIL import ImageOps
+                im = ImageOps.exif_transpose(im)
                 im = im.convert("RGBA")
                 border_top = int(target_card_w * 0.04)
                 border_bottom = int(target_card_w * 0.16) if style_variant != "museum" else border_top

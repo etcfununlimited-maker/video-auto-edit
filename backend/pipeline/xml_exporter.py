@@ -7,12 +7,15 @@ DaVinci Resolve, and Final Cut Pro.
 """
 
 import os
+import subprocess
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from pathlib import Path
 from urllib.parse import quote
+from concurrent.futures import ThreadPoolExecutor
 from backend.config import FINAL_EXPORT_DIR, RAW_INPUT_DIR, UPLOADS_DIR, FFMPEG_PATH
 from backend.pipeline.media_ingest import probe_media
+from backend.pipeline.multi_clip_stitcher import extract_clip_timestamp
 
 
 def to_pathurl(file_path: str) -> str:
@@ -404,6 +407,125 @@ def pre_render_xml_collages(
     return new_v1_clips
 
 
+def pre_render_xml_vertical_ambient(
+    v1_clips: list[dict],
+    width: int = 1920,
+    height: int = 1080,
+    fps: int = 30,
+    force_rerender: bool = False
+) -> list[dict]:
+    """
+    Scans all clips destined for Premiere Pro Track V1.
+    For any video take shot vertically (height > width, e.g. 9:16 mobile footage),
+    pre-renders a broadcast-quality 1080p MP4 into final_export/VERTICAL_FILL/ambient_<name>.mp4:
+      - Left & Right: Live moving ambient background clone blurred and subtly darkened (eliminating black pillarboxes)
+      - Center: 100% razor-sharp original vertical footage centered at native aspect ratio
+      - Audio: Studio-grade 320kbps AAC preserving pristine voice fidelity and sync
+    Replaces the raw vertical video on Track V1 with the 1080p ambient composite,
+    ensuring a consistent, 100% widescreen master timeline across all current and future projects.
+    """
+    vert_fill_dir = FINAL_EXPORT_DIR / "VERTICAL_FILL"
+    vert_fill_dir.mkdir(parents=True, exist_ok=True)
+
+    tasks = []
+    updated_clips = []
+
+    for c in v1_clips:
+        c_item = dict(c)
+        c_path = c_item.get("path", "")
+        p_obj = Path(c_path)
+        if not p_obj.exists():
+            if (RAW_INPUT_DIR / p_obj.name).exists():
+                p_obj = RAW_INPUT_DIR / p_obj.name
+            elif (FINAL_EXPORT_DIR / p_obj.name).exists():
+                p_obj = FINAL_EXPORT_DIR / p_obj.name
+            elif (vert_fill_dir / p_obj.name).exists():
+                p_obj = vert_fill_dir / p_obj.name
+
+        ext = p_obj.suffix.lower()
+        is_photo = c_item.get("is_photo") or ext in {".jpg", ".jpeg", ".png", ".heic", ".webp"}
+        is_collage = c_item.get("is_collage", False)
+
+        # Only process video takes (not photos, not already-generated collages)
+        if is_photo or is_collage:
+            updated_clips.append(c_item)
+            continue
+
+        meta = probe_media(str(p_obj)) if p_obj.exists() else {}
+        w = int(meta.get("width", width))
+        h = int(meta.get("height", height))
+        from backend.pipeline.smart_orientation import analyze_clip_orientation
+        orient = analyze_clip_orientation(str(p_obj)) if p_obj.exists() else {}
+        is_vert = orient.get("is_vertical", False) or (h > w)
+
+        # Detect genuine vertical video in a landscape sequence (height > width)
+        if width >= height and is_vert:
+            ambient_filename = f"ambient_{p_obj.stem}.mp4"
+            out_ambient_path = vert_fill_dir / ambient_filename
+
+            # Calculate foreground scaled width maintaining aspect ratio
+            fg_w = int(round(w * (height / float(h))))
+            fg_w = max(2, (fg_w // 2) * 2)
+
+            tasks.append((p_obj, out_ambient_path, fg_w, height, width))
+
+            c_item["path"] = str(out_ambient_path)
+            c_item["name"] = ambient_filename
+            c_item["is_ambient_fill"] = True
+            c_item["original_path"] = str(p_obj)
+            c_item["original_width"] = w
+            c_item["original_height"] = h
+            updated_clips.append(c_item)
+        else:
+            updated_clips.append(c_item)
+
+    if not tasks:
+        return updated_clips
+
+    def render_one_ambient_task(task):
+        src_p, dst_p, fg_w, tgt_h, tgt_w = task
+        # Check if already rendered and valid
+        if not force_rerender and dst_p.exists() and dst_p.stat().st_size > 50000:
+            return str(dst_p)
+
+        vf = (
+            f"split[fg][bg];"
+            f"[bg]scale=480:270:force_original_aspect_ratio=increase,crop=480:270,boxblur=15:2,scale={tgt_w}:{tgt_h},eq=brightness=-0.15[bg_blur];"
+            f"[fg]scale={fg_w}:{tgt_h}:force_original_aspect_ratio=decrease[fg_scaled];"
+            f"[bg_blur][fg_scaled]overlay=(W-w)/2:(H-h)/2,format=yuv420p"
+        )
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-i", str(src_p),
+            "-filter_complex", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+            "-c:a", "copy",
+            str(dst_p)
+        ]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode != 0:
+                cmd_fallback = [
+                    FFMPEG_PATH, "-y",
+                    "-i", str(src_p),
+                    "-filter_complex", vf,
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+                    "-c:a", "aac", "-b:a", "320k",
+                    str(dst_p)
+                ]
+                subprocess.run(cmd_fallback, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            print(f"[pre_render_xml_vertical_ambient] Successfully rendered ambient side-fill: {dst_p.name}")
+        except Exception as e:
+            print(f"[pre_render_xml_vertical_ambient] Error rendering {dst_p.name}: {e}")
+        return str(dst_p)
+
+    print(f"[pre_render_xml_vertical_ambient] Rendering {len(tasks)} vertical video takes with ambient side-fill in {vert_fill_dir.name}...")
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        list(ex.map(render_one_ambient_task, tasks))
+
+    return updated_clips
+
+
 def render_hormuzi_overlay_mov(
     clips: list[dict],
     width: int = 1920,
@@ -632,7 +754,8 @@ def export_premiere_fcp_xml(
     music_track_name: str = "Airport_Lounge.mp3",
     ducking_depth_pct: float = 75.0,
     ensure_min_clips: int = 10,
-    force_rerender_collages: bool = False
+    force_rerender_collages: bool = False,
+    force_rerender_vertical: bool = False
 ) -> str:
     """
     Generates a full, 100% broadcast-compliant Apple Final Cut Pro XML (xmeml version 4/5)
@@ -686,6 +809,13 @@ def export_premiere_fcp_xml(
                 existing_names.add(f.name)
                 if len(v1_clips) >= ensure_min_clips:
                     break
+
+    # Strictly enforce 100% chronological ordering by authentic capture date & time
+    from backend.pipeline.multi_clip_stitcher import extract_clip_timestamp
+    v1_clips = sorted(
+        v1_clips,
+        key=lambda c: (extract_clip_timestamp(Path(c.get("path", ""))), Path(c.get("path", "")).name.lower())
+    )
 
     # Strictly enforce:
     # 1. Every video clip imports at its 100% full, uncut camera duration.
@@ -757,6 +887,10 @@ def export_premiere_fcp_xml(
     # Pre-render photo clusters into 1080p MP4 collages cycling through the 20 approved styles
     # Replaces raw still photos on Track V1 with motion video collages (strict 4.0s hold each)
     v1_clips = pre_render_xml_collages(v1_clips, width=width, height=height, fps=fps, force_rerender=force_rerender_collages)
+
+    # Pre-render vertical video takes into 1080p MP4s with ambient blurred side-fill wings (Option A)
+    # Replaces raw vertical videos on Track V1 with 1080p widescreen composites (zero black bars!)
+    v1_clips = pre_render_xml_vertical_ambient(v1_clips, width=width, height=height, fps=fps, force_rerender=force_rerender_vertical)
 
     # Calculate total duration in frames
     total_frames = 0
@@ -1064,44 +1198,10 @@ def export_premiere_fcp_xml(
         st_v3 = ET.SubElement(clipitem_v3, "sourcetrack")
         ET.SubElement(st_v3, "mediatype").text = "video"
 
-    # --- TRACK 4 (V4 Native Editable Text Generator for Premiere Pro) ---
+    # --- TRACK 4 (V4 Free Master Track for Premiere Pro User B-Roll / Trims) ---
     track_v4 = ET.SubElement(video, "track")
     ET.SubElement(track_v4, "enabled").text = "TRUE"
     ET.SubElement(track_v4, "locked").text = "FALSE"
-
-    genitem = ET.SubElement(track_v4, "generatoritem", id="text-gen-title-1")
-    ET.SubElement(genitem, "name").text = f"Text: {clean_title}"
-    ET.SubElement(genitem, "duration").text = str(total_frames)
-    g_rate = ET.SubElement(genitem, "rate")
-    ET.SubElement(g_rate, "timebase").text = str(fps)
-    ET.SubElement(g_rate, "ntsc").text = "FALSE"
-    ET.SubElement(genitem, "in").text = "0"
-    ET.SubElement(genitem, "out").text = str(min(total_frames, fps * 15))
-    ET.SubElement(genitem, "start").text = "0"
-    ET.SubElement(genitem, "end").text = str(min(total_frames, fps * 15))
-    ET.SubElement(genitem, "enabled").text = "TRUE"
-
-    eff_gen = ET.SubElement(genitem, "effect")
-    ET.SubElement(eff_gen, "name").text = "Text"
-    ET.SubElement(eff_gen, "effectid").text = "Text"
-    ET.SubElement(eff_gen, "effectcategory").text = "generator"
-    ET.SubElement(eff_gen, "effecttype").text = "generator"
-    ET.SubElement(eff_gen, "mediatype").text = "video"
-
-    p_str = ET.SubElement(eff_gen, "parameter")
-    ET.SubElement(p_str, "parameterid").text = "str"
-    ET.SubElement(p_str, "name").text = "Text"
-    ET.SubElement(p_str, "value").text = clean_title
-
-    p_font = ET.SubElement(eff_gen, "parameter")
-    ET.SubElement(p_font, "parameterid").text = "font"
-    ET.SubElement(p_font, "name").text = "Font"
-    ET.SubElement(p_font, "value").text = "Impact"
-
-    p_size = ET.SubElement(eff_gen, "parameter")
-    ET.SubElement(p_size, "parameterid").text = "fontsize"
-    ET.SubElement(p_size, "name").text = "Size"
-    ET.SubElement(p_size, "value").text = "68"
 
     # ================= AUDIO TRACKS =================
     audio = ET.SubElement(media, "audio")

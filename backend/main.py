@@ -512,12 +512,15 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
         })
 
     try:
-        # Validate that selected file exists
+        # Validate that selected file exists and sort strictly in chronological capture order
         valid_files = [f for f in selected_files if os.path.exists(f)]
         if not valid_files:
             # Pick whatever media exists in raw_input
             valid_files = [str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS)]
         
+        from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
+        valid_files = deduplicate_and_sort_clips(valid_files)
+
         if not valid_files:
             raise FileNotFoundError("No media files found in raw_input folder")
 
@@ -775,9 +778,14 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             })
             await asyncio.sleep(0.5)
 
-            # Prepare clips list
-            xml_clips = []
+            # Prepare clips list in strict chronological order
+            from backend.pipeline.multi_clip_stitcher import extract_clip_timestamp
             source_candidates = current_project.get("timeline_clips") if (current_project.get("timeline_clips") and len(current_project["timeline_clips"]) == len(valid_files)) else [{"path": f} for f in valid_files]
+            source_candidates = sorted(
+                source_candidates,
+                key=lambda c: (extract_clip_timestamp(Path(c.get("path", "") if isinstance(c, dict) else c)), Path(c.get("path", "") if isinstance(c, dict) else c).name.lower())
+            )
+            xml_clips = []
             for c_info in source_candidates:
                 f_path = c_info.get("path") if isinstance(c_info, dict) else str(c_info)
                 if not f_path:
@@ -802,14 +810,14 @@ async def run_pipeline_task(selected_files: List[str], settings: dict):
             xml_path = FINAL_EXPORT_DIR / "PREMIERE_PRO_PROJECT.xml"
             srt_path = FINAL_EXPORT_DIR / "CAPTIONS.srt"
 
-            # Step 2: 20-Style Collages & V1 Layout
-            await update_grid("grid_render", "in_progress", 45, 18, 18, "Synthesizing 20-style 1080p MP4 motion collages (4.0s holds + face-centering)...", 18)
+            # Step 2: 20-Style Collages & Vertical Ambient Wings (Option A)
+            await update_grid("grid_render", "in_progress", 45, 18, 18, "Synthesizing 20-style 1080p collages & baking ambient fills on V1...", 18)
             await broadcast_progress({
                 "type": "stage11_export_progress",
                 "step": 2,
                 "total_steps": 5,
                 "percent": 45,
-                "message": "Synthesizing 20-style 1080p MP4 motion collages (4.0s holds + face-centering)...",
+                "message": "Synthesizing 20-style 1080p collages & baking ambient side-fills on Track V1 (zero black bars)...",
                 "eta_sec": 18
             })
             await asyncio.sleep(0.5)
@@ -1117,11 +1125,13 @@ async def start_pipeline(payload: StartPipelinePayload):
             if p.exists():
                 selected_paths.append(str(p))
         if selected_paths:
-            current_project["selected_files"] = selected_paths
+            from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
+            current_project["selected_files"] = deduplicate_and_sort_clips(selected_paths)
 
     # If no files selected yet, fallback to all media in raw_input
     if not current_project["selected_files"]:
-        raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
+        from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
+        raw_list = deduplicate_and_sort_clips([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
         current_project["selected_files"] = raw_list
 
     if not current_project["selected_files"]:
@@ -1218,10 +1228,12 @@ async def restart_pipeline_endpoint(payload: StartPipelinePayload):
             if p.exists():
                 selected_paths.append(str(p))
         if selected_paths:
-            current_project["selected_files"] = selected_paths
+            from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
+            current_project["selected_files"] = deduplicate_and_sort_clips(selected_paths)
 
     if not current_project["selected_files"]:
-        raw_list = sorted([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
+        from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
+        raw_list = deduplicate_and_sort_clips([str(p) for p in RAW_INPUT_DIR.iterdir() if p.is_file() and p.suffix.lower() in (SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS) and not p.name.startswith(".")])
         current_project["selected_files"] = raw_list
 
     # 4. Launch pipeline fresh from beginning
@@ -2279,9 +2291,11 @@ async def export_editor_xml_endpoint(payload: Optional[ExportXmlPayload] = None)
         clips_data = [c.dict() for c in payload.clips]
     
     if not clips_data or len(clips_data) < 10:
+        from backend.pipeline.multi_clip_stitcher import deduplicate_and_sort_clips
         existing_names = {c.get("name") for c in clips_data}
-        raw_vids = sorted([f for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
-        for f in raw_vids:
+        raw_vids = deduplicate_and_sort_clips([str(f) for f in RAW_INPUT_DIR.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_VIDEO_EXTS])
+        for p in raw_vids:
+            f = Path(p)
             if f.name not in existing_names:
                 m_vid = probe_media(str(f))
                 vid_dur = float(m_vid.get("duration", 0.0)) if m_vid else 0.0
@@ -2301,6 +2315,12 @@ async def export_editor_xml_endpoint(payload: Optional[ExportXmlPayload] = None)
                 existing_names.add(f.name)
                 if len(clips_data) >= 10:
                     break
+
+    from backend.pipeline.multi_clip_stitcher import extract_clip_timestamp
+    clips_data = sorted(
+        clips_data,
+        key=lambda c: (extract_clip_timestamp(Path(c.get("path", ""))), Path(c.get("path", "")).name.lower())
+    )
     
     # Title resolution
     title = ""

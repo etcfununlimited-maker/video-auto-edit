@@ -27,6 +27,8 @@ from backend.pipeline.smart_orientation import analyze_clip_orientation
 from backend.pipeline.color_grading import get_color_grade_filter
 from backend.pipeline.ai_director_suite import build_director_video_filters, build_director_audio_filters
 
+from PIL import Image, ExifTags
+
 MEDIA_EXTS = SUPPORTED_VIDEO_EXTS | SUPPORTED_IMAGE_EXTS | {".ts", ".m2ts", ".flv", ".wmv", ".3gp", ".mxf", ".tiff", ".bmp"}
 
 _TIMESTAMP_CACHE: dict[str, float] = {}
@@ -41,10 +43,20 @@ def extract_clip_timestamp(p_obj: Path) -> float:
     """
     Extracts authentic capture timestamp for any video/photo across diverse cameras:
     1. Filename timestamp (YYYYMMDD_HHMMSS - recorded in local IST)
-    2. Container metadata (QuickTime creation_time stored in UTC -> converted to IST +05:30)
-    3. Filesystem creation / modification timestamp as preserved fallback.
+    2. Image EXIF metadata (DateTimeOriginal, DateTimeDigitized, DateTime)
+    3. Fast binary scan for EXIF timestamp in Apple HEIC / Photos
+    4. Video container metadata (com.apple.quicktime.creationdate in local IST or creation_time in UTC)
+    5. Filesystem creation / modification timestamp as preserved fallback.
     """
-    cache_key = str(p_obj)
+    if isinstance(p_obj, str):
+        p_obj = Path(p_obj)
+    if not p_obj.exists():
+        if (RAW_INPUT_DIR / p_obj.name).exists():
+            p_obj = RAW_INPUT_DIR / p_obj.name
+        elif (FINAL_EXPORT_DIR / p_obj.name).exists():
+            p_obj = FINAL_EXPORT_DIR / p_obj.name
+
+    cache_key = str(p_obj.resolve()) if hasattr(p_obj, "resolve") and p_obj.exists() else str(p_obj)
     if cache_key in _TIMESTAMP_CACHE:
         return _TIMESTAMP_CACHE[cache_key]
 
@@ -53,30 +65,91 @@ def extract_clip_timestamp(p_obj: Path) -> float:
     m = re.search(r'(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})', name)
     if m:
         try:
-            dt = datetime.datetime(*[int(x) for x in m.groups()])
-            ts = dt.timestamp()
-            _TIMESTAMP_CACHE[cache_key] = ts
-            return ts
+            y = int(m.group(1))
+            if 2000 <= y <= 2040:
+                dt = datetime.datetime(*[int(x) for x in m.groups()])
+                ts = dt.timestamp()
+                _TIMESTAMP_CACHE[cache_key] = ts
+                return ts
         except Exception:
             pass
 
-    # 2. Metadata via FFmpeg creation_time (QuickTime atom is in UTC)
-    try:
-        cmd = [FFMPEG_PATH, "-i", str(p_obj), "-hide_banner"]
-        res = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, errors="ignore")
-        m_date = re.search(r'(?:creation_time|com\.apple\.quicktime\.creationdate)\s*:\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})', res.stderr)
-        if m_date:
-            dt_str = m_date.group(1).replace("T", " ")
-            dt = datetime.datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-            # QuickTime creation_time is UTC -> convert to local IST (+5:30)
-            dt_ist = dt + datetime.timedelta(hours=5, minutes=30)
-            ts = dt_ist.timestamp()
-            _TIMESTAMP_CACHE[cache_key] = ts
-            return ts
-    except Exception:
-        pass
+    ext = p_obj.suffix.lower()
 
-    # 3. Fallback to filesystem timestamp (in local time)
+    # 2. Standard image EXIF via PIL (JPG, PNG, WEBP, TIFF)
+    if ext in ('.jpg', '.jpeg', '.png', '.webp', '.tiff', '.bmp') and p_obj.exists():
+        try:
+            with Image.open(str(p_obj)) as im:
+                ex = im.getexif()
+                if ex:
+                    all_tags = dict(ex)
+                    try:
+                        sub_ifd = ex.get_ifd(0x8769)
+                        if sub_ifd:
+                            all_tags.update(sub_ifd)
+                    except Exception:
+                        pass
+                    for tag_id in [0x9003, 0x9004, 0x0132]:
+                        if tag_id in all_tags:
+                            val = str(all_tags[tag_id])
+                            m_ex = re.search(r'(\d{4})[:\-](\d{2})[:\-](\d{2})\s+(\d{2}):(\d{2}):(\d{2})', val)
+                            if m_ex:
+                                y = int(m_ex.group(1))
+                                if 2000 <= y <= 2040:
+                                    dt = datetime.datetime(*[int(x) for x in m_ex.groups()])
+                                    ts = dt.timestamp()
+                                    _TIMESTAMP_CACHE[cache_key] = ts
+                                    return ts
+        except Exception:
+            pass
+
+    # 3. Fast binary scan for embedded EXIF / XMP datetime (Apple HEIC / Photos)
+    if ext in ('.heic', '.heif', '.jpg', '.jpeg') and p_obj.exists():
+        try:
+            with open(str(p_obj), 'rb') as fp:
+                head = fp.read(1048576) # read first 1MB
+                dates = re.findall(rb'(\d{4})[:\-](\d{2})[:\-](\d{2})[\sT](\d{2}):(\d{2}):(\d{2})', head)
+                valid_dts = []
+                for d in dates:
+                    y = int(d[0])
+                    if 2020 <= y <= 2030:
+                        valid_dts.append(datetime.datetime(*[int(x) for x in d]))
+                if valid_dts:
+                    ts = min(valid_dts).timestamp()
+                    _TIMESTAMP_CACHE[cache_key] = ts
+                    return ts
+        except Exception:
+            pass
+
+    # 4. Container metadata for video/audio via FFmpeg
+    if ext in ('.mp4', '.mov', '.m4v', '.avi', '.webm', '.mkv', '.m2ts') and p_obj.exists():
+        try:
+            cmd = [FFMPEG_PATH, "-i", str(p_obj), "-hide_banner"]
+            res = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True, errors="ignore")
+            
+            # Prefer local creation date if present (e.g. com.apple.quicktime.creationdate: 2026-11-01T08:39:15+0530)
+            m_local = re.search(r'com\.apple\.quicktime\.creationdate\s*:\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[+\-]\d{4})?)', res.stderr)
+            if m_local:
+                val = m_local.group(1).replace(' ', 'T')
+                dt = datetime.datetime.fromisoformat(val)
+                ts = dt.timestamp()
+                _TIMESTAMP_CACHE[cache_key] = ts
+                return ts
+
+            # Fallback to UTC creation_time
+            m_utc = re.search(r'creation_time\s*:\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)', res.stderr)
+            if m_utc:
+                val = m_utc.group(1).replace(' ', 'T')
+                if not val.endswith('Z') and '+' not in val:
+                    val += 'Z'
+                dt = datetime.datetime.fromisoformat(val)
+                ts = dt.timestamp()
+                _TIMESTAMP_CACHE[cache_key] = ts
+                return ts
+        except Exception:
+            pass
+
+    # 5. Filesystem timestamp as preserved fallback (in local time)
     try:
         stat = p_obj.stat()
         ts = min(stat.st_mtime, stat.st_ctime)
