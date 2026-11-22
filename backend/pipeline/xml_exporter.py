@@ -288,6 +288,121 @@ def export_project_srt(words: list[dict] = None, output_srt_path: str = None, cl
     return str(output_srt_path)
 
 
+def pre_render_xml_collages(
+    v1_clips: list[dict],
+    width: int = 1920,
+    height: int = 1080,
+    fps: int = 30
+) -> list[dict]:
+    """
+    Groups contiguous photo clips into clusters and pre-renders them into 1080p MP4
+    motion collages cycling through the 20 approved collage styles with strict 4.0s holds.
+    Replaces raw photo still items with native video items on Track V1, eliminating black bars!
+    """
+    from backend.pipeline.collage_engine import render_collage_segment, get_next_collage_style
+    from concurrent.futures import ThreadPoolExecutor
+
+    collages_dir = FINAL_EXPORT_DIR / "COLLAGES"
+    collages_dir.mkdir(parents=True, exist_ok=True)
+    proxies_dir = FINAL_EXPORT_DIR / "PHOTO_PROXIES"
+    proxies_dir.mkdir(parents=True, exist_ok=True)
+    photos_dir = FINAL_EXPORT_DIR / "PHOTOS"
+
+    def is_photo_path(p_str: str) -> bool:
+        ext = Path(p_str).suffix.lower()
+        return ext in {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+
+    clusters = []
+    curr_type = None
+    curr_items = []
+
+    for c in v1_clips:
+        c_path = c.get("path", "")
+        is_p = is_photo_path(c_path) or c.get("is_photo", False)
+        t = "PHOTO" if is_p else "VIDEO"
+        if t == curr_type:
+            curr_items.append(c)
+        else:
+            if curr_items:
+                clusters.append((curr_type, curr_items))
+            curr_type = t
+            curr_items = [c]
+    if curr_items:
+        clusters.append((curr_type, curr_items))
+
+    tasks = []
+    new_v1_clips = []
+    photo_cluster_counter = 0
+
+    for c_type, items in clusters:
+        if c_type == "VIDEO":
+            new_v1_clips.extend(items)
+            continue
+
+        photo_cluster_counter += 1
+        n_photos = len(items)
+
+        chunks = []
+        if n_photos <= 6:
+            chunks.append(items)
+        else:
+            chunk_size = 4
+            for i in range(0, n_photos, chunk_size):
+                chunks.append(items[i:i + chunk_size])
+
+        for chunk_idx, chunk_items in enumerate(chunks, 1):
+            chunk_paths = []
+            for item in chunk_items:
+                p_obj = Path(item.get("path", ""))
+                proxy_p = proxies_dir / f"{p_obj.stem}.jpg"
+                if proxy_p.exists() and proxy_p.stat().st_size > 0:
+                    chunk_paths.append(str(proxy_p))
+                elif (photos_dir / f"{p_obj.stem}.jpg").exists():
+                    chunk_paths.append(str(photos_dir / f"{p_obj.stem}.jpg"))
+                else:
+                    chunk_paths.append(str(p_obj))
+
+            style_id = get_next_collage_style(len(chunk_paths))
+            if len(chunk_paths) == 1:
+                style_id = 5
+
+            collage_filename = f"COLLAGE_c{photo_cluster_counter:02d}_p{chunk_idx:02d}.mp4"
+            out_collage_path = collages_dir / collage_filename
+
+            tasks.append((chunk_paths, out_collage_path, style_id))
+
+            new_v1_clips.append({
+                "id": f"v1_collage_c{photo_cluster_counter:02d}_p{chunk_idx:02d}",
+                "path": str(out_collage_path),
+                "name": collage_filename,
+                "track": "V1",
+                "duration": 4.0,
+                "in_point": 0.0,
+                "out_point": 4.0,
+                "volume": 0,
+                "noise_suppression": 0,
+                "muted": True,
+                "is_photo": False,
+                "is_collage": True
+            })
+
+    def render_one_task(task):
+        c_paths, out_p, s_id = task
+        if out_p.exists() and out_p.stat().st_size > 50000:
+            return str(out_p)
+        try:
+            render_collage_segment(c_paths, str(out_p), duration=4.0, style_id=s_id, is_fast=False)
+        except Exception as e:
+            print(f"[pre_render_xml_collages] Error rendering {out_p.name}: {e}")
+        return str(out_p)
+
+    print(f"[pre_render_xml_collages] Ensuring {len(tasks)} collage MP4 videos in {collages_dir.name}...")
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        list(ex.map(render_one_task, tasks))
+
+    return new_v1_clips
+
+
 def render_hormuzi_overlay_mov(
     clips: list[dict],
     width: int = 1920,
@@ -300,13 +415,16 @@ def render_hormuzi_overlay_mov(
     containing word-by-word bouncing Hormozi kinetic captions.
     Engineered for 1-click native compositing in Adobe Premiere Pro on Track V3!
     Guarantees both PREMIERE_HORMUZI_CAPTIONS.ass and PREMIERE_HORMUZI_CAPTIONS.mov
-    are ALWAYS generated as an essential part of the export package.
+    are ALWAYS generated for the COMPLETE sequence duration.
     """
     if not output_path:
         output_path = str(FINAL_EXPORT_DIR / "PREMIERE_HORMUZI_CAPTIONS.mov")
 
     from backend.pipeline.hyperframe_captions import generate_ass_subtitles
     import subprocess
+    import re
+    import math
+    from concurrent.futures import ThreadPoolExecutor
 
     words = get_sequence_aligned_words(clips)
     if not words:
@@ -327,7 +445,7 @@ def render_hormuzi_overlay_mov(
     total_sec = sum(float(c.get("duration", 4.0)) for c in clips)
     total_sec = max(2.0, total_sec)
 
-    # 1. ALWAYS generate PREMIERE_HORMUZI_CAPTIONS.ass
+    # 1. ALWAYS generate PREMIERE_HORMUZI_CAPTIONS.ass for full scope
     ass_path = FINAL_EXPORT_DIR / "PREMIERE_HORMUZI_CAPTIONS.ass"
     if words:
         generate_ass_subtitles(
@@ -346,44 +464,148 @@ def render_hormuzi_overlay_mov(
             encoding="utf-8"
         )
 
-    # 2. ALWAYS generate PREMIERE_HORMUZI_CAPTIONS.mov
-    if words:
-        max_word_sec = max(float(w.get("end", 0.0)) for w in words)
-        mov_dur = min(total_sec, max(max_word_sec + 4.0, 15.0))
-        mov_dur = min(mov_dur, 720.0)
+    # 2. ALWAYS generate PREMIERE_HORMUZI_CAPTIONS.mov for COMPLETE sequence duration
+    # Complete scope matching the full master sequence duration!
+    mov_dur = total_sec
+
+    # Parse ASS file for parallel chunking
+    content = ass_path.read_text(encoding="utf-8")
+    header = []
+    events = []
+    is_events = False
+    for line in content.splitlines():
+        if line.strip() == "[Events]":
+            is_events = True
+            header.append(line)
+            continue
+        if not is_events:
+            header.append(line)
+        elif line.startswith("Format:"):
+            header.append(line)
+        elif line.startswith("Dialogue:"):
+            events.append(line)
+
+    def parse_ass_time(t_str: str) -> float:
+        parts = t_str.split(":")
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+
+    def fmt_ass_time(sec: float) -> str:
+        h = int(sec // 3600)
+        m = int((sec % 3600) // 60)
+        s = sec % 60
+        return f"{h}:{m:02d}:{s:05.2f}"
+
+    def make_chunk_ass(start_sec: float, end_sec: float, out_p: Path):
+        chunk_events = []
+        for ev in events:
+            m = re.match(r"Dialogue:\s*(\d+),([^,]+),([^,]+),(.*)", ev)
+            if m:
+                layer, s_str, e_str, rest = m.groups()
+                s_val = parse_ass_time(s_str)
+                e_val = parse_ass_time(e_str)
+                if e_val >= start_sec and s_val < end_sec:
+                    new_s = max(0.0, s_val - start_sec)
+                    new_e = max(0.0, e_val - start_sec)
+                    chunk_events.append(f"Dialogue: {layer},{fmt_ass_time(new_s)},{fmt_ass_time(new_e)},{rest}")
+        full_text = "\n".join(header) + "\n" + "\n".join(chunk_events) + "\n"
+        out_p.write_text(full_text, encoding="utf-8")
+
+    # If short (<= 180s), render in one pass
+    if mov_dur <= 180.0:
+        escaped_ass = str(ass_path.resolve()).replace("\\", "/").replace(":", r"\:")
+        vf_arg = "ass=filename=" + chr(39) + escaped_ass + chr(39) + ":alpha=1"
+        cmd = [
+            FFMPEG_PATH, "-y",
+            "-threads", "0",
+            "-f", "lavfi", "-i", f"color=c=black@0.0:s={width}x{height}:r={fps}:d={mov_dur:.2f},format=rgba",
+            "-vf", vf_arg,
+            "-c:v", "qtrle",
+            "-pix_fmt", "argb",
+            str(output_path)
+        ]
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=int(mov_dur * 1.5) + 60)
+            if res.returncode == 0 and Path(output_path).exists():
+                return str(output_path)
+        except Exception as e:
+            print(f"[render_hormuzi_overlay_mov] Single-pass error: {e}")
     else:
-        mov_dur = min(total_sec, 15.0)
+        # Multi-chunk parallel render for maximum speed (chunk size ~450s)
+        chunk_sec = 450.0
+        n_chunks = max(2, math.ceil(mov_dur / chunk_sec))
+        chunk_defs = []
 
-    escaped_ass = str(ass_path.resolve()).replace("\\", "/").replace(":", r"\:")
-    vf_arg = "ass=filename=" + chr(39) + escaped_ass + chr(39) + ":alpha=1"
+        for k in range(n_chunks):
+            t_start = k * chunk_sec
+            t_end = min(mov_dur, (k + 1) * chunk_sec)
+            c_dur = t_end - t_start
+            if c_dur <= 0.05:
+                continue
+            chunk_ass = UPLOADS_DIR / f".tmp_chunk_{k:02d}.ass"
+            chunk_mov = UPLOADS_DIR / f".tmp_chunk_{k:02d}.mov"
+            make_chunk_ass(t_start, t_end, chunk_ass)
+            chunk_defs.append((chunk_ass, chunk_mov, c_dur))
 
-    cmd = [
-        FFMPEG_PATH, "-y",
-        "-threads", "0",
-        "-f", "lavfi", "-i", f"color=c=black@0.0:s={width}x{height}:r={fps}:d={mov_dur:.2f},format=rgba",
-        "-vf", vf_arg,
-        "-c:v", "qtrle",
-        "-pix_fmt", "argb",
-        str(output_path)
-    ]
-    try:
-        timeout_sec = max(180, int(mov_dur * 0.75))
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_sec)
-        if res.returncode == 0 and Path(output_path).exists():
-            return str(output_path)
-    except Exception as e:
-        print(f"[render_hormuzi_overlay_mov] Error: {e}")
+        def render_chunk_worker(c_def):
+            c_ass, c_mov, c_dur = c_def
+            esc = str(c_ass.resolve()).replace("\\", "/").replace(":", r"\:")
+            vf = f"ass=filename=\'{esc}\':alpha=1"
+            cmd_c = [
+                FFMPEG_PATH, "-y",
+                "-threads", "0",
+                "-f", "lavfi", "-i", f"color=c=black@0.0:s={width}x{height}:r={fps}:d={c_dur:.2f},format=rgba",
+                "-vf", vf,
+                "-c:v", "qtrle",
+                "-pix_fmt", "argb",
+                str(c_mov)
+            ]
+            subprocess.run(cmd_c, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+            return str(c_mov)
 
-    # Fallback guarantee: if render failed or timed out, create a valid 10s transparent MOV so the file is never missing
+        try:
+            print(f"[render_hormuzi_overlay_mov] Rendering {len(chunk_defs)} caption chunks in parallel ({mov_dur:.1f}s total)...")
+            with ThreadPoolExecutor(max_workers=min(len(chunk_defs), 6)) as pool:
+                list(pool.map(render_chunk_worker, chunk_defs))
+
+            # Fast lossless concat
+            concat_list_file = UPLOADS_DIR / ".tmp_concat_captions.txt"
+            concat_lines = [f"file \'{Path(c_mov).resolve()}\'" for _, c_mov, _ in chunk_defs]
+            concat_list_file.write_text("\n".join(concat_lines) + "\n", encoding="utf-8")
+
+            cmd_cat = [
+                FFMPEG_PATH, "-y",
+                "-f", "concat", "-safe", "0",
+                "-i", str(concat_list_file),
+                "-c", "copy",
+                str(output_path)
+            ]
+            subprocess.run(cmd_cat, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+
+            # Cleanup temp chunk files
+            for c_ass, c_mov, _ in chunk_defs:
+                try:
+                    c_ass.unlink(missing_ok=True)
+                    c_mov.unlink(missing_ok=True)
+                except Exception:
+                    pass
+            concat_list_file.unlink(missing_ok=True)
+
+            if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+                print(f"[render_hormuzi_overlay_mov] Successfully rendered full-scope captions MOV: {output_path} ({Path(output_path).stat().st_size / (1024*1024):.1f} MB)")
+                return str(output_path)
+        except Exception as ex_chunks:
+            print(f"[render_hormuzi_overlay_mov] Chunk parallel error: {ex_chunks}")
+
+    # Fallback guarantee: if render failed or timed out, create a valid transparent MOV matching mov_dur so the file is never missing
     if not Path(output_path).exists() or Path(output_path).stat().st_size == 0:
         try:
             fallback_cmd = [
                 FFMPEG_PATH, "-y",
-                "-f", "lavfi", "-i", f"color=c=black@0.0:s={width}x{height}:r={fps}:d=10,format=rgba",
+                "-f", "lavfi", "-i", f"color=c=black@0.0:s={width}x{height}:r={fps}:d={mov_dur:.2f},format=rgba",
                 "-c:v", "qtrle", "-pix_fmt", "argb",
                 str(output_path)
             ]
-            subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=30)
+            subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=120)
         except Exception:
             pass
 
@@ -521,6 +743,10 @@ def export_premiere_fcp_xml(
         sanitized_v1.append(c_item)
     v1_clips = sanitized_v1
 
+    # Pre-render photo clusters into 1080p MP4 collages cycling through the 20 approved styles
+    # Replaces raw still photos on Track V1 with motion video collages (strict 4.0s hold each)
+    v1_clips = pre_render_xml_collages(v1_clips, width=width, height=height, fps=fps)
+
     # Calculate total duration in frames
     total_frames = 0
     for c in v1_clips:
@@ -623,7 +849,8 @@ def export_premiere_fcp_xml(
             "muted": is_muted,
             "volume": vol_pct,
             "noise_suppression": denoise_pct,
-            "is_photo": is_photo
+            "is_photo": is_photo,
+            "is_collage": bool(c.get("is_collage", False))
         })
 
         clipitem = ET.SubElement(track_v1, "clipitem", id=clip_id_v)
@@ -695,7 +922,7 @@ def export_premiere_fcp_xml(
         ET.SubElement(l_v, "trackindex").text = "1"
         ET.SubElement(l_v, "clipindex").text = str(idx + 1)
 
-        if not is_photo:
+        if not is_photo and not c.get("is_collage"):
             l_a = ET.SubElement(clipitem, "link")
             ET.SubElement(l_a, "linkclipref").text = clip_id_a
             ET.SubElement(l_a, "mediatype").text = "audio"
@@ -773,16 +1000,16 @@ def export_premiere_fcp_xml(
         ET.SubElement(clipitem_v3, "masterclipid").text = "masterclip-captions-1"
         ET.SubElement(clipitem_v3, "name").text = "Captions: Hormozi Kinetic Dynamic Overlay"
         ET.SubElement(clipitem_v3, "enabled").text = "TRUE"
-        ET.SubElement(clipitem_v3, "duration").text = str(mov_frames)
+        ET.SubElement(clipitem_v3, "duration").text = str(total_frames)
 
         ci_rate_v3 = ET.SubElement(clipitem_v3, "rate")
         ET.SubElement(ci_rate_v3, "timebase").text = str(fps)
         ET.SubElement(ci_rate_v3, "ntsc").text = "FALSE"
 
         ET.SubElement(clipitem_v3, "start").text = "0"
-        ET.SubElement(clipitem_v3, "end").text = str(mov_frames)
+        ET.SubElement(clipitem_v3, "end").text = str(total_frames)
         ET.SubElement(clipitem_v3, "in").text = "0"
-        ET.SubElement(clipitem_v3, "out").text = str(mov_frames)
+        ET.SubElement(clipitem_v3, "out").text = str(total_frames)
 
         file_v3 = ET.SubElement(clipitem_v3, "file", id="file-captions-1")
         ET.SubElement(file_v3, "name").text = Path(hormuzi_mov_path).name
@@ -791,7 +1018,7 @@ def export_premiere_fcp_xml(
         f_rate_v3 = ET.SubElement(file_v3, "rate")
         ET.SubElement(f_rate_v3, "timebase").text = str(fps)
         ET.SubElement(f_rate_v3, "ntsc").text = "FALSE"
-        ET.SubElement(file_v3, "duration").text = str(mov_frames)
+        ET.SubElement(file_v3, "duration").text = str(total_frames)
 
         f_tc_v3 = ET.SubElement(file_v3, "timecode")
         f_tc_rate_v3 = ET.SubElement(f_tc_v3, "rate")
@@ -875,8 +1102,8 @@ def export_premiere_fcp_xml(
     ET.SubElement(track_a1, "locked").text = "FALSE"
 
     for rec in clip_records:
-        if rec.get("is_photo"):
-            continue  # Still images have NO voice audio streams; skip Track A1 clipitem
+        if rec.get("is_photo") or rec.get("is_collage"):
+            continue  # Still images and Collages have NO voice dialogue audio streams; skip Track A1 clipitem
 
         clipitem = ET.SubElement(track_a1, "clipitem", id=rec["clip_id_a"])
         ET.SubElement(clipitem, "masterclipid").text = rec["master_id"]
