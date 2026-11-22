@@ -382,7 +382,7 @@ def pre_render_xml_collages(
                 "out_point": 4.0,
                 "volume": 0,
                 "noise_suppression": 0,
-                "muted": True,
+                "muted": False,
                 "is_photo": False,
                 "is_collage": True
             })
@@ -867,7 +867,7 @@ def export_premiere_fcp_xml(
         clipitem = ET.SubElement(track_v1, "clipitem", id=clip_id_v)
         ET.SubElement(clipitem, "masterclipid").text = master_id
         ET.SubElement(clipitem, "name").text = p_obj.name
-        ET.SubElement(clipitem, "enabled").text = "FALSE" if is_muted else "TRUE"
+        ET.SubElement(clipitem, "enabled").text = "TRUE"
         ET.SubElement(clipitem, "duration").text = str(dur_frame)
 
         ci_rate = ET.SubElement(clipitem, "rate")
